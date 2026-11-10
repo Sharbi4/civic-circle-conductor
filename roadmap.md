@@ -28,3 +28,4 @@
 - [x] Browser handoff: Civi asks for control ('Your turn') and resumes when handed back
 - [x] First Facebook sign-in pop-up: city/ZIP → find groups (no joining without approval) + Page TLC review
 - [ ] Facebook Page: upload photos, scheduled recurring posts with generated/uploaded images (via browser, approval-gated)
+- [x] New-user welcome: Civi offers 'Set up now' vs 'over time' as tap-to-choose replies; guided setup step by step

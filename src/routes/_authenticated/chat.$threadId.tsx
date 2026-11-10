@@ -44,6 +44,8 @@ function AttachedImage({ path, role }: { path: string; role: string }) {
   );
 }
 
+const CHOICES_MARKER = /\[\[choices:\s*([^\]]+)\]\]/;
+
 function MessageBody({ content }: { content: string }) {
   type Part = { kind: "text"; text: string } | { kind: "browser"; id: string; task: string } | { kind: "image"; role: string; path: string };
   const parts: Part[] = [];
@@ -367,8 +369,24 @@ function ChatWindow({ threadId }: { threadId: string }) {
                   </div>
                 </div>
               ) : (
-                <div key={m.id} className="max-w-[92%] rounded-3xl bg-bubble px-6 py-4">
-                  <MessageBody content={m.content} />
+                <div key={m.id}>
+                  <div className="max-w-[92%] rounded-3xl bg-bubble px-6 py-4">
+                    <MessageBody content={m.content.replace(CHOICES_MARKER, "").trim()} />
+                  </div>
+                  {m.id === all[all.length - 1]?.id && !busy && (() => {
+                    const c = m.content.match(CHOICES_MARKER);
+                    if (!c) return null;
+                    return (
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {(c[1] ?? "").split("|").map((o) => o.trim()).filter(Boolean).map((o) => (
+                          <button key={o} onClick={() => submit(o)}
+                            className="rounded-full border bg-card px-4 py-2 text-sm font-medium shadow-soft transition-colors hover:bg-secondary">
+                            {o}
+                          </button>
+                        ))}
+                      </div>
+                    );
+                  })()}
                 </div>
               ),
             )}

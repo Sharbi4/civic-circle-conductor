@@ -838,7 +838,13 @@ function Onboarding({ existing }: { existing: { name: string | null; mission: st
     const { error } = await supabase.from("organizations").upsert({ user_id: uid, name, mission, onboarded: finish });
     if (!error && finish) {
       const { data: has } = await supabase.from("threads").select("id").eq("kind", "main").maybeSingle();
-      if (!has) await supabase.from("threads").insert({ user_id: uid, kind: "main", title: "Main chat" });
+      if (!has) {
+        const { data: t } = await supabase.from("threads").insert({ user_id: uid, kind: "main", title: "Main chat" }).select("id").single();
+        if (t) await supabase.from("messages").insert({
+          thread_id: t.id, user_id: uid, role: "assistant",
+          content: `Hi! I'm Civi, your AI organizer for **${name || "your organization"}**. 👋\n\nI can find local groups and vendors, plan and list events, run outreach, and keep your pages fresh — and I always ask before anything goes out.\n\nHow would you like to get started?\n\n[[choices: Set up now with Civi | I'll set up over time]]`,
+        });
+      }
     }
     setBusy(false);
     if (error) { toast.error(error.message); return; }
