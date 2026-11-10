@@ -13,6 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { CONNECTORS } from "@/lib/connectors";
 import { startLinkedInConnect, completeLinkedInConnect, getLinkedInStatus, disconnectLinkedIn, runLinkedInApproval, setLinkedInOrgPage } from "@/lib/linkedin.functions";
 import { startEventbriteConnect, completeEventbriteConnect, getEventbriteStatus, disconnectEventbrite, runEventbriteApproval } from "@/lib/eventbrite.functions";
+import { startNextdoorConnect, completeNextdoorConnect, getNextdoorStatus, disconnectNextdoor } from "@/lib/nextdoor.functions";
 
 export const Route = createFileRoute("/_authenticated/chat")({
   head: () => ({
@@ -172,6 +173,8 @@ function Sidebar({ orgName }: { orgName: string }) {
             {CONNECTORS.map((c) =>
               c.id === "eventbrite" ? (
                 <EventbriteConnectorRow key={c.id} />
+              ) : c.id === "nextdoor" ? (
+                <NextdoorConnectorRow key={c.id} />
               ) : c.id === "linkedin" ? (
                 <LinkedInConnectorRow key={c.id} />
               ) : (
@@ -267,6 +270,104 @@ function EventbriteConnectorRow() {
     <div className="rounded-2xl px-3 py-2.5 hover:bg-sidebar-accent">
       <div className="flex items-center justify-between">
         <span>Eventbrite</span>
+        {status.isLoading ? (
+          <span className="rounded-full bg-secondary px-2 py-0.5 text-xs text-muted-foreground">…</span>
+        ) : connected ? (
+          <span className="rounded-full bg-accent px-2 py-0.5 text-xs font-medium text-accent-foreground">Connected</span>
+        ) : (
+          <Button size="sm" variant="outline" disabled={busy} onClick={connect} className="h-7 rounded-full px-3 text-xs">
+            {busy ? "Connecting…" : "Connect"}
+          </Button>
+        )}
+      </div>
+      {connected && (
+        <div className="mt-1.5 flex items-center justify-between text-xs text-muted-foreground">
+          <span className="truncate">{status.data?.accountName}</span>
+          <button onClick={disconnect} disabled={busy} className="ml-2 shrink-0 underline hover:text-foreground">
+            Disconnect
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function NextdoorConnectorRow() {
+  const qc = useQueryClient();
+  const navigate = useNavigate();
+  const [busy, setBusy] = useState(false);
+  const status = useQuery({ queryKey: ["nextdoor-status"], queryFn: () => getNextdoorStatus() });
+
+  function waitForOAuth(popup: Window) {
+    return new Promise<string>((resolve, reject) => {
+      let poll: number | undefined;
+      const cleanup = () => {
+        window.removeEventListener("message", onMessage);
+        if (poll !== undefined) window.clearInterval(poll);
+      };
+      const onMessage = (event: MessageEvent) => {
+        // The OAuth popup can land on the published domain while the opener is
+        // the preview (Nextdoor allows only one redirect URI), so accept our
+        // own app origins rather than only this window's origin.
+        if (!event.origin.endsWith(".lovable.app") || event.source !== popup) return;
+        const type = event.data?.type;
+        if (event.data?.connectorId !== "nextdoor") return;
+        if (type !== "civiOauthComplete" && type !== "civiOauthFailed") return;
+        cleanup();
+        if (type === "civiOauthComplete" && typeof event.data?.code === "string") resolve(event.data.code);
+        else { popup.close(); reject(new Error("Nextdoor connection failed.")); }
+      };
+      window.addEventListener("message", onMessage);
+      poll = window.setInterval(() => {
+        if (!popup.closed) return;
+        cleanup();
+        reject(new Error("Nextdoor window closed before finishing."));
+      }, 500);
+    });
+  }
+
+  async function connect() {
+    setBusy(true);
+    const popup = window.open("", "civi-nextdoor-oauth", "width=600,height=720");
+    if (!popup) { setBusy(false); toast.error("Popup blocked — allow popups and try again."); return; }
+    try {
+      const { authorizationUrl } = await startNextdoorConnect();
+      const completion = waitForOAuth(popup);
+      popup.location.href = authorizationUrl;
+      const code = await completion;
+      const result = await completeNextdoorConnect({ data: { code } });
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ["nextdoor-status"] }),
+        qc.invalidateQueries({ queryKey: ["threads"] }),
+      ]);
+      toast.success(`Connected to Nextdoor as ${result.accountName}`);
+      if (result.threadId) navigate({ to: "/chat/$threadId", params: { threadId: result.threadId } });
+    } catch (e) {
+      popup.close();
+      toast.error(e instanceof Error ? e.message : "Nextdoor connection failed.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function disconnect() {
+    setBusy(true);
+    try {
+      await disconnectNextdoor();
+      await qc.invalidateQueries({ queryKey: ["nextdoor-status"] });
+      toast.success("Nextdoor disconnected.");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Disconnect failed.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const connected = status.data?.connected;
+  return (
+    <div className="rounded-2xl px-3 py-2.5 hover:bg-sidebar-accent">
+      <div className="flex items-center justify-between">
+        <span>Nextdoor</span>
         {status.isLoading ? (
           <span className="rounded-full bg-secondary px-2 py-0.5 text-xs text-muted-foreground">…</span>
         ) : connected ? (
