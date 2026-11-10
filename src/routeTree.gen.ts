@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AuthRouteImport } from './routes/auth'
+import { Route as DataDeletionRouteImport } from './routes/data-deletion'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as AuthenticatedChatRouteImport } from './routes/_authenticated/chat'
 import { Route as AuthenticatedChatIndexRouteImport } from './routes/_authenticated/chat.index'
@@ -23,6 +24,7 @@ import { Route as ApiOauthNextdoorReturnRouteImport } from './routes/api/oauth/n
 import { Route as ApiOauthXReturnRouteImport } from './routes/api/oauth/x/return'
 import { Route as ApiPublicJobsCiviAutopilotRouteImport } from './routes/api/public/jobs/civi-autopilot'
 import { Route as ApiPublicJobsCommunityScoutRouteImport } from './routes/api/public/jobs/community-scout'
+import { Route as ApiPublicMetaDataDeletionRouteImport } from './routes/api/public/meta/data-deletion'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -36,6 +38,11 @@ const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
   path: '/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DataDeletionRoute = DataDeletionRouteImport.update({
+  id: '/data-deletion',
+  path: '/data-deletion',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PrivacyRoute = PrivacyRouteImport.update({
@@ -98,10 +105,17 @@ const ApiPublicJobsCommunityScoutRoute =
     path: '/api/public/jobs/community-scout',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicMetaDataDeletionRoute =
+  ApiPublicMetaDataDeletionRouteImport.update({
+    id: '/api/public/meta/data-deletion',
+    path: '/api/public/meta/data-deletion',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/data-deletion': typeof DataDeletionRoute
   '/privacy': typeof PrivacyRoute
   '/chat': typeof AuthenticatedChatRouteWithChildren
   '/chat/$threadId': typeof AuthenticatedChatThreadIdRoute
@@ -113,10 +127,12 @@ export interface FileRoutesByFullPath {
   '/api/oauth/x/return': typeof ApiOauthXReturnRoute
   '/api/public/jobs/civi-autopilot': typeof ApiPublicJobsCiviAutopilotRoute
   '/api/public/jobs/community-scout': typeof ApiPublicJobsCommunityScoutRoute
+  '/api/public/meta/data-deletion': typeof ApiPublicMetaDataDeletionRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/data-deletion': typeof DataDeletionRoute
   '/privacy': typeof PrivacyRoute
   '/chat/$threadId': typeof AuthenticatedChatThreadIdRoute
   '/documents/$id': typeof AuthenticatedDocumentsIdRoute
@@ -127,12 +143,14 @@ export interface FileRoutesByTo {
   '/api/oauth/x/return': typeof ApiOauthXReturnRoute
   '/api/public/jobs/civi-autopilot': typeof ApiPublicJobsCiviAutopilotRoute
   '/api/public/jobs/community-scout': typeof ApiPublicJobsCommunityScoutRoute
+  '/api/public/meta/data-deletion': typeof ApiPublicMetaDataDeletionRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
+  '/data-deletion': typeof DataDeletionRoute
   '/privacy': typeof PrivacyRoute
   '/_authenticated/chat': typeof AuthenticatedChatRouteWithChildren
   '/_authenticated/chat/$threadId': typeof AuthenticatedChatThreadIdRoute
@@ -144,12 +162,14 @@ export interface FileRoutesById {
   '/api/oauth/x/return': typeof ApiOauthXReturnRoute
   '/api/public/jobs/civi-autopilot': typeof ApiPublicJobsCiviAutopilotRoute
   '/api/public/jobs/community-scout': typeof ApiPublicJobsCommunityScoutRoute
+  '/api/public/meta/data-deletion': typeof ApiPublicMetaDataDeletionRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
     | '/auth'
+    | '/data-deletion'
     | '/privacy'
     | '/chat'
     | '/chat/$threadId'
@@ -161,10 +181,12 @@ export interface FileRouteTypes {
     | '/api/oauth/x/return'
     | '/api/public/jobs/civi-autopilot'
     | '/api/public/jobs/community-scout'
+    | '/api/public/meta/data-deletion'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/auth'
+    | '/data-deletion'
     | '/privacy'
     | '/chat/$threadId'
     | '/documents/$id'
@@ -175,11 +197,13 @@ export interface FileRouteTypes {
     | '/api/oauth/x/return'
     | '/api/public/jobs/civi-autopilot'
     | '/api/public/jobs/community-scout'
+    | '/api/public/meta/data-deletion'
   id:
     | '__root__'
     | '/'
     | '/_authenticated'
     | '/auth'
+    | '/data-deletion'
     | '/privacy'
     | '/_authenticated/chat'
     | '/_authenticated/chat/$threadId'
@@ -191,12 +215,14 @@ export interface FileRouteTypes {
     | '/api/oauth/x/return'
     | '/api/public/jobs/civi-autopilot'
     | '/api/public/jobs/community-scout'
+    | '/api/public/meta/data-deletion'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
+  DataDeletionRoute: typeof DataDeletionRoute
   PrivacyRoute: typeof PrivacyRoute
   ApiOauthEventbriteReturnRoute: typeof ApiOauthEventbriteReturnRoute
   ApiOauthLinkedinReturnRoute: typeof ApiOauthLinkedinReturnRoute
@@ -204,6 +230,7 @@ export interface RootRouteChildren {
   ApiOauthXReturnRoute: typeof ApiOauthXReturnRoute
   ApiPublicJobsCiviAutopilotRoute: typeof ApiPublicJobsCiviAutopilotRoute
   ApiPublicJobsCommunityScoutRoute: typeof ApiPublicJobsCommunityScoutRoute
+  ApiPublicMetaDataDeletionRoute: typeof ApiPublicMetaDataDeletionRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -227,6 +254,13 @@ declare module '@tanstack/react-router' {
       path: '/auth'
       fullPath: '/auth'
       preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/data-deletion': {
+      id: '/data-deletion'
+      path: '/data-deletion'
+      fullPath: '/data-deletion'
+      preLoaderRoute: typeof DataDeletionRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/privacy': {
@@ -306,6 +340,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicJobsCommunityScoutRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/meta/data-deletion': {
+      id: '/api/public/meta/data-deletion'
+      path: '/api/public/meta/data-deletion'
+      fullPath: '/api/public/meta/data-deletion'
+      preLoaderRoute: typeof ApiPublicMetaDataDeletionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -339,6 +380,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
+  DataDeletionRoute: DataDeletionRoute,
   PrivacyRoute: PrivacyRoute,
   ApiOauthEventbriteReturnRoute: ApiOauthEventbriteReturnRoute,
   ApiOauthLinkedinReturnRoute: ApiOauthLinkedinReturnRoute,
@@ -346,6 +388,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiOauthXReturnRoute: ApiOauthXReturnRoute,
   ApiPublicJobsCiviAutopilotRoute: ApiPublicJobsCiviAutopilotRoute,
   ApiPublicJobsCommunityScoutRoute: ApiPublicJobsCommunityScoutRoute,
+  ApiPublicMetaDataDeletionRoute: ApiPublicMetaDataDeletionRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
