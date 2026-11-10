@@ -128,7 +128,7 @@ function Sidebar({ orgName }: { orgName: string }) {
     >
       <Icon className="h-5 w-5" />
       {badge > 0 && (
-        <span className="absolute -right-0.5 -top-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-accent px-1 text-[11px] font-bold text-accent-foreground">
+        <span className="badge-premium absolute -right-0.5 -top-0.5 flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[11px] font-bold">
           {badge}
         </span>
       )}
@@ -297,7 +297,7 @@ function EventbriteConnectorRow() {
         {status.isLoading ? (
           <span className="rounded-full bg-secondary px-2 py-0.5 text-xs text-muted-foreground">…</span>
         ) : connected ? (
-          <span className="rounded-full bg-accent px-2 py-0.5 text-xs font-medium text-accent-foreground">Connected</span>
+          <span className="badge-premium rounded-full px-2.5 py-0.5 text-xs font-semibold">Connected</span>
         ) : (
           <Button size="sm" variant="outline" disabled={busy} onClick={connect} className="h-7 rounded-full px-3 text-xs">
             {busy ? "Connecting…" : "Connect"}
@@ -395,7 +395,7 @@ function NextdoorConnectorRow() {
         {status.isLoading ? (
           <span className="rounded-full bg-secondary px-2 py-0.5 text-xs text-muted-foreground">…</span>
         ) : connected ? (
-          <span className="rounded-full bg-accent px-2 py-0.5 text-xs font-medium text-accent-foreground">Connected</span>
+          <span className="badge-premium rounded-full px-2.5 py-0.5 text-xs font-semibold">Connected</span>
         ) : (
           <Button size="sm" variant="outline" disabled={busy} onClick={connect} className="h-7 rounded-full px-3 text-xs">
             {busy ? "Connecting…" : "Connect"}
@@ -493,7 +493,7 @@ function LinkedInConnectorRow() {
         {status.isLoading ? (
           <span className="rounded-full bg-secondary px-2 py-0.5 text-xs text-muted-foreground">…</span>
         ) : connected ? (
-          <span className="rounded-full bg-accent px-2 py-0.5 text-xs font-medium text-accent-foreground">Connected</span>
+          <span className="badge-premium rounded-full px-2.5 py-0.5 text-xs font-semibold">Connected</span>
         ) : (
           <Button size="sm" variant="outline" disabled={busy} onClick={connect} className="h-7 rounded-full px-3 text-xs">
             {busy ? "Connecting…" : "Connect"}
@@ -592,7 +592,7 @@ function XConnectorRow() {
         {status.isLoading ? (
           <span className="rounded-full bg-secondary px-2 py-0.5 text-xs text-muted-foreground">…</span>
         ) : connected ? (
-          <span className="rounded-full bg-accent px-2 py-0.5 text-xs font-medium text-accent-foreground">Connected</span>
+          <span className="badge-premium rounded-full px-2.5 py-0.5 text-xs font-semibold">Connected</span>
         ) : (
           <Button size="sm" variant="outline" disabled={busy} onClick={connect} className="h-7 rounded-full px-3 text-xs">
             {busy ? "Connecting…" : "Connect"}

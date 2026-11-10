@@ -382,7 +382,7 @@ function NextSteps({ threadId, msgCount, busy, onPick }: { threadId: string; msg
     <div className="mx-auto mb-2 flex max-w-3xl flex-wrap items-center gap-1.5">
       {!busy && items.map((it, i) => (
         <button type="button" key={i} onClick={() => onPick(it.prompt)}
-          className="animate-in fade-in slide-in-from-bottom-1 rounded-full border bg-card/90 px-3 py-1.5 text-xs shadow-soft backdrop-blur hover:border-primary hover:bg-secondary">
+          className="badge-premium animate-in fade-in slide-in-from-bottom-1 rounded-full px-3 py-1.5 text-xs backdrop-blur transition-colors hover:bg-secondary">
           {it.label}
         </button>
       ))}
@@ -569,7 +569,7 @@ function ChatWindow({ threadId }: { threadId: string }) {
             {all.map((m) =>
               m.role === "user" ? (
                 <div key={m.id} className="flex justify-end">
-                  <div className="max-w-[80%] whitespace-pre-wrap rounded-3xl bg-user-bubble px-5 py-3 text-user-bubble-foreground">
+                  <div className="bubble-premium max-w-[80%] whitespace-pre-wrap rounded-3xl px-5 py-3">
                     {m.content.replace(/\n*\[\[image:(?:cover|inspiration)\|[^\]]+\]\]/g, "").trim()}
                     {[...m.content.matchAll(/\[\[image:(cover|inspiration)\|([^\]]+)\]\]/g)].map((x) => (
                       <div key={x[2]} className="mt-2"><AttachedImage path={(x[2] ?? "").trim()} role={x[1] ?? "cover"} /></div>
@@ -594,7 +594,7 @@ function ChatWindow({ threadId }: { threadId: string }) {
                       <div className="mt-3 flex flex-wrap gap-2">
                         {(c[1] ?? "").split("|").map((o) => o.trim()).filter(Boolean).map((o) => (
                           <button key={o} onClick={() => submit(o)}
-                            className="rounded-full border bg-card px-4 py-2 text-sm font-medium shadow-soft transition-colors hover:bg-secondary">
+                            className="badge-premium rounded-full px-4 py-2 text-sm font-medium transition-colors hover:bg-secondary">
                             {o}
                           </button>
                         ))}
@@ -672,7 +672,7 @@ function ChatWindow({ threadId }: { threadId: string }) {
             type="submit"
             aria-label="Send"
             disabled={busy || uploading || (!input.trim() && !attachment)}
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground disabled:opacity-40"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-glow transition-colors hover:bg-primary/90 disabled:opacity-40"
           >
             <ArrowUp className="h-5 w-5" />
           </button>
