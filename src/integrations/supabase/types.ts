@@ -47,6 +47,42 @@ export type Database = {
         }
         Relationships: []
       }
+      browser_sessions: {
+        Row: {
+          created_at: string
+          ended_at: string | null
+          id: string
+          live_url: string
+          session_id: string
+          status: string
+          task: string
+          thread_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          ended_at?: string | null
+          id?: string
+          live_url: string
+          session_id: string
+          status?: string
+          task: string
+          thread_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          ended_at?: string | null
+          id?: string
+          live_url?: string
+          session_id?: string
+          status?: string
+          task?: string
+          thread_id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       memories: {
         Row: {
           content: string

@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { generateResponse, GatewayError } from "@lovable.dev/ai-gateway";
+import { openBrowserSession } from "@/lib/browser.functions";
 
 const MODEL = "openai/gpt-6.1-terra";
 
@@ -34,6 +35,7 @@ export const sendOrganizerMessage = createServerFn({ method: "POST" })
       `Capabilities: community engagement and building, engagement strategy, community intelligence (recurring interests, needs, opportunities), agentic browser research and authorized web tasks, event planning (gatherings, meetings, fundraisers), vendor & venue discovery (food trucks, venues, partners), outreach coordination, booking assistance (quotes, bookings, payment links — always with organizational approval), persistent memory, community activation, and impact tracking (registrations, attendance, engagement, repeat participation).`,
       `You coordinate channel sub-agents (Facebook, Instagram, Instagram DMs, Eventbrite, X, Nextdoor, Gmail, TikTok). Those connections are not live yet; when a task needs one, draft the exact content and say which agent would run it once connected. Never take outreach, booking or payment actions without the organization's explicit approval.`,
       `Approvals: when you propose any outreach, booking or payment action, describe it in the message, tell the user it is queued in the Approvals inbox for their review, and add a final line exactly like: [[approval: <outreach|booking|payment> | <short title> | <one line of details>]]. One line per proposed action. Never claim an action is done until the user has approved it.`,
+      `Live browser: you can open a real web browser that the user watches live inside the chat. When the user asks you to browse the web or a task genuinely needs live browsing (researching vendors on a site, checking event listings, looking at a page), add a final line exactly like: [[browse: <what you will do in the browser>]] and tell the user you're opening a live browser they can watch and take over. The browser opens automatically — it opens right away as a blank page, so be clear that navigation and actions come from connected agents and the user can drive it manually. Never claim to have completed actions inside the browser.`,
       `Be concise, decisive and practical. Use markdown with short headings and bullets.`,
       `When you learn a durable fact about the organization (audiences, goals, dates, voice, contacts), add a final line exactly like: [[remember: <fact>]]. Only for new facts.`,
       memories?.length ? `Organization memory:\n- ${memories.map((m) => m.content).join("\n- ")}` : "",
@@ -74,7 +76,27 @@ export const sendOrganizerMessage = createServerFn({ method: "POST" })
         title: title!,
         details: details ?? "",
       }));
-    const clean = text.replace(/\n?\[\[(?:remember|approval):.+?\]\]/g, "").trim() || "…";
+    const browseTasks = [...text.matchAll(/\[\[browse:\s*(.+?)\]\]/g)].map((m) => (m[1] ?? "").trim()).filter(Boolean);
+    let clean = text.replace(/\n?\[\[(?:remember|approval|browse):.+?\]\]/g, "").trim() || "…";
+
+    for (const task of browseTasks.slice(0, 2)) {
+      const lovableKey = process.env["LOVABLE_API_KEY"];
+      const connKey = process.env["UDC_BROWSERBASE_API_KEY"];
+      if (!lovableKey || !connKey) {
+        clean += `\n\n⚠️ I tried to open a live browser for "${task}", but the browser service isn't connected yet.`;
+        continue;
+      }
+      try {
+        const { id } = await openBrowserSession({
+          supabase, userId, threadId: data.threadId, task, lovableKey, connKey,
+        });
+        clean += `\n\n[[browser: ${id} | ${task}]]`;
+      } catch (e) {
+        console.error("Failed to open browser session", e);
+        clean += `\n\n⚠️ I couldn't open a live browser for "${task}" just now — the browser service didn't respond. Try again in a moment.`;
+      }
+    }
+
     if (facts.length) {
       await supabase.from("memories").insert(facts.map((content) => ({ user_id: userId, content })));
     }

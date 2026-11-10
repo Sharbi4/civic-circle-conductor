@@ -3,10 +3,11 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
-import { ArrowUp, Megaphone } from "lucide-react";
+import { ArrowUp, ExternalLink, Megaphone, MonitorUp, Square } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { sendOrganizerMessage } from "@/lib/organizer.functions";
+import { endBrowserSession } from "@/lib/browser.functions";
 import { useThreads } from "./chat";
 
 export const Route = createFileRoute("/_authenticated/chat/$threadId")({
@@ -18,6 +19,110 @@ type Msg = { id: string; role: string; content: string };
 function ThreadPage() {
   const { threadId } = Route.useParams();
   return <ChatWindow key={threadId} threadId={threadId} />;
+}
+
+const BROWSER_MARKER = /\[\[browser:\s*([0-9a-f-]{36})\s*\|(.+?)\]\]/g;
+
+function MessageBody({ content }: { content: string }) {
+  type Part = { kind: "text"; text: string } | { kind: "browser"; id: string; task: string };
+  const parts: Part[] = [];
+  let last = 0;
+  for (const match of content.matchAll(BROWSER_MARKER)) {
+    const idx = match.index ?? 0;
+    if (idx > last) parts.push({ kind: "text", text: content.slice(last, idx) });
+    parts.push({ kind: "browser", id: match[1] ?? "", task: (match[2] ?? "").trim() });
+    last = idx + match[0].length;
+  }
+  if (last < content.length) parts.push({ kind: "text", text: content.slice(last) });
+
+  return (
+    <div className="space-y-3">
+      {parts.map((p, i) =>
+        p.kind === "text" ? (
+          <div key={i} className="prose-chat leading-relaxed">
+            <ReactMarkdown>{p.text}</ReactMarkdown>
+          </div>
+        ) : (
+          <BrowserCard key={p.id} sessionRowId={p.id} task={p.task} />
+        ),
+      )}
+    </div>
+  );
+}
+
+function BrowserCard({ sessionRowId, task }: { sessionRowId: string; task: string }) {
+  const qc = useQueryClient();
+  const end = useServerFn(endBrowserSession);
+  const [ending, setEnding] = useState(false);
+
+  const session = useQuery({
+    queryKey: ["browser_session", sessionRowId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("browser_sessions").select("id, live_url, status").eq("id", sessionRowId).maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const running = session.data?.status === "running" && session.data.live_url;
+
+  async function stop() {
+    setEnding(true);
+    try {
+      await end({ data: { sessionRowId } });
+      await qc.invalidateQueries({ queryKey: ["browser_session", sessionRowId] });
+      toast.success("Browser session ended.");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Couldn't end the session");
+    } finally {
+      setEnding(false);
+    }
+  }
+
+  return (
+    <div className="overflow-hidden rounded-2xl border bg-card shadow-soft">
+      <div className="flex items-center gap-2 px-4 py-2.5">
+        <MonitorUp className="h-4 w-4 shrink-0 text-accent" />
+        <span className="truncate text-sm font-medium">{task}</span>
+        {running ? (
+          <span className="ml-auto flex shrink-0 items-center gap-1.5 rounded-full bg-secondary px-2 py-0.5 text-[11px] font-bold uppercase tracking-wider text-accent">
+            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent" />
+            Live
+          </span>
+        ) : (
+          <span className="ml-auto shrink-0 rounded-full bg-secondary px-2 py-0.5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+            Ended
+          </span>
+        )}
+      </div>
+      {running ? (
+        <>
+          <iframe
+            src={session.data!.live_url!}
+            title={`Live browser: ${task}`}
+            className="aspect-video w-full border-t bg-background"
+            allow="clipboard-read; clipboard-write"
+          />
+          <div className="flex items-center justify-between gap-2 border-t px-4 py-2.5">
+            <p className="text-xs text-muted-foreground">Watch Civi work — or click in and take over.</p>
+            <div className="flex shrink-0 gap-2">
+              <a href={session.data!.live_url!} target="_blank" rel="noreferrer"
+                className="flex items-center gap-1 rounded-full border px-3 py-1 text-xs hover:bg-secondary">
+                <ExternalLink className="h-3 w-3" /> Full view
+              </a>
+              <button onClick={stop} disabled={ending}
+                className="flex items-center gap-1 rounded-full border px-3 py-1 text-xs hover:bg-secondary disabled:opacity-40">
+                <Square className="h-3 w-3" /> {ending ? "Ending…" : "End"}
+              </button>
+            </div>
+          </div>
+        </>
+      ) : (
+        <p className="border-t px-4 py-3 text-sm text-muted-foreground">This browser session has ended.</p>
+      )}
+    </div>
+  );
 }
 
 const STARTERS = [
@@ -106,9 +211,7 @@ function ChatWindow({ threadId }: { threadId: string }) {
                 </div>
               ) : (
                 <div key={m.id} className="max-w-[92%] rounded-3xl bg-bubble px-6 py-4">
-                  <div className="prose-chat leading-relaxed">
-                    <ReactMarkdown>{m.content}</ReactMarkdown>
-                  </div>
+                  <MessageBody content={m.content} />
                 </div>
               ),
             )}
