@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { getRequest } from "@tanstack/react-start/server";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { buildCoverBytes, loadEventImage } from "@/lib/eventCover.server";
 
 const GATEWAY = "https://connector-gateway.lovable.dev";
 const SCOPES = ["openid", "profile", "w_member_social"];
@@ -95,6 +96,12 @@ const addressSchema = z.object({
   country: z.string().length(2).optional(),
 }).optional();
 
+const coverFields = {
+  image_prompt: z.string().max(2000).optional(),
+  cover_image: z.string().max(300).optional(),
+  inspiration_image: z.string().max(300).optional(),
+};
+
 const eventCreateSchema = z.object({
   kind: z.literal("linkedin_event_create"),
   title: z.string().min(1).max(255),
@@ -105,6 +112,7 @@ const eventCreateSchema = z.object({
   address: addressSchema,
   venue_details: z.string().max(500).optional(),
   post_text: z.string().max(3000).default(""),
+  ...coverFields,
 });
 
 const eventUpdateSchema = z.object({
@@ -116,6 +124,7 @@ const eventUpdateSchema = z.object({
   url: z.string().url().optional(),
   address: addressSchema,
   venue_details: z.string().max(500).optional(),
+  ...coverFields,
 });
 
 const ms = (iso: string) => {
@@ -162,6 +171,41 @@ export const runLinkedInApproval = createServerFn({ method: "POST" })
     const { sub } = (await me.json()) as { sub: string };
     const person = `urn:li:person:${sub}`;
 
+    /** Registers + uploads cover bytes as a LinkedIn event background image; returns the asset URN. */
+    const uploadEventCover = async (owner: string, cover: { bytes: Uint8Array<ArrayBuffer>; type: string }): Promise<string> => {
+      const reg = await rest("/rest/assets?action=registerUpload", "POST", {
+        registerUploadRequest: {
+          owner,
+          recipes: ["urn:li:digitalmediaRecipe:event-background-image"],
+          serviceRelationships: [{ identifier: "urn:li:userGeneratedContent", relationshipType: "OWNER" }],
+          supportedUploadMechanism: ["SYNCHRONOUS_UPLOAD"],
+        },
+      });
+      if (!reg.ok) await fail(reg, "register the cover image");
+      const v = ((await reg.json()) as { value?: { uploadMechanism?: Record<string, { uploadUrl?: string }>; asset?: string } }).value;
+      const uploadUrl = v?.uploadMechanism?.["com.linkedin.digitalmedia.uploading.MediaUploadHttpRequest"]?.uploadUrl;
+      const asset = v?.asset;
+      if (!uploadUrl || !asset) throw new Error("LinkedIn didn't return an upload URL for the cover image.");
+      // The upload URL is absolute on a LinkedIn host; its path works on the gateway's LinkedIn host.
+      const up = await call(new URL(uploadUrl).pathname + new URL(uploadUrl).search, {
+        method: "POST",
+        headers: { "Content-Type": cover.type, "X-Restli-Protocol-Version": "2.0.0", "LinkedIn-Version": LI_VERSION },
+        body: new Blob([cover.bytes], { type: cover.type }),
+      }, [...SCOPES, ...EVENT_SCOPES]);
+      if (!up.ok) await fail(up, "upload the cover image");
+      return asset;
+    };
+
+    /** Picks/builds cover bytes from the approval payload (own upload > AI remix of inspiration > fresh AI image). */
+    const buildEventCover = async (p: { title: string; description?: string | undefined; image_prompt?: string | undefined; cover_image?: string | undefined; inspiration_image?: string | undefined }) => {
+      const own = await loadEventImage(supabase, userId, p.cover_image);
+      const insp = own ? undefined : await loadEventImage(supabase, userId, p.inspiration_image);
+      return own ?? await buildCoverBytes("LinkedIn", {
+        prompt: p.image_prompt || `${p.title}. ${(p.description ?? "").replace(/<[^>]+>/g, " ").slice(0, 400)}`,
+        inspiration: insp,
+      });
+    };
+
     const { data: sideThread } = await supabase.from("threads").select("id").eq("kind", "side").eq("title", "LinkedIn Agent").maybeSingle();
     const { data: main } = await supabase.from("threads").select("id").eq("kind", "main").maybeSingle();
     const threadId = sideThread?.id ?? main?.id;
@@ -179,9 +223,16 @@ export const runLinkedInApproval = createServerFn({ method: "POST" })
       const type = p.online
         ? { online: { format: { external: { endsAt, url: p.url } } } }
         : { inPerson: { endsAt, ...(p.url ? { url: p.url } : {}), address: p.address ?? {}, ...(p.venue_details ? { venueDetails: rich(p.venue_details) } : {}) } };
+      let backgroundImage: string | null = null;
+      try {
+        backgroundImage = await uploadEventCover(organizer, await buildEventCover(p));
+      } catch (e) {
+        console.error("LinkedIn event cover failed", e);
+      }
       const created = await rest("/rest/events", "POST", {
         name: loc(p.title), organizer, startsAt, type,
         ...(p.description ? { description: rich(p.description) } : {}),
+        ...(backgroundImage ? { backgroundImage } : {}),
       }, { "X-RestLi-Method": "create" });
       if (!created.ok) await fail(created, "create the event");
       const ev = (await created.json().catch(() => ({}))) as { id?: number | string };
@@ -204,7 +255,7 @@ export const runLinkedInApproval = createServerFn({ method: "POST" })
       });
       const link = `https://www.linkedin.com/events/${eventId}/`;
       await say(post.ok
-        ? `✅ **${p.title}** is live on LinkedIn — [view the event](${link}).`
+        ? `✅ **${p.title}** is live on LinkedIn — [view the event](${link}).${backgroundImage ? " Custom cover image added." : "\n\n(I couldn't add a cover image this time — you can set one on the event page, or ask me to try again.)"}`
         : `⚠️ LinkedIn created **${p.title}** but wouldn't publish it${organizer.includes("organization") ? " under your company page (the app may need page-posting permission from LinkedIn)" : ""}. It stays hidden until posted — ask me to try publishing again.`);
       return { threadId, ok: post.ok };
     }
@@ -248,6 +299,20 @@ export const runLinkedInApproval = createServerFn({ method: "POST" })
       } else if (evt.type?.online?.format?.external && Object.keys(sub).length) {
         set["type"] = { online: { format: { external: sub } } };
       }
+      if (p.cover_image || p.inspiration_image || p.image_prompt) {
+        try {
+          const { data: evRow } = await supabase.from("linkedin_events").select("name").eq("event_id", p.event_id).maybeSingle();
+          const { data: orgRow } = await supabase.from("organizations").select("linkedin_org_id").eq("user_id", userId).maybeSingle();
+          const coverOwner = orgRow?.linkedin_org_id ? `urn:li:organization:${orgRow.linkedin_org_id}` : person;
+          set["backgroundImage"] = await uploadEventCover(coverOwner, await buildEventCover({
+            title: p.title ?? evRow?.name ?? row.name, description: p.description,
+            image_prompt: p.image_prompt, cover_image: p.cover_image, inspiration_image: p.inspiration_image,
+          }));
+        } catch (e) {
+          console.error("LinkedIn event cover update failed", e);
+          throw new Error("Couldn't add the cover image — the event was left unchanged.");
+        }
+      }
       if (!Object.keys(set).length) throw new Error("No changes to apply.");
       const res = await rest(`/rest/events/${p.event_id}`, "POST", { patch: { $set: set } }, { "X-RestLi-Method": "partial_update" });
       if (!res.ok) await fail(res, "update the event");
@@ -256,7 +321,7 @@ export const runLinkedInApproval = createServerFn({ method: "POST" })
         ...(p.start ? { starts_at: new Date(ms(p.start)).toISOString() } : {}),
         updated_at: new Date().toISOString(),
       }).eq("event_id", p.event_id);
-      await say(`✏️ Updated **${p.title ?? row.name}** on LinkedIn — [view the event](https://www.linkedin.com/events/${p.event_id}/).`);
+      await say(`✏️ Updated **${p.title ?? row.name}** on LinkedIn — [view the event](https://www.linkedin.com/events/${p.event_id}/).${set["backgroundImage"] ? " Cover image updated." : ""}`);
       return { threadId, ok: true };
     }
 

@@ -22,3 +22,4 @@
 
 - [x] Event cover upload: attach own image/logo or inspiration picture in chat; use it (or AI edit of it) as Eventbrite/LinkedIn cover
 - [x] LinkedIn events: create+publish, edit, re-publish via approvals (company page ID optional)
+- [x] LinkedIn event covers: uploaded/inspiration/AI cover uploaded via LinkedIn assets API and set as the event's backgroundImage on create and edit (live LinkedIn verification still pending a real approved event)
