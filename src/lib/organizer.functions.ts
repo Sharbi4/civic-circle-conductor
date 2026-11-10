@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { generateResponse, GatewayError } from "@lovable.dev/ai-gateway";
-import { openBrowserSession } from "@/lib/browser.functions";
+import { openBrowserSession, retargetSession, closeOtherBrowsers } from "@/lib/browser.functions";
 
 const MODEL = "openai/gpt-6.1-terra";
 
@@ -155,12 +155,13 @@ For multi-step objectives, show a visible task plan with statuses (Done / Workin
         continue;
       }
       // Reuse this chat's open browser (keeps logins, avoids the concurrent-browser limit).
-      const { data: open } = await supabase.from("browser_sessions")
-        .select("id").eq("thread_id", data.threadId).eq("status", "running")
-        .order("created_at", { ascending: false }).limit(1).maybeSingle();
+      const { data: openList } = await supabase.from("browser_sessions")
+        .select("id, signed_in").eq("thread_id", data.threadId).eq("status", "running")
+        .order("created_at", { ascending: false });
+      const open = (openList ?? []).find((o) => o.signed_in) ?? openList?.[0];
       if (open) {
-        await supabase.from("browser_sessions")
-          .update({ goal: task, agent_status: "driving", steps: [], submit_approved: false }).eq("id", open.id);
+        await retargetSession(supabase, open.id, task);
+        await closeOtherBrowsers(supabase, data.threadId, open.id);
         clean += `\n\n[[browser: ${open.id} | ${task}]]`;
         continue;
       }

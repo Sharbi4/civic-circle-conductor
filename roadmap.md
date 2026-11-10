@@ -29,3 +29,5 @@
 - [x] First Facebook sign-in pop-up: city/ZIP → find groups (no joining without approval) + Page TLC review
 - [ ] Facebook Page: upload photos, scheduled recurring posts with generated/uploaded images (via browser, approval-gated)
 - [x] New-user welcome: Civi offers 'Set up now' vs 'over time' as tap-to-choose replies; guided setup step by step
+- [x] Browser memory: one browser per chat, new tasks keep earlier steps/results as context
+- [ ] Browser keeps driving when the chat is closed (now only steps while a chat page is open)
