@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
-import { ArrowUp, CalendarHeart, ExternalLink, Mail, Megaphone, MonitorUp, Phone, Square, Vote, HeartPulse, MessageSquareHeart } from "lucide-react";
+import { ArrowUp, ImagePlus, X, CalendarHeart, ExternalLink, Mail, Megaphone, MonitorUp, Phone, Square, Vote, HeartPulse, MessageSquareHeart } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { sendOrganizerMessage } from "@/lib/organizer.functions";
@@ -21,16 +21,35 @@ function ThreadPage() {
   return <ChatWindow key={threadId} threadId={threadId} />;
 }
 
-const BROWSER_MARKER = /\[\[browser:\s*([0-9a-f-]{36})\s*\|(.+?)\]\]/g;
+const BROWSER_MARKER = /\[\[browser:\s*([0-9a-f-]{36})\s*\|(.+?)\]\]|\[\[image:(cover|inspiration)\|([^\]]+)\]\]/g;
+
+function AttachedImage({ path, role }: { path: string; role: string }) {
+  const url = useQuery({
+    queryKey: ["event-image", path],
+    queryFn: async () => {
+      const { data, error } = await supabase.storage.from("event-images").createSignedUrl(path, 3600);
+      if (error) throw error;
+      return data.signedUrl;
+    },
+    staleTime: 50 * 60 * 1000,
+  });
+  return (
+    <figure className="inline-block overflow-hidden rounded-2xl border bg-card">
+      {url.data ? <img src={url.data} alt={role === "cover" ? "Event cover" : "Inspiration picture"} className="max-h-56 max-w-full object-cover" /> : <div className="h-32 w-48 animate-pulse bg-muted" />}
+      <figcaption className="px-3 py-1.5 text-xs text-muted-foreground">{role === "cover" ? "Use as event cover" : "Inspiration for the cover"}</figcaption>
+    </figure>
+  );
+}
 
 function MessageBody({ content }: { content: string }) {
-  type Part = { kind: "text"; text: string } | { kind: "browser"; id: string; task: string };
+  type Part = { kind: "text"; text: string } | { kind: "browser"; id: string; task: string } | { kind: "image"; role: string; path: string };
   const parts: Part[] = [];
   let last = 0;
   for (const match of content.matchAll(BROWSER_MARKER)) {
     const idx = match.index ?? 0;
     if (idx > last) parts.push({ kind: "text", text: content.slice(last, idx) });
-    parts.push({ kind: "browser", id: match[1] ?? "", task: (match[2] ?? "").trim() });
+    if (match[3]) parts.push({ kind: "image", role: match[3], path: (match[4] ?? "").trim() });
+    else parts.push({ kind: "browser", id: match[1] ?? "", task: (match[2] ?? "").trim() });
     last = idx + match[0].length;
   }
   if (last < content.length) parts.push({ kind: "text", text: content.slice(last) });
@@ -42,6 +61,8 @@ function MessageBody({ content }: { content: string }) {
           <div key={i} className="prose-chat leading-relaxed">
             <ReactMarkdown>{p.text}</ReactMarkdown>
           </div>
+        ) : p.kind === "image" ? (
+          <AttachedImage key={i} path={p.path} role={p.role} />
         ) : (
           <BrowserCard key={p.id} sessionRowId={p.id} task={p.task} />
         ),
@@ -181,7 +202,31 @@ function ChatWindow({ threadId }: { threadId: string }) {
   const [pending, setPending] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
+  const [attachment, setAttachment] = useState<{ path: string; preview: string; role: "cover" | "inspiration" } | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  async function pickFile(file: File | undefined) {
+    if (!file) return;
+    if (!/^image\/(png|jpe?g|webp)$/.test(file.type)) { toast.error("Use a PNG, JPG or WebP image."); return; }
+    if (file.size > 10 * 1024 * 1024) { toast.error("Images must be under 10 MB."); return; }
+    setUploading(true);
+    try {
+      const { data: u } = await supabase.auth.getUser();
+      if (!u.user) throw new Error("Please sign in again.");
+      const ext = file.type === "image/png" ? "png" : file.type === "image/webp" ? "webp" : "jpg";
+      const path = `${u.user.id}/${crypto.randomUUID()}.${ext}`;
+      const { error } = await supabase.storage.from("event-images").upload(path, file, { contentType: file.type });
+      if (error) throw error;
+      setAttachment({ path, preview: URL.createObjectURL(file), role: "cover" });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Upload failed");
+    } finally {
+      setUploading(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  }
   const endRef = useRef<HTMLDivElement>(null);
 
   const msgs = useQuery({
@@ -199,8 +244,12 @@ function ChatWindow({ threadId }: { threadId: string }) {
   useEffect(() => { inputRef.current?.focus(); }, [busy]);
 
   async function submit(text: string) {
-    const content = text.trim();
-    if (!content || busy) return;
+    const typed = text.trim();
+    if ((!typed && !attachment) || busy || uploading) return;
+    const content = attachment
+      ? `${typed || (attachment.role === "cover" ? "Use this picture as the event cover." : "Use this picture as inspiration for the event cover.")}\n\n[[image:${attachment.role}|${attachment.path}]]`
+      : typed;
+    setAttachment(null);
     setInput("");
     setPending([{ id: "p", role: "user", content }]);
     setBusy(true);
@@ -258,7 +307,10 @@ function ChatWindow({ threadId }: { threadId: string }) {
               m.role === "user" ? (
                 <div key={m.id} className="flex justify-end">
                   <div className="max-w-[80%] whitespace-pre-wrap rounded-3xl bg-user-bubble px-5 py-3 text-user-bubble-foreground">
-                    {m.content}
+                    {m.content.replace(/\n*\[\[image:(?:cover|inspiration)\|[^\]]+\]\]/g, "").trim()}
+                    {[...m.content.matchAll(/\[\[image:(cover|inspiration)\|([^\]]+)\]\]/g)].map((x) => (
+                      <div key={x[2]} className="mt-2"><AttachedImage path={(x[2] ?? "").trim()} role={x[1] ?? "cover"} /></div>
+                    ))}
                   </div>
                 </div>
               ) : (
@@ -282,7 +334,32 @@ function ChatWindow({ threadId }: { threadId: string }) {
         onSubmit={(e) => { e.preventDefault(); submit(input); }}
         className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-background via-background to-transparent px-4 pb-5 pt-8"
       >
-        <div className="mx-auto flex max-w-3xl items-end gap-2 rounded-full border bg-card py-2 pl-6 pr-2 shadow-soft">
+        {attachment && (
+          <div className="mx-auto mb-2 flex max-w-3xl items-center gap-3 rounded-2xl border bg-card p-2 shadow-soft">
+            <img src={attachment.preview} alt="Attached picture" className="h-14 w-14 rounded-xl object-cover" />
+            <div className="flex flex-1 flex-wrap gap-1.5 text-xs">
+              {(["cover", "inspiration"] as const).map((r) => (
+                <button
+                  type="button" key={r} onClick={() => setAttachment({ ...attachment, role: r })}
+                  className={`rounded-full border px-3 py-1 ${attachment.role === r ? "border-primary bg-primary text-primary-foreground" : "hover:bg-secondary"}`}
+                >
+                  {r === "cover" ? "Use as event cover" : "Inspiration for AI cover"}
+                </button>
+              ))}
+            </div>
+            <button type="button" aria-label="Remove picture" onClick={() => setAttachment(null)} className="rounded-full p-1.5 text-muted-foreground hover:bg-secondary">
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        )}
+        <div className="mx-auto flex max-w-3xl items-end gap-2 rounded-full border bg-card py-2 pl-2 pr-2 shadow-soft">
+          <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={(e) => pickFile(e.target.files?.[0])} />
+          <button
+            type="button" aria-label="Attach a picture" onClick={() => fileRef.current?.click()} disabled={uploading || busy}
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-secondary disabled:opacity-40"
+          >
+            <ImagePlus className={`h-5 w-5 ${uploading ? "animate-pulse" : ""}`} />
+          </button>
           <textarea
             ref={inputRef}
             rows={1}
@@ -297,7 +374,7 @@ function ChatWindow({ threadId }: { threadId: string }) {
           <button
             type="submit"
             aria-label="Send"
-            disabled={busy || !input.trim()}
+            disabled={busy || uploading || (!input.trim() && !attachment)}
             className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground disabled:opacity-40"
           >
             <ArrowUp className="h-5 w-5" />

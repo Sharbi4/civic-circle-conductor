@@ -155,31 +155,50 @@ const EventPayload = z.object({
   price: z.coerce.number().min(0).default(0),
   description: z.string().default(""),
   image_prompt: z.string().max(2000).optional(),
+  cover_image: z.string().max(300).optional(),
+  inspiration_image: z.string().max(300).optional(),
 });
 
-/** Generates a cover with GPT Image 2.5 Sunburst and uploads it to Eventbrite. Returns media id + url. */
-async function createEventCover(prompt: string, eb: (path: string, init?: RequestInit) => Promise<any>) {
+/** Builds cover bytes: the user's own upload as-is, an AI remix of their inspiration picture, or a fresh AI image. */
+async function buildCoverBytes(
+  opts: { prompt: string; cover?: Uint8Array<ArrayBuffer> | undefined; inspiration?: { bytes: Uint8Array<ArrayBuffer>; type: string } | undefined },
+): Promise<{ bytes: Uint8Array<ArrayBuffer>; type: string }> {
+  if (opts.cover) return { bytes: opts.cover, type: "image/jpeg" };
+  const fullPrompt = `Eventbrite event cover image, wide banner composition with the subject centered and important details away from the top and bottom edges. No small text. ${opts.prompt}`;
+  if (opts.inspiration) {
+    const { editImage } = await import("@lovable.dev/ai-gateway");
+    const img = await editImage({
+      model: "openai/gpt-image-2",
+      image: new Blob([opts.inspiration.bytes], { type: opts.inspiration.type }),
+      prompt: `Use the attached picture as inspiration (style, colors, logo or subject). ${fullPrompt}`,
+      size: "1536x1024",
+      output_format: "jpeg",
+    });
+    const b64 = img.data?.[0]?.b64_json;
+    if (!b64) throw new Error("No image returned");
+    return { bytes: Uint8Array.from(atob(b64), (c) => c.charCodeAt(0)), type: "image/jpeg" };
+  }
   const { generateImage } = await import("@lovable.dev/ai-gateway");
   const img = await generateImage({
-    model: "openai/gpt-image-2.5-sunburst",
-    prompt: `Eventbrite event cover image, wide banner composition with the subject centered and important details away from the top and bottom edges. No small text. ${prompt}`,
-    size: "1792x1024",
-    output_format: "jpeg",
-    quality: "high",
+    model: "openai/gpt-image-2.5-sunburst", prompt: fullPrompt, size: "1792x1024", output_format: "jpeg", quality: "high",
   });
   const b64 = img.data?.[0]?.b64_json;
   if (!b64) throw new Error("No image returned");
-  const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+  return { bytes: Uint8Array.from(atob(b64), (c) => c.charCodeAt(0)), type: "image/jpeg" };
+}
 
+/** Uploads cover bytes to Eventbrite. Returns media id + url. */
+async function createEventCover(cover: { bytes: Uint8Array<ArrayBuffer>; type: string }, eb: (path: string, init?: RequestInit) => Promise<any>) {
+  const bytes = cover.bytes;
   const up = await eb("/media/upload/?type=image-event-logo");
   const form = new FormData();
   for (const [k, v] of Object.entries(up.upload_data ?? {})) form.append(k, String(v));
-  form.append(up.file_parameter_name ?? "file", new Blob([bytes], { type: "image/jpeg" }), "cover.jpg");
+  form.append(up.file_parameter_name ?? "file", new Blob([bytes], { type: cover.type }), cover.type === "image/png" ? "cover.png" : "cover.jpg");
   const put = await fetch(up.upload_url, { method: "POST", body: form });
   if (!put.ok) throw new Error(`Cover upload failed [${put.status}]`);
   const media = await eb("/media/upload/", {
     method: "POST",
-    body: JSON.stringify({ upload_token: up.upload_token, crop_mask: { top_left: { x: 0, y: 64 }, width: 1792, height: 896 } }),
+    body: JSON.stringify({ upload_token: up.upload_token }),
   });
   return { id: media.id as string, url: (media.url ?? media.original?.url) as string | undefined };
 }
@@ -223,7 +242,19 @@ export const runEventbriteApproval = createServerFn({ method: "POST" })
 
     let cover: { id: string; url?: string | undefined } | null = null;
     try {
-      cover = await createEventCover(p.image_prompt || `${p.title}. ${p.description.replace(/<[^>]+>/g, " ")}`, eb);
+      const load = async (path?: string) => {
+        if (!path) return undefined;
+        if (!path.startsWith(`${userId}/`)) throw new Error("Image not found");
+        const { data: f, error } = await supabase.storage.from("event-images").download(path);
+        if (error || !f) throw new Error("Couldn't read the uploaded image");
+        return { bytes: new Uint8Array(await f.arrayBuffer()), type: f.type || "image/jpeg" };
+      };
+      const own = await load(p.cover_image);
+      const insp = own ? undefined : await load(p.inspiration_image);
+      const built = own ?? await buildCoverBytes({
+        prompt: p.image_prompt || `${p.title}. ${p.description.replace(/<[^>]+>/g, " ")}`, inspiration: insp,
+      });
+      cover = await createEventCover(built, eb);
     } catch (e) {
       console.error("Event cover failed", e);
     }

@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { CONNECTORS } from "@/lib/connectors";
-import { startLinkedInConnect, completeLinkedInConnect, getLinkedInStatus, disconnectLinkedIn, runLinkedInApproval } from "@/lib/linkedin.functions";
+import { startLinkedInConnect, completeLinkedInConnect, getLinkedInStatus, disconnectLinkedIn, runLinkedInApproval, setLinkedInOrgPage } from "@/lib/linkedin.functions";
 import { startEventbriteConnect, completeEventbriteConnect, getEventbriteStatus, disconnectEventbrite, runEventbriteApproval } from "@/lib/eventbrite.functions";
 
 export const Route = createFileRoute("/_authenticated/chat")({
@@ -383,7 +383,37 @@ function LinkedInConnectorRow() {
           </button>
         </div>
       )}
+      {connected && <LinkedInPageField current={status.data?.orgPageId ?? ""} />}
+      {connected && <LinkedInPageField current={status.data?.orgPageId ?? ""} />}
     </div>
+  );
+}
+
+function LinkedInPageField({ current }: { current: string }) {
+  const qc = useQueryClient();
+  const save = useServerFn(setLinkedInOrgPage);
+  const [val, setVal] = useState(current);
+  const [saving, setSaving] = useState(false);
+  async function submit(e: { preventDefault: () => void }) {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      await save({ data: { orgPageId: val.trim() } });
+      toast.success(val.trim() ? "Events will be organized under your company page." : "Events will be organized under your profile.");
+      qc.invalidateQueries({ queryKey: ["linkedin-status"] });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Couldn't save");
+    } finally { setSaving(false); }
+  }
+  return (
+    <form onSubmit={submit} className="mt-2 flex items-center gap-1.5">
+      <input
+        value={val} onChange={(e) => setVal(e.target.value)} inputMode="numeric" aria-label="LinkedIn company page ID"
+        placeholder="Company page ID (optional)"
+        className="h-7 min-w-0 flex-1 rounded-full border border-input bg-background px-2.5 text-xs outline-none focus:ring-1 focus:ring-ring"
+      />
+      <Button type="submit" size="sm" variant="outline" disabled={saving || val === current} className="h-7 rounded-full px-2.5 text-xs">Save</Button>
+    </form>
   );
 }
 
@@ -426,13 +456,13 @@ function ApprovalsPanel() {
       setBusyId(null);
       return;
     }
-    if (decision === "approved" && (payload as { kind?: string } | null)?.kind === "linkedin_post") {
+    if (decision === "approved" && (payload as { kind?: string } | null)?.kind?.startsWith("linkedin_")) {
       try {
         const r = await runLi({ data: { approvalId: id } });
-        toast.success("Posted to LinkedIn.");
+        if (r.ok) toast.success("Done on LinkedIn."); else toast.warning("LinkedIn finished with a problem — see the chat.");
         if (r.threadId) qc.invalidateQueries({ queryKey: ["messages", r.threadId] });
       } catch (e) {
-        toast.error(e instanceof Error ? e.message : "LinkedIn couldn't publish the post");
+        toast.error(e instanceof Error ? e.message : "LinkedIn couldn't complete that");
       }
       await qc.invalidateQueries({ queryKey: ["approvals"] });
       setBusyId(null);

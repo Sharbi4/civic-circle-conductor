@@ -18,3 +18,6 @@
 - [x] Civi character: unique character modeled on the user's uploaded reference (not a robot)
 - [x] Civi character: robot penguin
 - [x] Approvals inbox: Civi queues outreach/booking/payment proposals; Approve/Decline cards in a sidebar inbox, decision posted back to main chat
+
+- [x] Event cover upload: attach own image/logo or inspiration picture in chat; use it (or AI edit of it) as Eventbrite/LinkedIn cover
+- [x] LinkedIn events: create+publish, edit, re-publish via approvals (company page ID optional)

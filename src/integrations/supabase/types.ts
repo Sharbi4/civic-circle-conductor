@@ -200,6 +200,45 @@ export type Database = {
         }
         Relationships: []
       }
+      linkedin_events: {
+        Row: {
+          created_at: string
+          event_id: string
+          id: string
+          location: string | null
+          name: string
+          post_urn: string | null
+          starts_at: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          event_id: string
+          id?: string
+          location?: string | null
+          name: string
+          post_urn?: string | null
+          starts_at?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          event_id?: string
+          id?: string
+          location?: string | null
+          name?: string
+          post_urn?: string | null
+          starts_at?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       memories: {
         Row: {
           content: string
@@ -259,6 +298,7 @@ export type Database = {
       organizations: {
         Row: {
           created_at: string
+          linkedin_org_id: string | null
           mission: string | null
           name: string | null
           onboarded: boolean
@@ -266,6 +306,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          linkedin_org_id?: string | null
           mission?: string | null
           name?: string | null
           onboarded?: boolean
@@ -273,6 +314,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          linkedin_org_id?: string | null
           mission?: string | null
           name?: string | null
           onboarded?: boolean
