@@ -7,7 +7,9 @@ import { buildCoverBytes, loadEventImage } from "@/lib/eventCover.server";
 const GATEWAY = "https://connector-gateway.lovable.dev";
 const SCOPES = ["openid", "profile", "w_member_social"];
 const EVENT_SCOPES = ["r_events", "rw_events"];
-const CONNECT_SCOPES = [...SCOPES, ...EVENT_SCOPES];
+// Company-page permissions: required to organize events under and post as a LinkedIn page.
+const ORG_SCOPES = ["rw_organization_admin", "w_organization_social", "r_organization_social"];
+const CONNECT_SCOPES = [...SCOPES, ...EVENT_SCOPES, ...ORG_SCOPES];
 const LI_VERSION = "202609";
 
 export const startLinkedInConnect = createServerFn({ method: "POST" })
@@ -151,12 +153,14 @@ export const runLinkedInApproval = createServerFn({ method: "POST" })
     if (!c) throw new Error("LinkedIn isn't connected — connect it in the Connectors tab.");
     const call = (path: string, init?: RequestInit, scopes = SCOPES) =>
       callAsAppUser({ gatewayBaseUrl: GATEWAY, connectionAPIKey: c.key, connectorId: "linkedin", path, ...(init ? { init } : {}), requiredScopes: scopes });
-    const rest = (path: string, method: string, body?: unknown, extra: Record<string, string> = {}) =>
+    const EVENT_ALL = [...SCOPES, ...EVENT_SCOPES];
+    const ORG_ALL = [...EVENT_ALL, ...ORG_SCOPES];
+    const rest = (path: string, method: string, body?: unknown, extra: Record<string, string> = {}, scopes: string[] = EVENT_ALL) =>
       call(path, {
         method,
         headers: { "Content-Type": "application/json", "X-Restli-Protocol-Version": "2.0.0", "LinkedIn-Version": LI_VERSION, ...extra },
         ...(body ? { body: JSON.stringify(body) } : {}),
-      }, [...SCOPES, ...EVENT_SCOPES]);
+      }, scopes);
     const fail = async (res: Response, what: string) => {
       if (await appUserReconnectRequired(res)) throw new Error("Your LinkedIn access needs to be renewed — reconnect LinkedIn.");
       const body = await res.text();
@@ -172,7 +176,7 @@ export const runLinkedInApproval = createServerFn({ method: "POST" })
     const person = `urn:li:person:${sub}`;
 
     /** Registers + uploads cover bytes as a LinkedIn event background image; returns the asset URN. */
-    const uploadEventCover = async (owner: string, cover: { bytes: Uint8Array<ArrayBuffer>; type: string }): Promise<string> => {
+    const uploadEventCover = async (owner: string, cover: { bytes: Uint8Array<ArrayBuffer>; type: string }, scopes: string[]): Promise<string> => {
       const reg = await rest("/rest/assets?action=registerUpload", "POST", {
         registerUploadRequest: {
           owner,
@@ -180,7 +184,7 @@ export const runLinkedInApproval = createServerFn({ method: "POST" })
           serviceRelationships: [{ identifier: "urn:li:userGeneratedContent", relationshipType: "OWNER" }],
           supportedUploadMechanism: ["SYNCHRONOUS_UPLOAD"],
         },
-      });
+      }, {}, scopes);
       if (!reg.ok) await fail(reg, "register the cover image");
       const v = ((await reg.json()) as { value?: { uploadMechanism?: Record<string, { uploadUrl?: string }>; asset?: string } }).value;
       const uploadUrl = v?.uploadMechanism?.["com.linkedin.digitalmedia.uploading.MediaUploadHttpRequest"]?.uploadUrl;
@@ -191,7 +195,7 @@ export const runLinkedInApproval = createServerFn({ method: "POST" })
         method: "POST",
         headers: { "Content-Type": cover.type, "X-Restli-Protocol-Version": "2.0.0", "LinkedIn-Version": LI_VERSION },
         body: new Blob([cover.bytes], { type: cover.type }),
-      }, [...SCOPES, ...EVENT_SCOPES]);
+      }, scopes);
       if (!up.ok) await fail(up, "upload the cover image");
       return asset;
     };
@@ -217,6 +221,7 @@ export const runLinkedInApproval = createServerFn({ method: "POST" })
       const p = eventCreateSchema.parse(ap.payload);
       const { data: org } = await supabase.from("organizations").select("linkedin_org_id").eq("user_id", userId).maybeSingle();
       const organizer = org?.linkedin_org_id ? `urn:li:organization:${org.linkedin_org_id}` : person;
+      const orgScopes = org?.linkedin_org_id ? ORG_ALL : EVENT_ALL;
       const startsAt = ms(p.start), endsAt = ms(p.end);
       if (startsAt <= Date.now()) throw new Error("The event start time must be in the future.");
       if (p.online && !p.url) throw new Error("Online events need a link where people join.");
@@ -225,7 +230,7 @@ export const runLinkedInApproval = createServerFn({ method: "POST" })
         : { inPerson: { endsAt, ...(p.url ? { url: p.url } : {}), address: p.address ?? {}, ...(p.venue_details ? { venueDetails: rich(p.venue_details) } : {}) } };
       let backgroundImage: string | null = null;
       try {
-        backgroundImage = await uploadEventCover(organizer, await buildEventCover(p));
+        backgroundImage = await uploadEventCover(organizer, await buildEventCover(p), orgScopes);
       } catch (e) {
         console.error("LinkedIn event cover failed", e);
       }
@@ -233,7 +238,7 @@ export const runLinkedInApproval = createServerFn({ method: "POST" })
         name: loc(p.title), organizer, startsAt, type,
         ...(p.description ? { description: rich(p.description) } : {}),
         ...(backgroundImage ? { backgroundImage } : {}),
-      }, { "X-RestLi-Method": "create" });
+      }, { "X-RestLi-Method": "create" }, orgScopes);
       if (!created.ok) await fail(created, "create the event");
       const ev = (await created.json().catch(() => ({}))) as { id?: number | string };
       const eventId = String(ev.id ?? created.headers.get("x-restli-id") ?? "");
@@ -245,7 +250,7 @@ export const runLinkedInApproval = createServerFn({ method: "POST" })
         distribution: { feedDistribution: "MAIN_FEED", targetEntities: [], thirdPartyDistributionChannels: [] },
         content: { reference: { id: `urn:li:event:${eventId}` } },
         lifecycleState: "PUBLISHED", isReshareDisabledByAuthor: false,
-      });
+      }, {}, orgScopes);
       const postUrn = post.ok ? post.headers.get("x-restli-id") : null;
       if (!post.ok) console.error(`LinkedIn event post failed [${post.status}]: ${await post.text()}`);
       await supabase.from("linkedin_events").insert({
@@ -266,12 +271,13 @@ export const runLinkedInApproval = createServerFn({ method: "POST" })
       if (!row) throw new Error("That event isn't one Civi created.");
       const { data: org } = await supabase.from("organizations").select("linkedin_org_id").eq("user_id", userId).maybeSingle();
       const author = org?.linkedin_org_id ? `urn:li:organization:${org.linkedin_org_id}` : person;
+      const orgScopes = org?.linkedin_org_id ? ORG_ALL : EVENT_ALL;
       const post = await rest("/rest/posts", "POST", {
         author, commentary: p.post_text, visibility: "PUBLIC",
         distribution: { feedDistribution: "MAIN_FEED", targetEntities: [], thirdPartyDistributionChannels: [] },
         content: { reference: { id: `urn:li:event:${p.event_id}` } },
         lifecycleState: "PUBLISHED", isReshareDisabledByAuthor: false,
-      });
+      }, {}, orgScopes);
       if (!post.ok) await fail(post, "publish the event");
       await supabase.from("linkedin_events").update({ status: "live", post_urn: post.headers.get("x-restli-id"), updated_at: new Date().toISOString() }).eq("event_id", p.event_id);
       await say(`✅ **${row.name}** is now published — [view the event](https://www.linkedin.com/events/${p.event_id}/).`);
@@ -282,7 +288,9 @@ export const runLinkedInApproval = createServerFn({ method: "POST" })
       const p = eventUpdateSchema.parse(ap.payload);
       const { data: row } = await supabase.from("linkedin_events").select("name").eq("event_id", p.event_id).maybeSingle();
       if (!row) throw new Error("That event isn't one Civi created.");
-      const cur = await rest(`/rest/events/${p.event_id}`, "GET");
+      const { data: orgRow } = await supabase.from("organizations").select("linkedin_org_id").eq("user_id", userId).maybeSingle();
+      const orgScopes = orgRow?.linkedin_org_id ? ORG_ALL : EVENT_ALL;
+      const cur = await rest(`/rest/events/${p.event_id}`, "GET", undefined, {}, orgScopes);
       if (!cur.ok) await fail(cur, "load the event");
       const evt = (await cur.json()) as { type?: { inPerson?: unknown; online?: { format?: { external?: unknown } } } };
       const set: Record<string, unknown> = {};
@@ -302,19 +310,18 @@ export const runLinkedInApproval = createServerFn({ method: "POST" })
       if (p.cover_image || p.inspiration_image || p.image_prompt) {
         try {
           const { data: evRow } = await supabase.from("linkedin_events").select("name").eq("event_id", p.event_id).maybeSingle();
-          const { data: orgRow } = await supabase.from("organizations").select("linkedin_org_id").eq("user_id", userId).maybeSingle();
           const coverOwner = orgRow?.linkedin_org_id ? `urn:li:organization:${orgRow.linkedin_org_id}` : person;
           set["backgroundImage"] = await uploadEventCover(coverOwner, await buildEventCover({
             title: p.title ?? evRow?.name ?? row.name, description: p.description,
             image_prompt: p.image_prompt, cover_image: p.cover_image, inspiration_image: p.inspiration_image,
-          }));
+          }), orgScopes);
         } catch (e) {
           console.error("LinkedIn event cover update failed", e);
           throw new Error("Couldn't add the cover image — the event was left unchanged.");
         }
       }
       if (!Object.keys(set).length) throw new Error("No changes to apply.");
-      const res = await rest(`/rest/events/${p.event_id}`, "POST", { patch: { $set: set } }, { "X-RestLi-Method": "partial_update" });
+      const res = await rest(`/rest/events/${p.event_id}`, "POST", { patch: { $set: set } }, { "X-RestLi-Method": "partial_update" }, orgScopes);
       if (!res.ok) await fail(res, "update the event");
       await supabase.from("linkedin_events").update({
         ...(p.title ? { name: p.title } : {}),
@@ -326,18 +333,26 @@ export const runLinkedInApproval = createServerFn({ method: "POST" })
     }
 
     const p = z.object({ kind: z.literal("linkedin_post"), text: z.string().min(1).max(3000) }).parse(ap.payload);
-    const res = await call("/v2/ugcPosts", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "X-Restli-Protocol-Version": "2.0.0" },
-      body: JSON.stringify({
-        author: person,
-        lifecycleState: "PUBLISHED",
-        specificContent: { "com.linkedin.ugc.ShareContent": { shareCommentary: { text: p.text }, shareMediaCategory: "NONE" } },
-        visibility: { "com.linkedin.ugc.MemberNetworkVisibility": "PUBLIC" },
-      }),
-    });
+    const { data: org } = await supabase.from("organizations").select("linkedin_org_id").eq("user_id", userId).maybeSingle();
+    const asPage = !!org?.linkedin_org_id;
+    const res = asPage
+      ? await rest("/rest/posts", "POST", {
+          author: `urn:li:organization:${org!.linkedin_org_id}`, commentary: p.text, visibility: "PUBLIC",
+          distribution: { feedDistribution: "MAIN_FEED", targetEntities: [], thirdPartyDistributionChannels: [] },
+          lifecycleState: "PUBLISHED", isReshareDisabledByAuthor: false,
+        }, {}, ORG_ALL)
+      : await call("/v2/ugcPosts", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "X-Restli-Protocol-Version": "2.0.0" },
+          body: JSON.stringify({
+            author: person,
+            lifecycleState: "PUBLISHED",
+            specificContent: { "com.linkedin.ugc.ShareContent": { shareCommentary: { text: p.text }, shareMediaCategory: "NONE" } },
+            visibility: { "com.linkedin.ugc.MemberNetworkVisibility": "PUBLIC" },
+          }),
+        });
     if (!res.ok) await fail(res, "publish the post");
     const postId = res.headers.get("x-restli-id") ?? "";
-    await say(`✅ Posted to LinkedIn${postId ? ` — [view it](https://www.linkedin.com/feed/update/${postId})` : ""}.\n\n> ${p.text.slice(0, 280).replace(/\n/g, "\n> ")}`);
+    await say(`✅ Posted to LinkedIn${asPage ? " from your company page" : ""}${postId ? ` — [view it](https://www.linkedin.com/feed/update/${postId})` : ""}.\n\n> ${p.text.slice(0, 280).replace(/\n/g, "\n> ")}`);
     return { threadId, ok: true };
   });
