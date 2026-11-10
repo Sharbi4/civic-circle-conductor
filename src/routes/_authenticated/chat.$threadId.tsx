@@ -225,7 +225,7 @@ function BrowserCard({ sessionRowId, task }: { sessionRowId: string; task: strin
           <DialogHeader>
             <DialogTitle>Request to join relevant groups near…</DialogTitle>
             <DialogDescription>
-              You're signed in to Facebook. Enter your city or ZIP code and Civi will find local groups that fit your mission and check whether your organization's Page needs some TLC. Nothing is joined or posted without your approval.
+              Join groups on Facebook
             </DialogDescription>
           </DialogHeader>
           <Input autoFocus placeholder="City or ZIP code (e.g. Tucson, AZ or 85701)" value={fbLoc}
