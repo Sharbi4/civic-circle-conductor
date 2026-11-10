@@ -21,6 +21,10 @@ export const sendOrganizerMessage = createServerFn({ method: "POST" })
     });
     if (insErr) throw new Error(insErr.message);
 
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: ebConn } = await supabaseAdmin.from("connector_connections")
+      .select("account_name").eq("user_id", userId).eq("connector", "eventbrite").maybeSingle();
+
     const [{ data: org }, { data: history }, { data: memories }] = await Promise.all([
       supabase.from("organizations").select("name, mission").eq("user_id", userId).maybeSingle(),
       supabase.from("messages").select("role, content").eq("thread_id", data.threadId).order("created_at").limit(60),
@@ -42,7 +46,10 @@ export const sendOrganizerMessage = createServerFn({ method: "POST" })
 6. Phone Outreach — purpose, consented contacts, approved script, schedule; prepare call workflows, record outcomes, escalate important conversations.
 For multi-step objectives, show a visible task plan with statuses (Done / Working / Approval / Pending) and keep it updated as work progresses. Prioritize contributing value to the community over promoting the organization.`,
       `Resource directory: the org keeps a reusable directory of vendors, venues, partners and groups so research is never repeated. When you identify a real, useful vendor, venue, nonprofit, community group or event worth saving, add a final line exactly like: [[resource: <vendor|venue|nonprofit|group|event|professional|other> | <name> | <one line of details>]]. One line per record, max 4 per reply. Only save genuinely useful, specific records.`,
-      `You coordinate channel sub-agents (Facebook, Instagram, Instagram DMs, Eventbrite, X, Nextdoor, Gmail, TikTok). Those connections are not live yet; when a task needs one, draft the exact content and say which agent would run it once connected. Never take outreach, booking or payment actions without the organization's explicit approval.`,
+      `You coordinate channel sub-agents (Facebook, Instagram, Instagram DMs, X, Nextdoor, Gmail, TikTok). Those connections are not live yet; when a task needs one, draft the exact content and say which agent would run it once connected. Never take outreach, booking or payment actions without the organization's explicit approval.`,
+      ebConn
+        ? `Eventbrite IS CONNECTED and live (account: ${ebConn.account_name}). You can really create events on it. Once you have title, date/time, location, capacity and price (ask only for what's missing; assume free and timezone America/Phoenix if unstated), summarize the listing, say it's queued in Approvals, and add a final line exactly like: [[eventbrite_event: {"title":"...","start":"YYYY-MM-DDTHH:MM:00-07:00","end":"YYYY-MM-DDTHH:MM:00-07:00","timezone":"America/Phoenix","location":"venue + address or Online","capacity":100,"price":0,"description":"<p>...</p>"}]]. After approval it is created as a draft the organizer publishes. Never say Eventbrite isn't connected.`
+        : "Eventbrite is not connected yet; if they want an event listing, draft it and ask them to connect Eventbrite in the Connectors tab.",
       `Approvals: when you propose any outreach, booking or payment action, describe it in the message, tell the user it is queued in the Approvals inbox for their review, and add a final line exactly like: [[approval: <outreach|booking|payment> | <short title> | <one line of details>]]. One line per proposed action. Never claim an action is done until the user has approved it.`,
       `Live browser: you can open a real web browser that the user watches live inside the chat. When the user asks you to browse the web or a task genuinely needs live browsing (researching vendors on a site, checking event listings, looking at a page), add a final line exactly like: [[browse: <what you will do in the browser>]] and tell the user you're opening a live browser they can watch and take over. The browse task is your goal: you will drive the browser yourself step by step (navigate sites like Eventbrite, search, fill forms), the user watches each step and can take over anytime, and before submitting any form, message, booking or payment you pause for their approval in the Approvals inbox. Write the browse goal specifically (site, search terms, what to fill in). Never claim results before the browser task reports back.`,
       `Be concise, decisive and practical. Use markdown with short headings and bullets.`,
@@ -85,6 +92,15 @@ For multi-step objectives, show a visible task plan with statuses (Done / Workin
         title: title!,
         details: details ?? "",
       }));
+    const ebRows = [...text.matchAll(/\[\[eventbrite_event:\s*(\{.+?\})\s*\]\]/gs)].flatMap((m) => {
+      try {
+        const p = JSON.parse(m[1] ?? "");
+        return [{ user_id: userId, action_type: "booking", title: `Create Eventbrite event: ${p.title}`,
+          details: `${p.start} → ${p.end} · ${p.location} · ${p.price ? `$${p.price}` : "Free"} · cap ${p.capacity}`,
+          payload: { kind: "eventbrite_create", ...p } }];
+      } catch { return []; }
+    });
+    if (ebConn) approvalRows.push(...ebRows);
     const browseTasks = [...text.matchAll(/\[\[browse:\s*(.+?)\]\]/g)].map((m) => (m[1] ?? "").trim()).filter(Boolean);
     const resourceRows = [...text.matchAll(/\[\[resource:\s*(.+?)\]\]/g)]
       .map((m) => (m[1] ?? "").split("|").map((s) => s.trim()))
@@ -98,7 +114,7 @@ For multi-step objectives, show a visible task plan with statuses (Done / Workin
         source: "Civi chat",
         status: "suggested",
       }));
-    let clean = text.replace(/\n?\[\[(?:remember|approval|browse|resource):.+?\]\]/g, "").trim() || "…";
+    let clean = text.replace(/\n?\[\[(?:remember|approval|browse|resource|eventbrite_event):.+?\]\]/gs, "").trim() || "…";
 
     for (const task of browseTasks.slice(0, 2)) {
       const lovableKey = process.env["LOVABLE_API_KEY"];

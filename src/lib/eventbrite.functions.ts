@@ -143,3 +143,81 @@ export const disconnectEventbrite = createServerFn({ method: "POST" })
     if (error) throw error;
     return { ok: true };
   });
+
+const EventPayload = z.object({
+  kind: z.literal("eventbrite_create"),
+  title: z.string().min(1).max(200),
+  start: z.string().min(10),
+  end: z.string().min(10),
+  timezone: z.string().default("America/Phoenix"),
+  location: z.string().default("Online"),
+  capacity: z.coerce.number().int().positive().default(100),
+  price: z.coerce.number().min(0).default(0),
+  description: z.string().default(""),
+});
+
+/** Runs an approved Eventbrite action. Creates the event as an unpublished draft. */
+export const runEventbriteApproval = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({ approvalId: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    const { data: ap } = await supabase.from("approvals").select("id, status, payload").eq("id", data.approvalId).maybeSingle();
+    if (!ap || ap.status !== "approved") throw new Error("This action isn't approved.");
+    const p = EventPayload.parse(ap.payload);
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { decryptToken } = await import("@/lib/tokenCrypto.server");
+    const { data: conn } = await supabaseAdmin.from("connector_connections")
+      .select("access_token_ciphertext").eq("user_id", userId).eq("connector", "eventbrite").maybeSingle();
+    if (!conn) throw new Error("Eventbrite isn't connected — connect it in the Connectors tab.");
+    const token = decryptToken(conn.access_token_ciphertext);
+
+    const eb = async (path: string, init?: RequestInit) => {
+      const res = await fetch(`${API_BASE}${path}`, {
+        ...init,
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        console.error(`Eventbrite ${path} failed [${res.status}]`, body);
+        throw new Error(`Eventbrite said: ${(body as { error_description?: string }).error_description ?? res.status}`);
+      }
+      return body as any;
+    };
+    const utc = (s: string) => new Date(s).toISOString().replace(/\.\d{3}Z$/, "Z");
+
+    const orgs = await eb("/users/me/organizations/");
+    const orgId = orgs.organizations?.[0]?.id;
+    if (!orgId) throw new Error("No Eventbrite organization found on this account.");
+    const online = /online|virtual|zoom/i.test(p.location);
+    const desc = `${p.description}${online ? "" : `<p><b>Location:</b> ${p.location}</p>`}`;
+
+    const ev = await eb(`/organizations/${orgId}/events/`, {
+      method: "POST",
+      body: JSON.stringify({ event: {
+        name: { html: p.title },
+        description: { html: desc || p.title },
+        start: { timezone: p.timezone, utc: utc(p.start) },
+        end: { timezone: p.timezone, utc: utc(p.end) },
+        currency: "USD", online_event: online, capacity: p.capacity, listed: true,
+      } }),
+    });
+    await eb(`/events/${ev.id}/ticket_classes/`, {
+      method: "POST",
+      body: JSON.stringify({ ticket_class: p.price > 0
+        ? { name: "General Admission", quantity_total: p.capacity, cost: `USD,${Math.round(p.price * 100)}` }
+        : { name: "General Admission", quantity_total: p.capacity, free: true } }),
+    });
+
+    const { data: thread } = await supabase.from("threads").select("id").eq("kind", "side").eq("title", "Eventbrite Agent").maybeSingle();
+    const { data: main } = await supabase.from("threads").select("id").eq("kind", "main").maybeSingle();
+    const threadId = thread?.id ?? main?.id;
+    if (threadId) {
+      await supabase.from("messages").insert({
+        thread_id: threadId, user_id: userId, role: "assistant",
+        content: `🎉 Created **${p.title}** on Eventbrite as a draft.\n\n- [Review & publish it on Eventbrite](https://www.eventbrite.com/myevent?eid=${ev.id})\n- Public page (live after you publish): ${ev.url}`,
+      });
+    }
+    return { eventId: ev.id as string, url: ev.url as string, threadId };
+  });

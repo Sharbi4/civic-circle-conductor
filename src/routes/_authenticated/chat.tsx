@@ -1,5 +1,6 @@
 import { createFileRoute, Link, Outlet, useNavigate, useParams } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import { MessageCircle, Plus, Plug, LogOut, Pin, Brain, Inbox, Megaphone, CalendarCheck, CreditCard, Sparkles, Check, X, Compass, Trash2 } from "lucide-react";
 import { toast } from "sonner";
@@ -10,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { CONNECTORS } from "@/lib/connectors";
-import { startEventbriteConnect, completeEventbriteConnect, getEventbriteStatus, disconnectEventbrite } from "@/lib/eventbrite.functions";
+import { startEventbriteConnect, completeEventbriteConnect, getEventbriteStatus, disconnectEventbrite, runEventbriteApproval } from "@/lib/eventbrite.functions";
 
 export const Route = createFileRoute("/_authenticated/chat")({
   head: () => ({
@@ -298,11 +299,12 @@ function ApprovalsPanel() {
   const qc = useQueryClient();
   const navigate = useNavigate();
   const [busyId, setBusyId] = useState<string | null>(null);
+  const runEb = useServerFn(runEventbriteApproval);
   const main = threads.data?.find((t) => t.kind === "main");
   const pending = approvals.data?.filter((a) => a.status === "pending") ?? [];
   const resolved = approvals.data?.filter((a) => a.status !== "pending") ?? [];
 
-  async function respond(id: string, decision: "approved" | "declined", title: string, browserSessionId?: string | null) {
+  async function respond(id: string, decision: "approved" | "declined", title: string, browserSessionId?: string | null, payload?: unknown) {
     setBusyId(id);
     const { data: u } = await supabase.auth.getUser();
     const { error } = await supabase
@@ -310,6 +312,18 @@ function ApprovalsPanel() {
       .update({ status: decision, resolved_at: new Date().toISOString() })
       .eq("id", id);
     if (error) { toast.error(error.message); setBusyId(null); return; }
+    if (decision === "approved" && (payload as { kind?: string } | null)?.kind === "eventbrite_create") {
+      try {
+        const r = await runEb({ data: { approvalId: id } });
+        toast.success("Event created on Eventbrite as a draft.");
+        if (r.threadId) qc.invalidateQueries({ queryKey: ["messages", r.threadId] });
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "Eventbrite couldn't create the event");
+      }
+      await qc.invalidateQueries({ queryKey: ["approvals"] });
+      setBusyId(null);
+      return;
+    }
     if (browserSessionId) {
       await supabase.from("browser_sessions")
         .update(decision === "approved" ? { agent_status: "driving", submit_approved: true } : { agent_status: "stopped" })
@@ -349,10 +363,10 @@ function ApprovalsPanel() {
         {a.details && <p className="mt-1 text-sm text-muted-foreground">{a.details}</p>}
         {a.status === "pending" && (
           <div className="mt-3 flex gap-2">
-            <Button size="sm" disabled={busyId === a.id} onClick={() => respond(a.id, "approved", a.title, a.browser_session_id)} className="rounded-full">
+            <Button size="sm" disabled={busyId === a.id} onClick={() => respond(a.id, "approved", a.title, a.browser_session_id, a.payload)} className="rounded-full">
               <Check className="h-4 w-4" /> Approve
             </Button>
-            <Button size="sm" variant="outline" disabled={busyId === a.id} onClick={() => respond(a.id, "declined", a.title, a.browser_session_id)} className="rounded-full">
+            <Button size="sm" variant="outline" disabled={busyId === a.id} onClick={() => respond(a.id, "declined", a.title, a.browser_session_id, a.payload)} className="rounded-full">
               <X className="h-4 w-4" /> Decline
             </Button>
           </div>
