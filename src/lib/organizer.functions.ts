@@ -102,10 +102,25 @@ For multi-step objectives, show a visible task plan with statuses (Done / Workin
         title: title!,
         details: details ?? "",
       }));
+    // The newest picture the organizer attached in this chat — attached server-side so it never depends on the AI copying a path.
+    const attached = [...[...(history ?? []).filter((m) => m.role === "user").map((m) => m.content), data.content].join("\n")
+      .matchAll(/\[\[image:(cover|inspiration)\|([^\]]+)\]\]/g)].map((x) => ({ role: x[1] as string, path: (x[2] ?? "").trim() }))
+      .filter((x) => x.path.startsWith(`${userId}/`));
+    const latestPic = attached[attached.length - 1];
+    const withPicture = <T extends { cover_image?: string; inspiration_image?: string }>(p: T): T => {
+      const ok = (v?: string) => !!v && attached.some((a) => a.path === v);
+      const out = { ...p };
+      if (!ok(out.cover_image)) delete out.cover_image;
+      if (!ok(out.inspiration_image)) delete out.inspiration_image;
+      if (!out.cover_image && !out.inspiration_image && latestPic) {
+        if (latestPic.role === "cover") out.cover_image = latestPic.path; else out.inspiration_image = latestPic.path;
+      }
+      return out;
+    };
     const ebRows = [...text.matchAll(/\[\[eventbrite_event:\s*(\{.+?\})\s*\]\]/gs)].flatMap((m) => {
       try {
-        const p = JSON.parse(m[1] ?? "");
-        return [{ user_id: userId, action_type: "booking", title: `Create Eventbrite event: ${p.title}`,
+        const p = withPicture(JSON.parse(m[1] ?? ""));
+        return [{ user_id: userId, action_type: "booking", title: `Create Eventbrite event: ${p.title}${p.cover_image ? " (with your cover photo)" : ""}`,
           details: `${p.start} → ${p.end} · ${p.location} · ${p.price ? `$${p.price}` : "Free"} · cap ${p.capacity}`,
           payload: { kind: "eventbrite_create", ...p } }];
       } catch { return []; }

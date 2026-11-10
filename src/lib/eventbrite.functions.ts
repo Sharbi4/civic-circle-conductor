@@ -172,9 +172,12 @@ async function createEventCover(cover: { bytes: Uint8Array<ArrayBuffer>; type: s
   form.append(up.file_parameter_name ?? "file", new Blob([bytes], { type: cover.type }), cover.type === "image/png" ? "cover.png" : "cover.jpg");
   const put = await fetch(up.upload_url, { method: "POST", body: form });
   if (!put.ok) throw new Error(`Cover upload failed [${put.status}]`);
+  const { imageSize, bannerCrop } = await import("@/lib/eventCover.server");
+  const size = imageSize(bytes);
   const media = await eb("/media/upload/", {
     method: "POST",
-    body: JSON.stringify({ upload_token: up.upload_token }),
+    // Crop to Eventbrite's 2:1 banner so the photo shows properly on the listing.
+    body: JSON.stringify({ upload_token: up.upload_token, ...(size ? { crop_mask: bannerCrop(size.width, size.height) } : {}) }),
   });
   return { id: media.id as string, url: (media.url ?? media.original?.url) as string | undefined };
 }
@@ -240,6 +243,19 @@ export const runEventbriteApproval = createServerFn({ method: "POST" })
         ...(cover ? { logo_id: cover.id } : {}),
       } }),
     });
+    // Make sure the cover really is on the Eventbrite listing; set it again if Eventbrite dropped it.
+    let coverOnListing = false;
+    if (cover) {
+      try {
+        let check = await eb(`/events/${ev.id}/`);
+        if (!check.logo_id && !check.logo) {
+          await eb(`/events/${ev.id}/`, { method: "POST", body: JSON.stringify({ event: { logo_id: cover.id } }) });
+          check = await eb(`/events/${ev.id}/`);
+        }
+        coverOnListing = !!(check.logo_id || check.logo);
+        if (check.logo?.original?.url || check.logo?.url) cover.url = check.logo.original?.url ?? check.logo.url;
+      } catch (e) { console.error("Cover check failed", e); }
+    }
     await eb(`/events/${ev.id}/ticket_classes/`, {
       method: "POST",
       body: JSON.stringify({ ticket_class: p.price > 0
@@ -253,7 +269,7 @@ export const runEventbriteApproval = createServerFn({ method: "POST" })
     if (threadId) {
       await supabase.from("messages").insert({
         thread_id: threadId, user_id: userId, role: "assistant",
-        content: `🎉 Created **${p.title}** on Eventbrite as a draft.${cover?.url ? `\n\n![Event cover](${cover.url})` : cover ? " Cover image added." : "\n\n(I couldn't make a cover image this time — you can add one on Eventbrite.)"}\n\n- [Review & publish it on Eventbrite](https://www.eventbrite.com/myevent?eid=${ev.id})\n- Public page (live after you publish): ${ev.url}`,
+        content: `🎉 Created **${p.title}** on Eventbrite as a draft.${coverOnListing ? `\n\n${p.cover_image ? "Your photo is the cover on the Eventbrite listing:" : "Cover image on the Eventbrite listing:"}${cover?.url ? `\n\n![Event cover](${cover.url})` : ""}` : cover ? "\n\n(I uploaded the cover, but Eventbrite didn't attach it — add it from the event's Images section on Eventbrite.)" : `\n\n(I couldn't ${p.cover_image ? "upload your photo" : "make a cover image"} this time — you can add one on Eventbrite.)`}\n\n- [Review & publish it on Eventbrite](https://www.eventbrite.com/myevent?eid=${ev.id})\n- Public page (live after you publish): ${ev.url}`,
       });
     }
     return { eventId: ev.id as string, url: ev.url as string, threadId };

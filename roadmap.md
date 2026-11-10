@@ -31,3 +31,4 @@
 - [x] New-user welcome: Civi offers 'Set up now' vs 'over time' as tap-to-choose replies; guided setup step by step
 - [x] Browser memory: one browser per chat, new tasks keep earlier steps/results as context
 - [ ] Browser keeps driving when the chat is closed (now only steps while a chat page is open)
+- [x] Eventbrite: uploaded cover auto-attached to event requests, cropped 2:1, verified on listing after create
