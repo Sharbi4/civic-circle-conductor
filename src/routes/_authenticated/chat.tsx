@@ -94,6 +94,19 @@ function Sidebar({ orgName }: { orgName: string }) {
   const pendingCount = approvals.data?.filter((a) => a.status === "pending").length ?? 0;
   const main = threads.data?.find((t) => t.kind === "main");
   const side = threads.data?.filter((t) => t.kind !== "main") ?? [];
+  async function togglePin(id: string, pinned: boolean) {
+    const { error } = await supabase.from("threads").update({ pinned }).eq("id", id);
+    if (error) return toast.error(error.message);
+    qc.invalidateQueries({ queryKey: ["threads"] });
+  }
+  async function deleteChat(id: string, title: string) {
+    if (!window.confirm(`Delete "${title}"? This can't be undone.`)) return;
+    const { error } = await supabase.from("threads").delete().eq("id", id);
+    if (error) return toast.error(error.message);
+    await qc.invalidateQueries({ queryKey: ["threads"] });
+    if (params.threadId === id && main) navigate({ to: "/chat/$threadId", params: { threadId: main.id } });
+    toast.success("Chat deleted");
+  }
 
   async function newSide() {
     const { data: u } = await supabase.auth.getUser();
@@ -155,16 +168,17 @@ function Sidebar({ orgName }: { orgName: string }) {
               </button>
             </div>
             <div className="mt-1 space-y-0.5">
-              {side.map((t) => (
-                <Link
-                  key={t.id}
-                  to="/chat/$threadId"
-                  params={{ threadId: t.id }}
-                  className={`flex items-center gap-2 truncate rounded-2xl px-3 py-2.5 ${params.threadId === t.id ? "bg-sidebar-accent" : "hover:bg-sidebar-accent"}`}
-                >
-                  {t.pinned && <Pin className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />}
-                  <span className="truncate">{t.title}</span>
-                </Link>
+              {[...side].sort((a, b) => Number(b.pinned) - Number(a.pinned)).map((t) => (
+                <div key={t.id} className={`group flex items-center rounded-2xl ${params.threadId === t.id ? "bg-sidebar-accent" : "hover:bg-sidebar-accent"}`}>
+                  <Link to="/chat/$threadId" params={{ threadId: t.id }} className="flex min-w-0 flex-1 items-center gap-2 px-3 py-2.5">
+                    {t.pinned && <Pin className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />}
+                    <span className="truncate">{t.title}</span>
+                  </Link>
+                  <div className="flex shrink-0 gap-0.5 pr-2 opacity-60 transition-opacity group-hover:opacity-100">
+                    <button title={t.pinned ? "Unpin chat" : "Pin chat"} aria-label={t.pinned ? "Unpin chat" : "Pin chat"} onClick={() => togglePin(t.id, !t.pinned)} className="rounded-full p-1.5 hover:bg-background/60"><Pin className={`h-3.5 w-3.5 ${t.pinned ? "fill-current" : ""}`} /></button>
+                    <button title="Delete chat" aria-label="Delete chat" onClick={() => deleteChat(t.id, t.title)} className="rounded-full p-1.5 hover:bg-background/60"><Trash2 className="h-3.5 w-3.5" /></button>
+                  </div>
+                </div>
               ))}
               {side.length === 0 && <p className="px-3 py-2 text-sm text-muted-foreground">No side chats yet.</p>}
             </div>
