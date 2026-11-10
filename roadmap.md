@@ -1,6 +1,6 @@
 # Civi Meet roadmap
 - [x] Sign-in, onboarding (org name + mission), main organizer chat, side chats, per-org memory
-- [ ] Eventbrite connector agent (first connector) — needs Eventbrite OAuth client
+- [x] Eventbrite connector: per-org OAuth connect flow (popup → encrypted token storage → "Eventbrite Agent" side chat); Connect/Disconnect in connectors panel. Agent actions on Eventbrite API (create/manage events, attendees) still to build
 - [x] Live browser view — Civi opens real Browserbase sessions ([[browse:]] marker), live iframe card in chat with End session; agent-driven navigation/actions still to build
 - [ ] Scheduled agent tasks (5/15/30 min)
 - [ ] Remaining connectors: Facebook, Instagram, Instagram DMs, X, Nextdoor, Gmail, TikTok
