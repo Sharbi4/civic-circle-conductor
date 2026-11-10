@@ -2,7 +2,6 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { ArrowDown, ChevronRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import civi from "@/assets/civi-penguin.png";
 import logo from "@/assets/civimeet-logo.png.asset.json";
 
 export const Route = createFileRoute("/")({
@@ -55,14 +54,8 @@ function Index() {
       </header>
 
       <main className="flex flex-col items-center px-6 pt-10 text-center md:pt-16">
-        <img src={civi} alt="Civi, the Civi Meet organizer" width={1024} height={1024} className="animate-drift civi-glow h-44 w-44 object-contain md:h-56 md:w-56" />
-
         <h1 className="mt-8 text-5xl font-semibold leading-[1.1] tracking-tight md:text-7xl">
-          <span className="inline-flex items-center gap-1">
-            Civi
-            <img src={civi} alt="" aria-hidden="true" width={1024} height={1024} className="civi-glow -mx-2 -my-3 h-24 w-auto object-contain translate-y-1 md:h-32" />
-            , AI that
-          </span>
+          <span className="inline-flex items-center gap-1">Civi, AI that</span>
           <span className="block min-h-[1.2em]">
             <span key={i} className="animate-phrase inline-block">
               {p.text} <span aria-hidden="true">{p.emoji}</span>
