@@ -93,6 +93,7 @@ export type Database = {
           handoff_reason: string | null
           id: string
           live_url: string
+          queue: Json
           session_id: string
           signed_in: boolean
           site: string | null
@@ -112,6 +113,7 @@ export type Database = {
           handoff_reason?: string | null
           id?: string
           live_url: string
+          queue?: Json
           session_id: string
           signed_in?: boolean
           site?: string | null
@@ -131,6 +133,7 @@ export type Database = {
           handoff_reason?: string | null
           id?: string
           live_url?: string
+          queue?: Json
           session_id?: string
           signed_in?: boolean
           site?: string | null

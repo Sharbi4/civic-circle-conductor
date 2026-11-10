@@ -1,0 +1,1 @@
+ALTER TABLE public.browser_sessions ADD COLUMN IF NOT EXISTS queue jsonb NOT NULL DEFAULT '[]'::jsonb;

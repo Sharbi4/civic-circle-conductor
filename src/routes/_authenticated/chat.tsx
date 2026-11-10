@@ -14,6 +14,7 @@ import { CONNECTORS } from "@/lib/connectors";
 import { startLinkedInConnect, completeLinkedInConnect, getLinkedInStatus, disconnectLinkedIn, runLinkedInApproval, setLinkedInOrgPage } from "@/lib/linkedin.functions";
 import { startEventbriteConnect, completeEventbriteConnect, getEventbriteStatus, disconnectEventbrite, runEventbriteApproval } from "@/lib/eventbrite.functions";
 import { saveSiteCredential } from "@/lib/credentials.functions";
+import { runFacebookApproval } from "@/lib/browser.functions";
 import { startNextdoorConnect, completeNextdoorConnect, getNextdoorStatus, disconnectNextdoor } from "@/lib/nextdoor.functions";
 
 export const Route = createFileRoute("/_authenticated/chat")({
@@ -536,6 +537,7 @@ function ApprovalsPanel() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const runEb = useServerFn(runEventbriteApproval);
   const runLi = useServerFn(runLinkedInApproval);
+  const runFb = useServerFn(runFacebookApproval);
   const main = threads.data?.find((t) => t.kind === "main");
   const pending = approvals.data?.filter((a) => a.status === "pending") ?? [];
   const resolved = approvals.data?.filter((a) => a.status !== "pending") ?? [];
@@ -569,6 +571,18 @@ function ApprovalsPanel() {
         toast.error(e instanceof Error ? e.message : "LinkedIn couldn't complete that");
       }
       await qc.invalidateQueries({ queryKey: ["approvals"] });
+      setBusyId(null);
+      return;
+    }
+    if (decision === "approved" && (payload as { kind?: string } | null)?.kind?.startsWith("fb_")) {
+      try {
+        const r = await runFb({ data: { approvalId: id } });
+        toast.success(r.started ? "Civi is doing it in the Facebook browser now." : "Approved — Civi will do it right after its current browser task.");
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "Couldn't start that on Facebook");
+      }
+      await qc.invalidateQueries({ queryKey: ["approvals"] });
+      qc.invalidateQueries({ queryKey: ["browser_session"] });
       setBusyId(null);
       return;
     }

@@ -165,6 +165,23 @@ export async function retargetSession(supabase: SupabaseLike, id: string, goal: 
     .update({ goal, agent_status: "driving", steps, submit_approved: false, handoff_reason: null }).eq("id", id);
 }
 
+function parseMarker<T>(text: string, name: string): T | null {
+  const m = text.match(new RegExp(`\\[\\[${name}:\\s*([\\s\\S]+?)\\]\\](?!\\])`));
+  if (!m) return null;
+  try { return JSON.parse(m[1] ?? "") as T; } catch { return null; }
+}
+
+/** Starts the next approved task waiting for this browser, if any. */
+export async function startNextQueued(supabase: SupabaseLike, id: string): Promise<boolean> {
+  const { data: r } = await supabase.from("browser_sessions").select("queue, status").eq("id", id).maybeSingle();
+  const q = (Array.isArray(r?.queue) ? r.queue : []) as { goal: string }[];
+  if (!q.length || r?.status !== "running") return false;
+  const [next, ...rest] = q;
+  await retargetSession(supabase, id, next!.goal);
+  await supabase.from("browser_sessions").update({ queue: rest, submit_approved: true }).eq("id", id);
+  return true;
+}
+
 /** Keep one browser per chat: release any other running browsers in this chat. */
 export async function closeOtherBrowsers(supabase: SupabaseLike, threadId: string, keepId: string) {
   const lovableKey = process.env["LOVABLE_API_KEY"];
@@ -240,6 +257,8 @@ export const browserAgentStep = createServerFn({ method: "POST" })
               : "Never click a button that sends a message, posts, joins a group, books, registers, purchases or pays. When a form is filled and ready, use request_approval describing exactly what will be sent and to whom. Use plain click only for navigation, search and opening pages.",
             "If the page shows a sign-in form and the site is in the organizer's saved logins, use login with the username/email field index and the password field index (use the same index for both if only one field shows). You never see the password; the system fills it in. After login, click the sign-in button with click.",
             "Use handoff (NOT done) whenever only the organizer can continue: a login with no saved credentials, a verification/2FA code, a CAPTCHA, or a personal choice. Say exactly what they need to do. They'll hand control back and you'll continue the same goal.",
+            "When your goal involved finding Facebook groups or reviewing a Facebook Page, end your done summary with these lines (exact format, real links you visited only): [[fb_groups: [{\"name\":\"...\",\"url\":\"https://www.facebook.com/groups/...\"}]]] and, if you found the organization's Page, [[fb_page: {\"url\":\"https://www.facebook.com/...\",\"post_text\":\"a warm, short Page update sharing what the org is refreshing/working on (no checklist jargon), ready to post\"}]].",
+            "When the goal says it is APPROVED by the organizer, you may use submit on the Join / Post button that completes it.",
             "Never invent contact details. Never ask the organizer to paste passwords or codes in chat.",
           ].join("\n"),
           input: [{
@@ -288,8 +307,24 @@ export const browserAgentStep = createServerFn({ method: "POST" })
         return { agentStatus: "needs_user" };
       }
       if (a.action === "done") {
-        await save({ agent_status: "done" }, { action: "done", note: `Finished: ${String(a.summary).replace(/\s+/g, " ").slice(0, 400)}` });
-        await post(`✅ Browser task finished: **${goal}**\n\n${a.summary}`);
+        const summary = String(a.summary ?? "");
+        const groups = parseMarker<{ name: string; url: string }[]>(summary, "fb_groups") ?? [];
+        const page = parseMarker<{ url: string; post_text: string }>(summary, "fb_page");
+        const cleanSummary = summary.replace(/\n?\[\[fb_(?:groups|page):[\s\S]+?\]\]\]?/g, "").trim();
+        const fbRows = [
+          ...groups.filter((g) => g?.url?.startsWith("https://www.facebook.com/groups/") && g.name).slice(0, 10).map((g) => ({
+            user_id: userId, action_type: "outreach", title: `Join Facebook group: ${g.name.slice(0, 120)}`,
+            details: g.url, payload: { kind: "fb_join_group", session: row.id, name: g.name.slice(0, 120), url: g.url },
+          })),
+          ...(page?.url?.startsWith("https://www.facebook.com/") && page.post_text ? [{
+            user_id: userId, action_type: "outreach", title: "Post a Page update on Facebook",
+            details: page.post_text.slice(0, 2000), payload: { kind: "fb_page_post", session: row.id, url: page.url, text: page.post_text.slice(0, 2000) },
+          }] : []),
+        ];
+        if (fbRows.length) await supabase.from("approvals").insert(fbRows);
+        await save({ agent_status: "done" }, { action: "done", note: `Finished: ${cleanSummary.replace(/\s+/g, " ").slice(0, 400)}` });
+        await post(`✅ Browser task finished: **${goal}**\n\n${cleanSummary}${fbRows.length ? `\n\n📥 I put ${fbRows.length} request${fbRows.length > 1 ? "s" : ""} in your **Approvals** inbox — ${groups.length ? `one per group to join` : ""}${groups.length && page ? " and " : ""}${page ? "the Page update post" : ""}. Approve the ones you want and I'll do them one by one in this browser.` : ""}`);
+        if (await startNextQueued(supabase, row.id)) return { agentStatus: "driving" };
         return { agentStatus: "done" };
       }
       if (a.action === "submit") {
@@ -334,4 +369,25 @@ export const startFacebookSetup = createServerFn({ method: "POST" })
       content: `Great — I'm searching Facebook for groups near **${data.location}** and checking your organization's Page. I won't join anything or post until you approve. Watch along in the browser above.`,
     });
     return { ok: true };
+  });
+
+/** Runs an approved Facebook action (join a group / post a Page update) in the open browser, queued one at a time. */
+export const runFacebookApproval = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({ approvalId: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabase } = context;
+    const { data: ap } = await supabase.from("approvals").select("status, payload").eq("id", data.approvalId).maybeSingle();
+    if (!ap || ap.status !== "approved") throw new Error("This action isn't approved.");
+    const p = ap.payload as { kind: string; session: string; name?: string; url: string; text?: string };
+    const { data: row } = await supabase.from("browser_sessions").select("id, status, agent_status, queue").eq("id", p.session).maybeSingle();
+    if (!row || row.status !== "running") throw new Error("That Facebook browser has closed — ask Civi to open Facebook again, then approve.");
+    const goal = p.kind === "fb_join_group"
+      ? `APPROVED by the organizer: join the Facebook group "${p.name}". Open ${p.url}, click Join group (use submit for that button). If it asks membership questions, answer briefly and honestly from our mission, then submit. If anything needs the organizer (e.g. agreeing to rules personally), use handoff. Then done.`
+      : `APPROVED by the organizer: post this update on our organization's Facebook Page (${p.url}), posting as the Page, not the personal profile. Switch to the Page if needed, open "Create post", type exactly this text:\n${p.text}\nthen click Post (use submit for that button). Then done.`;
+    const q = [...(Array.isArray(row.queue) ? row.queue : []), { goal }];
+    await supabase.from("browser_sessions").update({ queue: q }).eq("id", row.id);
+    const busy = ["driving", "awaiting_approval", "needs_user"].includes(row.agent_status ?? "");
+    const started = busy ? false : await startNextQueued(supabase, row.id);
+    return { started, queued: q.length };
   });
