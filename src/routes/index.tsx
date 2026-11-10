@@ -75,7 +75,7 @@ function Index() {
         >
           <span>
             <span className="block font-medium">Continue to Civi Meet</span>
-            <span className="text-sm text-muted-foreground">Demo access</span>
+            <span className="text-sm text-muted-foreground">Sign in to your organizer</span>
           </span>
           <ChevronRight className="h-5 w-5 text-muted-foreground" />
         </Link>
@@ -89,7 +89,7 @@ function Index() {
       <section className="px-6 py-32 text-center">
         <h2 className="text-4xl font-semibold tracking-tight md:text-5xl">Contribute. Connect. Convene.</h2>
         <p className="mx-auto mt-4 max-w-lg text-muted-foreground">Civi keeps your community engaged so people actually show up.</p>
-        <Link to="/auth" className="mt-8 inline-flex rounded-full bg-primary px-6 py-3 font-medium text-primary-foreground">Try the demo</Link>
+        <Link to="/auth" className="mt-8 inline-flex rounded-full bg-primary px-6 py-3 font-medium text-primary-foreground">Get started</Link>
       </section>
     </div>
   );

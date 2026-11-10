@@ -30,7 +30,7 @@ function AuthPage() {
     setBusy(true);
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     setBusy(false);
-    if (error) { toast.error("Civi Meet is in private preview. Only the demo account can sign in."); return; }
+    if (error) { toast.error("That email and password didn’t match. Please try again."); return; }
     navigate({ to: "/chat" });
   }
 
@@ -43,7 +43,7 @@ function AuthPage() {
       </header>
       <main className="relative flex flex-1 flex-col items-center justify-center px-6 pb-24 text-center">
         <h1 className="text-4xl font-semibold tracking-tight md:text-5xl">Welcome back, organizer.</h1>
-        <p className="mt-3 text-muted-foreground">Private preview · demo access only</p>
+        <p className="mt-3 text-muted-foreground">Sign in to your organization’s organizer</p>
         <form onSubmit={submit} className="mt-10 w-full max-w-md space-y-3 rounded-[2rem] border border-border/60 bg-card/80 p-6 text-left shadow-2xl backdrop-blur-xl">
           <input className={field} type="email" required placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} />
           <input className={field} type="password" required placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} />
