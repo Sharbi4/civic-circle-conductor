@@ -113,6 +113,13 @@
       "when": 1794349256675,
       "tag": "0015_notif_check",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1794353043957,
+      "tag": "0016_onboarding_profile_fields",
+      "breakpoints": true
     }
   ]
 }

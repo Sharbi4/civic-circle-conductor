@@ -339,6 +339,8 @@ export type Database = {
       }
       organizations: {
         Row: {
+          address: string | null
+          apps_used: string[]
           autonomy: string
           created_at: string
           facebook_setup_location: string | null
@@ -347,9 +349,14 @@ export type Database = {
           name: string | null
           notif_checks: boolean
           onboarded: boolean
+          profile: string | null
+          public_pages: Json
+          referral_source: string | null
           user_id: string
         }
         Insert: {
+          address?: string | null
+          apps_used?: string[]
           autonomy?: string
           created_at?: string
           facebook_setup_location?: string | null
@@ -358,9 +365,14 @@ export type Database = {
           name?: string | null
           notif_checks?: boolean
           onboarded?: boolean
+          profile?: string | null
+          public_pages?: Json
+          referral_source?: string | null
           user_id: string
         }
         Update: {
+          address?: string | null
+          apps_used?: string[]
           autonomy?: string
           created_at?: string
           facebook_setup_location?: string | null
@@ -369,6 +381,9 @@ export type Database = {
           name?: string | null
           notif_checks?: boolean
           onboarded?: boolean
+          profile?: string | null
+          public_pages?: Json
+          referral_source?: string | null
           user_id?: string
         }
         Relationships: []

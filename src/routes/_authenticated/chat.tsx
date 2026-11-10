@@ -1,8 +1,8 @@
 import { createFileRoute, Link, Outlet, useNavigate, useParams } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useState, type ReactNode } from "react";
-import { MessageCircle, Plus, Plug, LogOut, Pin, Brain, Inbox, Megaphone, CalendarCheck, CreditCard, Sparkles, Check, X, Compass, Trash2, KeyRound } from "lucide-react";
+import { useRef, useState, type ReactNode } from "react";
+import { MessageCircle, Plus, Plug, LogOut, Pin, Brain, Inbox, Megaphone, CalendarCheck, CreditCard, Sparkles, Check, X, Compass, Trash2, KeyRound, Mic } from "lucide-react";
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -15,7 +15,8 @@ import { startLinkedInConnect, completeLinkedInConnect, getLinkedInStatus, disco
 import { startEventbriteConnect, completeEventbriteConnect, getEventbriteStatus, disconnectEventbrite, runEventbriteApproval } from "@/lib/eventbrite.functions";
 import { saveSiteCredential } from "@/lib/credentials.functions";
 import { sendOrganizerMessage } from "@/lib/organizer.functions";
-import { runOnboardingResearch } from "@/lib/research.functions";
+import { runOnboardingResearch, scanOrgProfile } from "@/lib/research.functions";
+import { transcribeSpeech } from "@/lib/voice.functions";
 import { startXConnect, completeXConnect, getXStatus, disconnectX, runXApproval } from "@/lib/x.functions";
 import { runFacebookApproval, startBrowserSession } from "@/lib/browser.functions";
 import { SiFacebook, SiNextdoor, SiX } from "react-icons/si";
@@ -977,68 +978,174 @@ function MemoryPanel() {
   );
 }
 
+const HEARD = ["Facebook", "Instagram", "Friend or colleague", "Search", "Event", "Other"];
+const PAGES = [
+  { k: "facebook", label: "Facebook", ph: "facebook.com/yourorg" },
+  { k: "instagram", label: "Instagram", ph: "instagram.com/yourorg" },
+  { k: "x", label: "X", ph: "x.com/yourorg" },
+  { k: "linkedin", label: "LinkedIn", ph: "linkedin.com/company/yourorg" },
+  { k: "website", label: "Website", ph: "yourorg.org" },
+];
+const APPS = ["Facebook", "Instagram", "X", "LinkedIn", "Nextdoor", "Eventbrite", "Gmail", "Mailchimp", "Google Sheets", "Canva", "Square", "Slack"];
+
 function Onboarding({ existing }: { existing: { name: string | null; mission: string | null } | null | undefined }) {
   const qc = useQueryClient();
   const [step, setStep] = useState(existing?.name ? 1 : 0);
   const [name, setName] = useState(existing?.name ?? "");
+  const [address, setAddress] = useState("");
+  const [heard, setHeard] = useState("");
   const [mission, setMission] = useState(existing?.mission ?? "");
+  const [pages, setPages] = useState<Record<string, string>>({});
+  const [profile, setProfile] = useState("");
+  const [apps, setApps] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
+  const [scanning, setScanning] = useState(false);
   const [researching, setResearching] = useState(false);
+  const [rec, setRec] = useState<"idle" | "recording" | "working">("idle");
+  const recRef = useRef<MediaRecorder | null>(null);
   const research = useServerFn(runOnboardingResearch);
+  const scan = useServerFn(scanOrgProfile);
+  const transcribe = useServerFn(transcribeSpeech);
+  const STEPS = 5;
 
-  async function save(finish: boolean) {
-    setBusy(true);
+  async function upsert(extra: Record<string, unknown> = {}) {
     const { data: u } = await supabase.auth.getUser();
-    const uid = u.user!.id;
-    const { error } = await supabase.from("organizations").upsert({ user_id: uid, name, mission, onboarded: finish });
-    if (!error && finish) {
-      const { data: has } = await supabase.from("threads").select("id").eq("kind", "main").maybeSingle();
-      if (!has) {
-        const { data: t } = await supabase.from("threads").insert({ user_id: uid, kind: "main", title: "Main chat" }).select("id").single();
-        if (t) await supabase.from("messages").insert({
-          thread_id: t.id, user_id: uid, role: "assistant",
-          content: `Hi! I'm Civi, your AI organizer for **${name || "your organization"}**. 👋\n\nI can find local groups and vendors, plan and list events, run outreach, and keep your pages fresh — and I always ask before anything goes out.\n\nHow would you like to get started?\n\n[[choices: Set up now with Civi | I'll set up over time]]`,
-        });
+    const { error } = await supabase.from("organizations").upsert({ user_id: u.user!.id, name, mission, address: address || null, referral_source: heard || null, ...extra });
+    if (error) toast.error(error.message);
+    return !error;
+  }
+  const norm = (v: string) => (v.trim() && !/^https?:\/\//.test(v.trim()) ? `https://${v.trim()}` : v.trim());
+
+  async function next() {
+    setBusy(true);
+    try {
+      if (step === 2) {
+        const p = Object.fromEntries(Object.entries(pages).map(([k, v]) => [k, norm(v)]).filter(([, v]) => v));
+        if (!(await upsert({ public_pages: p }))) return;
+        setStep(3);
+        if (!profile && Object.keys(p).length) {
+          setScanning(true);
+          try { const r = await scan({ data: { pages: p } }); setProfile(r.profile); }
+          catch (e) { console.error(e); toast.error("Couldn't scan your pages — you can write your profile instead."); }
+          finally { setScanning(false); }
+        }
+        return;
       }
-    }
-    setBusy(false);
-    if (error) { toast.error(error.message); return; }
-    if (finish) {
-      setResearching(true);
-      try { await research(); } catch (e) { console.error(e); }
-      setResearching(false);
-      qc.invalidateQueries();
-    } else setStep(1);
+      if (step === 3) { if (await upsert({ profile: profile || null })) setStep(4); return; }
+      if (step === 4) return finish();
+      if (await upsert()) setStep(step + 1);
+    } finally { setBusy(false); }
   }
 
+  async function finish() {
+    const { data: u } = await supabase.auth.getUser();
+    const uid = u.user!.id;
+    if (!(await upsert({ apps_used: apps, profile: profile || null, onboarded: true }))) return;
+    if (profile.trim()) await supabase.from("memories").insert({ user_id: uid, content: `🏛️ Organization profile: ${profile.trim().slice(0, 1500)}` });
+    const { data: has } = await supabase.from("threads").select("id").eq("kind", "main").maybeSingle();
+    if (!has) {
+      const { data: t } = await supabase.from("threads").insert({ user_id: uid, kind: "main", title: "Main chat" }).select("id").single();
+      if (t) await supabase.from("messages").insert({
+        thread_id: t.id, user_id: uid, role: "assistant",
+        content: `Hi! I'm Civi, your AI organizer for **${name || "your organization"}**. 👋\n\nI've read your public pages and saved your profile. I can find local groups and vendors, plan and list events, run outreach, and keep your pages fresh — and I always ask before anything goes out.\n\nHow would you like to get started?\n\n[[choices: Set up now with Civi | I'll set up over time]]`,
+      });
+    }
+    setResearching(true);
+    try { await research(); } catch (e) { console.error(e); }
+    setResearching(false);
+    qc.invalidateQueries();
+  }
+
+  async function toggleMic() {
+    if (rec === "recording") { recRef.current?.stop(); return; }
+    if (rec !== "idle") return;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
+      const mr = new MediaRecorder(stream); const chunks: Blob[] = [];
+      mr.ondataavailable = (e) => e.data.size && chunks.push(e.data);
+      mr.onstop = async () => {
+        stream.getTracks().forEach((t) => t.stop()); setRec("working");
+        try {
+          const blob = new Blob(chunks, { type: mr.mimeType || "audio/webm" });
+          const buf = new Uint8Array(await blob.arrayBuffer()); let bin = "";
+          for (let i = 0; i < buf.length; i += 0x8000) bin += String.fromCharCode(...buf.subarray(i, i + 0x8000));
+          const { text } = await transcribe({ data: { audio: btoa(bin), mime: blob.type } });
+          if (text) setProfile((p) => (p ? `${p}\n${text}` : text)); else toast("I didn't catch that — try again.");
+        } catch (e) { toast.error(e instanceof Error ? e.message : "Couldn't hear that"); }
+        finally { setRec("idle"); }
+      };
+      recRef.current = mr; mr.start(); setRec("recording");
+    } catch { toast.error("Allow microphone access to talk to Civi."); }
+  }
+
+  const canNext = step === 0 ? !!name.trim() && !!address.trim() && !!heard : step === 1 ? !!mission.trim() : true;
+  const titles = ["Let's set up your organization", "What's your mission?", "Where can people find you?", "Here's your profile", "What apps do you use?"];
+  const subs = [
+    "A few basics so Civi knows who it's working for.",
+    "This becomes the background for your organizer and every agent.",
+    "Add up to five public pages. Civi will read them and write your profile.",
+    "Edit anything, or tap the mic and tell Civi more.",
+    "Civi will suggest connecting these so it can work where you already are.",
+  ];
+
   return (
-    <main className="flex min-h-screen items-center justify-center px-6">
-      <div className="w-full max-w-xl">
+    <main className="dark fixed inset-0 flex items-center justify-center overflow-hidden bg-background p-4 text-foreground">
+      <div aria-hidden className="pointer-events-none absolute inset-0 opacity-40 [background-image:linear-gradient(var(--border)_1px,transparent_1px),linear-gradient(90deg,var(--border)_1px,transparent_1px)] [background-size:48px_48px] [mask-image:radial-gradient(ellipse_at_center,black,transparent_70%)]" />
+      <div className="relative flex h-full max-h-[640px] w-full max-w-xl flex-col overflow-hidden rounded-[28px] border bg-card/80 p-7 shadow-[0_0_80px_-20px_color-mix(in_oklab,var(--primary)_45%,transparent)] backdrop-blur-xl sm:p-9">
         {researching ? (
-          <div className="flex flex-col items-center text-center">
+          <div className="flex flex-1 flex-col items-center justify-center text-center">
             <div className="relative h-14 w-14"><span className="absolute inset-0 animate-ping rounded-full bg-primary/30" /><span className="absolute inset-3 rounded-full bg-primary" /></div>
             <h1 className="font-display mt-6 text-3xl font-bold">Civi is researching your community…</h1>
             <p className="mt-2 text-muted-foreground">Looking up local allies, events, venues and food vendors so your agents start out informed.</p>
           </div>
         ) : (<>
-        <div className="text-sm text-muted-foreground">Step {step + 1} of 2</div>
-        {step === 0 ? (
-          <form onSubmit={(e) => { e.preventDefault(); save(false); }}>
-            <h1 className="font-display mt-2 text-4xl font-bold">What's your organization called?</h1>
-            <Input autoFocus required value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Aurora Tenants United" className="mt-6 h-12 rounded-2xl text-lg" />
-            <Button type="submit" disabled={busy || !name.trim()} className="mt-5 rounded-full px-8">Continue</Button>
-          </form>
-        ) : (
-          <form onSubmit={(e) => { e.preventDefault(); save(true); }}>
-            <h1 className="font-display mt-2 text-4xl font-bold">What's your mission?</h1>
-            <p className="mt-2 text-muted-foreground">This becomes the background for your organizer and every agent.</p>
-            <Textarea autoFocus required rows={5} value={mission} onChange={(e) => setMission(e.target.value)} placeholder="We organize renters in Aurora to win fair housing protections…" className="mt-6 rounded-2xl text-base" />
-            <div className="mt-5 flex gap-2">
-              <Button type="button" variant="ghost" onClick={() => setStep(0)}>Back</Button>
-              <Button type="submit" disabled={busy || !mission.trim()} className="rounded-full px-8">Meet your organizer</Button>
-            </div>
-          </form>
-        )}
+          <div className="flex items-center gap-1.5">
+            {Array.from({ length: STEPS }).map((_, i) => <span key={i} className={`h-1 flex-1 rounded-full transition-colors ${i <= step ? "bg-primary" : "bg-muted"}`} />)}
+          </div>
+          <div className="mt-6 text-xs uppercase tracking-[0.2em] text-muted-foreground">Step {step + 1} of {STEPS}</div>
+          <h1 className="font-display mt-2 text-3xl font-bold leading-tight">{titles[step]}</h1>
+          <p className="mt-1.5 text-sm text-muted-foreground">{subs[step]}</p>
+
+          <div key={step} className="mt-6 flex min-h-0 flex-1 flex-col animate-in fade-in slide-in-from-right-4 duration-300">
+            {step === 0 && (<div className="space-y-3">
+              <Input autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder="Organization or business name" className="h-12 rounded-2xl" />
+              <Input value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Address or city, e.g. 123 Main St, Tucson AZ" className="h-12 rounded-2xl" />
+              <div className="pt-2 text-sm text-muted-foreground">How did you hear about Civi Meet?</div>
+              <div className="flex flex-wrap gap-2">
+                {HEARD.map((h) => <button type="button" key={h} onClick={() => setHeard(h)} className={`rounded-full border px-3.5 py-1.5 text-sm transition ${heard === h ? "border-primary bg-primary text-primary-foreground" : "hover:border-primary/60"}`}>{h}</button>)}
+              </div>
+            </div>)}
+            {step === 1 && <Textarea autoFocus value={mission} onChange={(e) => setMission(e.target.value)} placeholder="We organize renters in Tucson to win fair housing protections…" className="min-h-0 flex-1 resize-none rounded-2xl text-base" />}
+            {step === 2 && (<div className="space-y-2.5">
+              {PAGES.map((p) => (
+                <div key={p.k} className="flex items-center gap-3">
+                  <span className="w-20 shrink-0 text-sm text-muted-foreground">{p.label}</span>
+                  <Input value={pages[p.k] ?? ""} onChange={(e) => setPages({ ...pages, [p.k]: e.target.value })} placeholder={p.ph} className="h-11 rounded-xl" />
+                </div>))}
+            </div>)}
+            {step === 3 && (scanning ? (
+              <div className="flex flex-1 flex-col items-center justify-center text-center">
+                <div className="relative h-12 w-12"><span className="absolute inset-0 animate-ping rounded-full bg-primary/30" /><span className="absolute inset-3 rounded-full bg-primary" /></div>
+                <p className="mt-5 font-medium">Reading your pages and searching the web…</p>
+                <p className="mt-1 text-sm text-muted-foreground">This takes about 20 seconds.</p>
+              </div>
+            ) : (<div className="relative flex min-h-0 flex-1 flex-col">
+              <Textarea value={profile} onChange={(e) => setProfile(e.target.value)} placeholder="Who you are, who you serve, your programs and events, your voice…" className="min-h-0 flex-1 resize-none rounded-2xl pb-14 text-sm" />
+              <button type="button" onClick={toggleMic} aria-label="Tell Civi more" className={`absolute bottom-3 right-3 flex items-center gap-2 rounded-full border px-3.5 py-2 text-sm backdrop-blur transition ${rec === "recording" ? "border-primary bg-primary text-primary-foreground" : "bg-background/70 hover:border-primary/60"}`}>
+                <Mic className="h-4 w-4" />{rec === "recording" ? "Listening… tap to stop" : rec === "working" ? "Adding…" : "Tell Civi more"}
+              </button>
+            </div>))}
+            {step === 4 && (<div className="flex flex-wrap content-start gap-2">
+              {APPS.map((a) => { const on = apps.includes(a); return <button type="button" key={a} onClick={() => setApps(on ? apps.filter((x) => x !== a) : [...apps, a])} className={`rounded-full border px-3.5 py-1.5 text-sm transition ${on ? "border-primary bg-primary text-primary-foreground" : "hover:border-primary/60"}`}>{a}</button>; })}
+            </div>)}
+          </div>
+
+          <div className="mt-6 flex items-center justify-between">
+            <Button type="button" variant="ghost" disabled={step === 0 || busy} onClick={() => setStep(step - 1)}>Back</Button>
+            <Button type="button" disabled={busy || scanning || !canNext} onClick={next} className="rounded-full px-8">
+              {step === 2 ? (Object.values(pages).some((v) => v.trim()) ? "Scan my pages" : "Skip") : step === 4 ? "Meet your organizer" : "Continue"}
+            </Button>
+          </div>
         </>)}
       </div>
     </main>

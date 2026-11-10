@@ -1,0 +1,1 @@
+ALTER TABLE public.organizations ADD COLUMN IF NOT EXISTS address text, ADD COLUMN IF NOT EXISTS referral_source text, ADD COLUMN IF NOT EXISTS public_pages jsonb NOT NULL DEFAULT '{}'::jsonb, ADD COLUMN IF NOT EXISTS profile text, ADD COLUMN IF NOT EXISTS apps_used text[] NOT NULL DEFAULT '{}';
