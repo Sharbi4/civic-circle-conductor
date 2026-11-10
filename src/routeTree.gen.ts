@@ -16,6 +16,7 @@ import { Route as AuthenticatedChatRouteImport } from './routes/_authenticated/c
 import { Route as AuthenticatedChatIndexRouteImport } from './routes/_authenticated/chat.index'
 import { Route as AuthenticatedChatThreadIdRouteImport } from './routes/_authenticated/chat.$threadId'
 import { Route as ApiOauthEventbriteReturnRouteImport } from './routes/api/oauth/eventbrite/return'
+import { Route as ApiPublicJobsCommunityScoutRouteImport } from './routes/api/public/jobs/community-scout'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -53,6 +54,12 @@ const ApiOauthEventbriteReturnRoute =
     path: '/api/oauth/eventbrite/return',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicJobsCommunityScoutRoute =
+  ApiPublicJobsCommunityScoutRouteImport.update({
+    id: '/api/public/jobs/community-scout',
+    path: '/api/public/jobs/community-scout',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -61,6 +68,7 @@ export interface FileRoutesByFullPath {
   '/chat/$threadId': typeof AuthenticatedChatThreadIdRoute
   '/chat/': typeof AuthenticatedChatIndexRoute
   '/api/oauth/eventbrite/return': typeof ApiOauthEventbriteReturnRoute
+  '/api/public/jobs/community-scout': typeof ApiPublicJobsCommunityScoutRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -68,6 +76,7 @@ export interface FileRoutesByTo {
   '/chat/$threadId': typeof AuthenticatedChatThreadIdRoute
   '/chat': typeof AuthenticatedChatIndexRoute
   '/api/oauth/eventbrite/return': typeof ApiOauthEventbriteReturnRoute
+  '/api/public/jobs/community-scout': typeof ApiPublicJobsCommunityScoutRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -78,6 +87,7 @@ export interface FileRoutesById {
   '/_authenticated/chat/$threadId': typeof AuthenticatedChatThreadIdRoute
   '/_authenticated/chat/': typeof AuthenticatedChatIndexRoute
   '/api/oauth/eventbrite/return': typeof ApiOauthEventbriteReturnRoute
+  '/api/public/jobs/community-scout': typeof ApiPublicJobsCommunityScoutRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -88,9 +98,15 @@ export interface FileRouteTypes {
     | '/chat/$threadId'
     | '/chat/'
     | '/api/oauth/eventbrite/return'
+    | '/api/public/jobs/community-scout'
   fileRoutesByTo: FileRoutesByTo
   to:
-    '/' | '/auth' | '/chat/$threadId' | '/chat' | '/api/oauth/eventbrite/return'
+    | '/'
+    | '/auth'
+    | '/chat/$threadId'
+    | '/chat'
+    | '/api/oauth/eventbrite/return'
+    | '/api/public/jobs/community-scout'
   id:
     | '__root__'
     | '/'
@@ -100,6 +116,7 @@ export interface FileRouteTypes {
     | '/_authenticated/chat/$threadId'
     | '/_authenticated/chat/'
     | '/api/oauth/eventbrite/return'
+    | '/api/public/jobs/community-scout'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -107,6 +124,7 @@ export interface RootRouteChildren {
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
   ApiOauthEventbriteReturnRoute: typeof ApiOauthEventbriteReturnRoute
+  ApiPublicJobsCommunityScoutRoute: typeof ApiPublicJobsCommunityScoutRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -160,6 +178,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiOauthEventbriteReturnRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/jobs/community-scout': {
+      id: '/api/public/jobs/community-scout'
+      path: '/api/public/jobs/community-scout'
+      fullPath: '/api/public/jobs/community-scout'
+      preLoaderRoute: typeof ApiPublicJobsCommunityScoutRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -192,6 +217,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
   ApiOauthEventbriteReturnRoute: ApiOauthEventbriteReturnRoute,
+  ApiPublicJobsCommunityScoutRoute: ApiPublicJobsCommunityScoutRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

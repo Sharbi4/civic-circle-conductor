@@ -1,7 +1,7 @@
 import { createFileRoute, Link, Outlet, useNavigate, useParams } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { MessageCircle, Plus, Plug, LogOut, Pin, Brain, Inbox, Megaphone, CalendarCheck, CreditCard, Sparkles, Check, X } from "lucide-react";
+import { MessageCircle, Plus, Plug, LogOut, Pin, Brain, Inbox, Megaphone, CalendarCheck, CreditCard, Sparkles, Check, X, Compass, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -80,7 +80,7 @@ function Sidebar({ orgName }: { orgName: string }) {
   const qc = useQueryClient();
   const navigate = useNavigate();
   const params = useParams({ strict: false }) as { threadId?: string };
-  const [tab, setTab] = useState<"chats" | "connectors" | "memory" | "approvals">("chats");
+  const [tab, setTab] = useState<"chats" | "connectors" | "memory" | "approvals" | "scout">("chats");
   const approvals = useApprovals();
   const pendingCount = approvals.data?.filter((a) => a.status === "pending").length ?? 0;
   const main = threads.data?.find((t) => t.kind === "main");
@@ -116,6 +116,7 @@ function Sidebar({ orgName }: { orgName: string }) {
         {railBtn("chats", MessageCircle, "Chats")}
         {railBtn("approvals", Inbox, "Approvals", pendingCount)}
         {railBtn("connectors", Plug, "Connectors")}
+        {railBtn("scout", Compass, "Community Scout")}
         {railBtn("memory", Brain, "Memory")}
         <div className="flex-1" />
         <button aria-label="Sign out" onClick={() => supabase.auth.signOut()} className="flex h-11 w-11 items-center justify-center rounded-2xl text-muted-foreground hover:bg-secondary">
@@ -177,6 +178,7 @@ function Sidebar({ orgName }: { orgName: string }) {
           </div>
         )}
         {tab === "approvals" && <ApprovalsPanel />}
+        {tab === "scout" && <ScoutPanel />}
         {tab === "memory" && <MemoryPanel />}
       </aside>
     </>
@@ -376,6 +378,148 @@ function ApprovalsPanel() {
           >
             Discuss with your organizer →
           </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ScoutPanel() {
+  const qc = useQueryClient();
+  const [showForm, setShowForm] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [form, setForm] = useState({ city: "", state: "", neighborhoods: "", interests: "", priorities: "", partner_types: "" });
+
+  const areas = useQuery({
+    queryKey: ["focus_areas"],
+    queryFn: async () => (await supabase.from("focus_areas").select("*").order("created_at")).data ?? [],
+  });
+  const findings = useQuery({
+    queryKey: ["scout_findings"],
+    queryFn: async () => (await supabase.from("scout_findings").select("*").order("created_at", { ascending: false }).limit(5)).data ?? [],
+  });
+  const resources = useQuery({
+    queryKey: ["resources"],
+    queryFn: async () => (await supabase.from("resources").select("*").order("created_at", { ascending: false }).limit(30)).data ?? [],
+  });
+
+  async function addArea() {
+    setBusy(true);
+    const { data: u } = await supabase.auth.getUser();
+    const { error } = await supabase.from("focus_areas").insert({ user_id: u.user!.id, ...form });
+    setBusy(false);
+    if (error) { toast.error(error.message); return; }
+    setForm({ city: "", state: "", neighborhoods: "", interests: "", priorities: "", partner_types: "" });
+    setShowForm(false);
+    await qc.invalidateQueries({ queryKey: ["focus_areas"] });
+    toast.success("Focus area added — Community Scout will research it on its next run.");
+  }
+
+  async function removeArea(id: string) {
+    const { error } = await supabase.from("focus_areas").delete().eq("id", id);
+    if (error) { toast.error(error.message); return; }
+    await qc.invalidateQueries({ queryKey: ["focus_areas"] });
+  }
+
+  async function removeResource(id: string) {
+    const { error } = await supabase.from("resources").delete().eq("id", id);
+    if (error) { toast.error(error.message); return; }
+    await qc.invalidateQueries({ queryKey: ["resources"] });
+  }
+
+  const field = (key: keyof typeof form, label: string, required = false) => (
+    <div>
+      <label className="text-xs font-medium text-muted-foreground">{label}{required && " *"}</label>
+      <Input
+        value={form[key]}
+        onChange={(e) => setForm({ ...form, [key]: e.target.value })}
+        className="mt-1 h-9 rounded-xl text-sm"
+      />
+    </div>
+  );
+
+  return (
+    <div className="flex-1 overflow-y-auto px-3 pb-4">
+      <p className="px-3 pb-3 text-sm text-muted-foreground">
+        Community Scout researches your focus areas twice a day and saves what it finds to your resource directory.
+      </p>
+
+      <div className="flex items-center justify-between px-3 text-sm font-semibold">
+        Focus areas
+        {(areas.data?.length ?? 0) < 10 && (
+          <button aria-label="Add focus area" onClick={() => setShowForm(!showForm)} className="rounded-lg p-1 hover:bg-sidebar-accent">
+            <Plus className="h-4 w-4" />
+          </button>
+        )}
+      </div>
+
+      {showForm && (
+        <div className="mt-2 space-y-2.5 rounded-2xl border bg-card p-4 shadow-soft">
+          <div className="grid grid-cols-2 gap-2">
+            {field("city", "City or community", true)}
+            {field("state", "State", true)}
+          </div>
+          {field("neighborhoods", "Neighborhoods or service radius")}
+          {field("interests", "Community interests")}
+          {field("priorities", "Organizational priorities")}
+          {field("partner_types", "Partners or vendors to discover")}
+          <div className="flex gap-2 pt-1">
+            <Button size="sm" disabled={busy || !form.city.trim() || !form.state.trim()} onClick={addArea} className="rounded-full">Save area</Button>
+            <Button size="sm" variant="ghost" onClick={() => setShowForm(false)} className="rounded-full">Cancel</Button>
+          </div>
+        </div>
+      )}
+
+      <div className="mt-1 space-y-1">
+        {areas.data?.map((a) => (
+          <div key={a.id} className="group flex items-center justify-between rounded-2xl px-3 py-2.5 hover:bg-sidebar-accent">
+            <div className="min-w-0">
+              <div className="truncate font-medium">{a.city}, {a.state}</div>
+              {a.priorities && <div className="truncate text-xs text-muted-foreground">{a.priorities}</div>}
+            </div>
+            <button aria-label={`Remove ${a.city}`} onClick={() => removeArea(a.id)} className="ml-2 shrink-0 rounded-lg p-1 text-muted-foreground opacity-0 hover:bg-secondary group-hover:opacity-100">
+              <Trash2 className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        ))}
+        {areas.data?.length === 0 && !showForm && (
+          <p className="px-3 py-2 text-sm text-muted-foreground">No focus areas yet — add one so the Scout knows where to look.</p>
+        )}
+      </div>
+
+      {findings.data && findings.data.length > 0 && (
+        <>
+          <div className="mt-5 px-3 text-sm font-semibold">Latest findings</div>
+          <div className="mt-1 space-y-2">
+            {findings.data.map((f) => (
+              <div key={f.id} className="rounded-2xl border bg-card p-3 text-sm shadow-soft">
+                <div className="text-xs text-muted-foreground">{new Date(f.created_at).toLocaleString()}</div>
+                <p className="mt-1 whitespace-pre-wrap leading-relaxed">{f.summary}</p>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+
+      <div className="mt-5 px-3 text-sm font-semibold">Resource directory</div>
+      <p className="px-3 pb-1 text-xs text-muted-foreground">Vendors, venues and partners Civi has saved — reused across events so research is never repeated.</p>
+      <div className="mt-1 space-y-1">
+        {resources.data?.map((r) => (
+          <div key={r.id} className="group flex items-start justify-between rounded-2xl px-3 py-2 hover:bg-sidebar-accent">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <span className="truncate text-sm font-medium">{r.name}</span>
+                <span className="shrink-0 rounded-full bg-secondary px-2 py-0.5 text-[10px] uppercase tracking-wider text-muted-foreground">{r.type}</span>
+              </div>
+              {r.details && <div className="truncate text-xs text-muted-foreground">{r.details}</div>}
+            </div>
+            <button aria-label={`Remove ${r.name}`} onClick={() => removeResource(r.id)} className="ml-2 shrink-0 rounded-lg p-1 text-muted-foreground opacity-0 hover:bg-secondary group-hover:opacity-100">
+              <Trash2 className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        ))}
+        {resources.data?.length === 0 && (
+          <p className="px-3 py-2 text-sm text-muted-foreground">Nothing saved yet — ask Civi to research vendors or venues and it will file them here.</p>
         )}
       </div>
     </div>

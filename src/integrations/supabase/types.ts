@@ -113,6 +113,42 @@ export type Database = {
         }
         Relationships: []
       }
+      focus_areas: {
+        Row: {
+          city: string
+          created_at: string
+          id: string
+          interests: string | null
+          neighborhoods: string | null
+          partner_types: string | null
+          priorities: string | null
+          state: string
+          user_id: string
+        }
+        Insert: {
+          city: string
+          created_at?: string
+          id?: string
+          interests?: string | null
+          neighborhoods?: string | null
+          partner_types?: string | null
+          priorities?: string | null
+          state: string
+          user_id: string
+        }
+        Update: {
+          city?: string
+          created_at?: string
+          id?: string
+          interests?: string | null
+          neighborhoods?: string | null
+          partner_types?: string | null
+          priorities?: string | null
+          state?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       memories: {
         Row: {
           content: string
@@ -189,6 +225,95 @@ export type Database = {
           mission?: string | null
           name?: string | null
           onboarded?: boolean
+          user_id?: string
+        }
+        Relationships: []
+      }
+      resources: {
+        Row: {
+          created_at: string
+          details: string | null
+          id: string
+          name: string
+          source: string | null
+          status: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          details?: string | null
+          id?: string
+          name: string
+          source?: string | null
+          status?: string
+          type?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          details?: string | null
+          id?: string
+          name?: string
+          source?: string | null
+          status?: string
+          type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      scout_findings: {
+        Row: {
+          created_at: string
+          focus_area_id: string | null
+          id: string
+          summary: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          focus_area_id?: string | null
+          id?: string
+          summary: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          focus_area_id?: string | null
+          id?: string
+          summary?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scout_findings_focus_area_id_fkey"
+            columns: ["focus_area_id"]
+            isOneToOne: false
+            referencedRelation: "focus_areas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      scout_state: {
+        Row: {
+          last_run_at: string | null
+          lease_until: string | null
+          pause_reason: string | null
+          paused: boolean
+          user_id: string
+        }
+        Insert: {
+          last_run_at?: string | null
+          lease_until?: string | null
+          pause_reason?: string | null
+          paused?: boolean
+          user_id: string
+        }
+        Update: {
+          last_run_at?: string | null
+          lease_until?: string | null
+          pause_reason?: string | null
+          paused?: boolean
           user_id?: string
         }
         Relationships: []

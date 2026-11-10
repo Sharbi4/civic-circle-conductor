@@ -4,6 +4,10 @@
 - [x] Live browser view — Civi opens real Browserbase sessions ([[browse:]] marker), live iframe card in chat with End session; agent-driven navigation/actions still to build
 - [ ] Eventbrite app registration: provide Application URL + OAuth Redirect URI values for both preview and published hosts; verify first real OAuth connect with corrected credentials
 - [ ] Scheduled agent tasks (5/15/30 min)
+- [x] Six lead actions: Plan an Event, Social Outreach, Poll Your Community, Analyze Sentiment, Email Campaign, Phone Outreach — kickoff cards in chat empty state + full workflow guidance in the system prompt (lead action → task plan → execution tools)
+- [ ] Agent task plans: visible multi-step plan per objective with statuses the organizer can watch and redirect
+- [x] Resource directory: vendors/venues/partners saved via [[resource:]] markers from chat and Community Scout; browsable in the Scout panel
+- [x] Community Scout: scheduled background job (twice daily, up to 10 focus areas per org) — researches communities, saves resources, posts a findings report to the main chat; currently researches from model knowledge (unverified leads), live web research via browser/search still to build; Facebook-group recommendations require admin approval
 - [ ] Remaining connectors: Facebook, Instagram, Instagram DMs, X, Nextdoor, Gmail, TikTok
 - [ ] Streaming replies
 - [x] Muse-style animated homepage + Civi character

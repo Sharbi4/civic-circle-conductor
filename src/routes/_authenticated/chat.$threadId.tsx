@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
-import { ArrowUp, ExternalLink, Megaphone, MonitorUp, Square } from "lucide-react";
+import { ArrowUp, CalendarHeart, ExternalLink, Mail, Megaphone, MonitorUp, Phone, Square, Vote, HeartPulse, MessageSquareHeart } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { sendOrganizerMessage } from "@/lib/organizer.functions";
@@ -125,10 +125,13 @@ function BrowserCard({ sessionRowId, task }: { sessionRowId: string; task: strin
   );
 }
 
-const STARTERS = [
-  "Plan a volunteer recruitment push for this month",
-  "Draft a post announcing our next community meeting",
-  "Build a 2-week outreach calendar across our channels",
+const LEAD_ACTIONS = [
+  { Icon: CalendarHeart, title: "Plan an Event", desc: "Research, organize, promote & measure", prompt: "I want to plan an event. Walk me through it — start by asking what kind of event, where, when, how many people, budget, venue, vendors, audience and goal." },
+  { Icon: Megaphone, title: "Social Outreach", desc: "Campaigns, posts & follow-up", prompt: "I want to run a social outreach campaign. Ask me about my goal, audience, location, channels and schedule, then build a content and engagement plan." },
+  { Icon: Vote, title: "Poll Your Community", desc: "Feedback & community priorities", prompt: "I want to poll my community. Ask me what I want to learn and who should respond, then draft the questions." },
+  { Icon: HeartPulse, title: "Analyze Sentiment", desc: "How communities respond to you", prompt: "I want to analyze community sentiment. Ask me which communities and date range to focus on, then identify recurring themes, concerns and support." },
+  { Icon: Mail, title: "Email Campaign", desc: "Approved outreach, sent & tracked", prompt: "I want to run an email campaign. Ask me about the objective, audience and timing, then draft the content." },
+  { Icon: Phone, title: "Phone Outreach", desc: "Calls, responses & follow-up", prompt: "I want to coordinate phone outreach. Ask me about the purpose, contacts, script and schedule." },
 ];
 
 function ChatWindow({ threadId }: { threadId: string }) {
@@ -184,18 +187,28 @@ function ChatWindow({ threadId }: { threadId: string }) {
       <div className="flex-1 overflow-y-auto">
         <div className="mx-auto w-full max-w-3xl px-5 pb-40 pt-8">
           {all.length === 0 && !msgs.isLoading && (
-            <div className="flex flex-col items-center pt-20 text-center">
+            <div className="flex flex-col items-center pt-14 text-center">
               <div className="flex h-16 w-16 items-center justify-center rounded-full bg-accent text-accent-foreground shadow-soft">
-                <Megaphone className="h-7 w-7" />
+                <MessageSquareHeart className="h-7 w-7" />
               </div>
               <h2 className="font-display mt-5 text-3xl font-bold">
-                {thread?.kind === "main" ? "Your organizer is ready." : thread?.title}
+                {thread?.kind === "main" ? "What are we moving forward?" : thread?.title}
               </h2>
-              <p className="mt-2 text-muted-foreground">Tell it what you want to move forward.</p>
-              <div className="mt-6 flex flex-wrap justify-center gap-2">
-                {STARTERS.map((s) => (
-                  <button key={s} onClick={() => submit(s)} className="rounded-full border bg-card px-4 py-2 text-sm hover:bg-secondary">
-                    {s}
+              <p className="mt-2 text-muted-foreground">Pick a lead action, or just start typing.</p>
+              <div className="mt-8 grid w-full max-w-xl grid-cols-1 gap-3 sm:grid-cols-2">
+                {LEAD_ACTIONS.map((a) => (
+                  <button
+                    key={a.title}
+                    onClick={() => submit(a.prompt)}
+                    className="group flex items-start gap-3 rounded-2xl border bg-card p-4 text-left shadow-soft transition-colors hover:bg-secondary"
+                  >
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-secondary text-accent transition-colors group-hover:bg-background">
+                      <a.Icon className="h-4.5 w-4.5" />
+                    </span>
+                    <span>
+                      <span className="block text-sm font-semibold">{a.title}</span>
+                      <span className="mt-0.5 block text-xs text-muted-foreground">{a.desc}</span>
+                    </span>
                   </button>
                 ))}
               </div>
