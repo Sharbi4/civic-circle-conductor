@@ -1147,7 +1147,13 @@ function NewChatMenu({ onBlank }: { onBlank: () => void }) {
       try {
         await startBrowser({ data: { threadId, task: "Open https://www.facebook.com/ and sign in with the saved Facebook login, then wait for the organizer's next task" } });
         qc.invalidateQueries({ queryKey: ["messages"] });
-      } catch (e) { toast.error(e instanceof Error ? e.message : "Couldn't open the browser"); }
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : "Couldn't open the browser";
+        toast.error(msg);
+        await supabase.from("messages").insert({ thread_id: threadId, user_id: u.user!.id, role: "assistant",
+          content: `⚠️ I couldn't open the Facebook browser: ${/402|minutes/i.test(msg) ? "your browser service is out of free minutes for now." : msg}\n\n[[choices: Try again | Open Facebook later]]` });
+        qc.invalidateQueries({ queryKey: ["messages"] });
+      }
     }
   }
 
