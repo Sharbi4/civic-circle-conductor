@@ -124,6 +124,8 @@ function BrowserCard({ sessionRowId, task }: { sessionRowId: string; task: strin
   useEffect(() => { const v = Number(localStorage.getItem("civi-browser-h")); if (v > 0) setFrameH(v); }, []);
   function startResize(e: React.PointerEvent) {
     e.preventDefault();
+    const el = e.currentTarget as HTMLElement;
+    try { el.setPointerCapture(e.pointerId); } catch { /* ignore */ }
     const y0 = e.clientY, h0 = frameH;
     setDragging(true);
     let last = h0;
@@ -134,11 +136,13 @@ function BrowserCard({ sessionRowId, task }: { sessionRowId: string; task: strin
     const up = () => {
       setDragging(false);
       localStorage.setItem("civi-browser-h", String(last));
-      window.removeEventListener("pointermove", move);
-      window.removeEventListener("pointerup", up);
+      el.removeEventListener("pointermove", move);
+      el.removeEventListener("pointerup", up);
+      el.removeEventListener("pointercancel", up);
     };
-    window.addEventListener("pointermove", move);
-    window.addEventListener("pointerup", up);
+    el.addEventListener("pointermove", move);
+    el.addEventListener("pointerup", up);
+    el.addEventListener("pointercancel", up);
   }
   const steps = (Array.isArray(session.data?.steps) ? session.data!.steps : []) as { action: string; note: string }[];
 
@@ -225,9 +229,9 @@ function BrowserCard({ sessionRowId, task }: { sessionRowId: string; task: strin
           <div
             role="separator" aria-orientation="horizontal" aria-label="Drag to resize the browser"
             onPointerDown={startResize}
-            className="flex h-3 cursor-row-resize touch-none items-center justify-center border-t bg-secondary/60 hover:bg-secondary"
+            className="flex h-5 cursor-row-resize touch-none items-center justify-center border-t bg-secondary/60 hover:bg-secondary"
           >
-            <span className="h-1 w-10 rounded-full bg-muted-foreground/40" />
+            <span className="h-1.5 w-12 rounded-full bg-muted-foreground/50" />
           </div>
           {agent === "needs_user" && (
             <div className="flex flex-wrap items-center justify-between gap-2 border-t bg-secondary px-4 py-3">
