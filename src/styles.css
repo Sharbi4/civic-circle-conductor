@@ -96,6 +96,39 @@
   --shadow-soft: 0 8px 30px -12px oklch(0.2 0.02 255 / 0.18);
 }
 
+.dark {
+  --background: oklch(0.17 0.005 255);
+  --foreground: oklch(0.97 0.004 85);
+  --card: oklch(0.25 0.006 255);
+  --card-foreground: oklch(0.97 0.004 85);
+  --secondary: oklch(0.27 0.006 255);
+  --secondary-foreground: oklch(0.97 0.004 85);
+  --muted: oklch(0.27 0.006 255);
+  --muted-foreground: oklch(0.7 0.01 255);
+  --primary: oklch(0.68 0.17 32);
+  --primary-foreground: oklch(0.17 0.005 255);
+  --accent: oklch(0.3 0.05 30);
+  --accent-foreground: oklch(0.8 0.12 35);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.68 0.17 32);
+}
+
+@keyframes phrase-in {
+  0% { opacity: 0; transform: translateY(0.5em); filter: blur(6px); }
+  100% { opacity: 1; transform: translateY(0); filter: blur(0); }
+}
+@utility animate-phrase {
+  animation: phrase-in 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+@keyframes float-y {
+  0%, 100% { transform: translateY(0) rotate(-3deg); }
+  50% { transform: translateY(-6px) rotate(3deg); }
+}
+@utility animate-float {
+  animation: float-y 3.2s ease-in-out infinite;
+}
+
 @layer base {
   * {
     border-color: var(--color-border);

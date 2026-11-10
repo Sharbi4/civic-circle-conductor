@@ -5,3 +5,7 @@
 - [ ] Scheduled agent tasks (5/15/30 min)
 - [ ] Remaining connectors: Facebook, Instagram, Instagram DMs, X, Nextdoor, Gmail, TikTok
 - [ ] Streaming replies
+- [x] Muse-style animated homepage + Civi character
+- [ ] Food vendor database (Facebook agent searches vendors, saves them; used for event outreach)
+- [ ] Settings page: connectors + secure saved logins the agent can fill into forms
+- [ ] Voice agent (ElevenLabs or OpenAI voice)
