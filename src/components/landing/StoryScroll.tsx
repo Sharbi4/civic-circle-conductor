@@ -63,55 +63,57 @@ function Row({ icon, t, s }: { icon: React.ReactNode; t: string; s: string }) {
 
 export function StoryScroll() {
   const ref = useRef<HTMLDivElement>(null);
-  const [p, setP] = useState(0);
+  const [active, setActive] = useState(0);
   useEffect(() => {
+    let raf = 0;
     const on = () => {
-      const el = ref.current; if (!el) return;
-      const r = el.getBoundingClientRect();
-      const total = r.height - window.innerHeight;
-      setP(Math.min(1, Math.max(0, -r.top / total)));
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => {
+        const el = ref.current; if (!el) return;
+        const r = el.getBoundingClientRect();
+        const total = r.height - window.innerHeight;
+        const p = Math.min(0.999, Math.max(0, -r.top / total));
+        setActive(Math.floor(p * STEPS.length));
+      });
     };
     on(); window.addEventListener("scroll", on, { passive: true }); window.addEventListener("resize", on);
-    return () => { window.removeEventListener("scroll", on); window.removeEventListener("resize", on); };
+    return () => { cancelAnimationFrame(raf); window.removeEventListener("scroll", on); window.removeEventListener("resize", on); };
   }, []);
-  const pos = p * (STEPS.length - 1);
-  const active = Math.round(pos);
 
   return (
-    <section id="learn" ref={ref} style={{ height: `${STEPS.length * 100}vh` }} className="relative w-full">
-      <div className="sticky top-0 flex h-screen items-center overflow-hidden px-6 md:px-20">
+    <section id="learn" ref={ref} style={{ height: `${STEPS.length * 75 + 25}svh` }} className="relative w-full">
+      <div className="sticky top-0 flex h-[100svh] items-center overflow-hidden px-5 md:px-20">
         <div className="pointer-events-none absolute inset-0 opacity-40 [background-image:linear-gradient(var(--border)_1px,transparent_1px),linear-gradient(90deg,var(--border)_1px,transparent_1px)] [background-size:56px_56px] [mask-image:radial-gradient(ellipse_at_center,black_30%,transparent_75%)]" />
-        <div className="relative mx-auto grid w-full max-w-6xl items-center gap-12 md:grid-cols-2">
+        <div className="relative mx-auto grid w-full max-w-6xl items-center gap-6 md:grid-cols-2 md:gap-12">
           <div className="text-left">
-            <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">How Civi works</p>
-            <div className="relative mt-6 h-56">
-              {STEPS.map((s, i) => {
-                const d = i - pos;
-                return (
-                  <div key={s.k} className="absolute inset-0 transition-all duration-500 ease-out"
-                    style={{ opacity: Math.max(0, 1 - Math.abs(d) * 1.6), transform: `translateY(${d * 40}px)`, filter: `blur(${Math.min(8, Math.abs(d) * 4)}px)` }}>
-                    <p className="font-mono text-sm text-primary">{s.k}</p>
-                    <h2 className="mt-2 text-4xl font-semibold tracking-tight md:text-5xl">{s.title}</h2>
-                    <p className="mt-4 max-w-md text-lg text-muted-foreground">{s.body}</p>
-                  </div>
-                );
-              })}
+            <div className="flex items-center justify-between md:block">
+              <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">How Civi works</p>
+              <div className="flex gap-1.5 md:hidden">
+                {STEPS.map((s, i) => <span key={s.k} className={`h-1 rounded-full transition-all duration-500 ${i === active ? "w-8 bg-primary" : "w-3 bg-secondary"}`} />)}
+              </div>
             </div>
-            <div className="mt-6 flex gap-2">
+            <div className="relative mt-4 h-44 md:mt-6 md:h-56">
+              {STEPS.map((s, i) => (
+                <div key={s.k} aria-hidden={i !== active}
+                  className={`absolute inset-0 transition-all duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] ${i === active ? "translate-y-0 opacity-100" : i < active ? "-translate-y-6 opacity-0" : "translate-y-6 opacity-0"}`}>
+                  <p className="font-mono text-sm text-primary">{s.k}</p>
+                  <h2 className="mt-2 text-3xl font-semibold tracking-tight md:text-5xl">{s.title}</h2>
+                  <p className="mt-3 max-w-md text-base text-muted-foreground md:mt-4 md:text-lg">{s.body}</p>
+                </div>
+              ))}
+            </div>
+            <div className="mt-6 hidden gap-2 md:flex">
               {STEPS.map((s, i) => <span key={s.k} className={`h-1 rounded-full transition-all duration-500 ${i === active ? "w-10 bg-primary" : "w-4 bg-secondary"}`} />)}
             </div>
           </div>
-          <div className="relative h-[380px]">
-            {STEPS.map((s, i) => {
-              const d = i - pos;
-              return (
-                <div key={s.k} className="absolute inset-0 rounded-[2rem] border border-border/60 bg-card/80 p-6 shadow-2xl backdrop-blur-xl transition-all duration-500 ease-out"
-                  style={{ opacity: d < -0.6 ? 0 : Math.max(0, 1 - Math.max(0, d) * 0.9), transform: `translateY(${Math.max(d, -0.6) * 60}px) scale(${1 - Math.abs(d) * 0.06})`, zIndex: 10 - Math.round(Math.abs(d) * 2) }}>
-                  <div className="mb-5 flex items-center gap-1.5">{[0, 1, 2].map((x) => <span key={x} className="h-2.5 w-2.5 rounded-full bg-secondary" />)}<span className="ml-3 text-xs text-muted-foreground">civi · live</span></div>
-                  {s.visual}
-                </div>
-              );
-            })}
+          <div className="relative h-[300px] md:h-[380px]">
+            {STEPS.map((s, i) => (
+              <div key={s.k} aria-hidden={i !== active}
+                className={`absolute inset-0 rounded-[2rem] border border-border/60 bg-card/80 p-5 shadow-2xl backdrop-blur-xl transition-all duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] md:p-6 ${i === active ? "translate-y-0 scale-100 opacity-100" : i < active ? "-translate-y-8 scale-95 opacity-0" : "translate-y-10 scale-95 opacity-0"}`}>
+                <div className="mb-4 flex items-center gap-1.5 md:mb-5">{[0, 1, 2].map((x) => <span key={x} className="h-2.5 w-2.5 rounded-full bg-secondary" />)}<span className="ml-3 text-xs text-muted-foreground">civi · live</span></div>
+                {s.visual}
+              </div>
+            ))}
           </div>
         </div>
       </div>
