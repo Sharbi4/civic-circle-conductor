@@ -43,6 +43,13 @@
       "when": 1794334055171,
       "tag": "0005_browser_agent",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1794334741470,
+      "tag": "0006_approval_payload",
+      "breakpoints": true
     }
   ]
 }

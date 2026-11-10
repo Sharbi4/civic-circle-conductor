@@ -1,0 +1,1 @@
+ALTER TABLE public.approvals ADD COLUMN payload jsonb;
