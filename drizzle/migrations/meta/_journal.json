@@ -50,6 +50,13 @@
       "when": 1794334741470,
       "tag": "0006_approval_payload",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1794337685387,
+      "tag": "0007_app_user_connections",
+      "breakpoints": true
     }
   ]
 }

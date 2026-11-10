@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { CONNECTORS } from "@/lib/connectors";
+import { startLinkedInConnect, completeLinkedInConnect, getLinkedInStatus, disconnectLinkedIn, runLinkedInApproval } from "@/lib/linkedin.functions";
 import { startEventbriteConnect, completeEventbriteConnect, getEventbriteStatus, disconnectEventbrite, runEventbriteApproval } from "@/lib/eventbrite.functions";
 
 export const Route = createFileRoute("/_authenticated/chat")({
@@ -171,6 +172,8 @@ function Sidebar({ orgName }: { orgName: string }) {
             {CONNECTORS.map((c) =>
               c.id === "eventbrite" ? (
                 <EventbriteConnectorRow key={c.id} />
+              ) : c.id === "linkedin" ? (
+                <LinkedInConnectorRow key={c.id} />
               ) : (
                 <div key={c.id} className="flex items-center justify-between rounded-2xl px-3 py-2.5 hover:bg-sidebar-accent">
                   <span>{c.name}</span>
@@ -286,6 +289,104 @@ function EventbriteConnectorRow() {
   );
 }
 
+function LinkedInConnectorRow() {
+  const qc = useQueryClient();
+  const navigate = useNavigate();
+  const [busy, setBusy] = useState(false);
+  const status = useQuery({ queryKey: ["linkedin-status"], queryFn: () => getLinkedInStatus() });
+
+  function waitForOAuth(popup: Window) {
+    return new Promise<string>((resolve, reject) => {
+      let poll: number | undefined;
+      const cleanup = () => {
+        window.removeEventListener("message", onMessage);
+        if (poll !== undefined) window.clearInterval(poll);
+      };
+      const onMessage = (event: MessageEvent) => {
+        // The OAuth popup can land on the published domain while the opener is
+        // the preview (LinkedIn allows only one redirect URI), so accept our
+        // own app origins rather than only this window's origin.
+        if (event.origin !== window.location.origin || event.source !== popup) return;
+        const type = event.data?.type;
+        if (event.data?.connectorId !== "linkedin") return;
+        if (type !== "appUserConnectorOAuthComplete" && type !== "appUserConnectorOAuthFailed") return;
+        cleanup();
+        if (type === "appUserConnectorOAuthComplete" && typeof event.data?.code === "string") resolve(event.data.code);
+        else { popup.close(); reject(new Error("LinkedIn connection failed.")); }
+      };
+      window.addEventListener("message", onMessage);
+      poll = window.setInterval(() => {
+        if (!popup.closed) return;
+        cleanup();
+        reject(new Error("LinkedIn window closed before finishing."));
+      }, 500);
+    });
+  }
+
+  async function connect() {
+    setBusy(true);
+    const popup = window.open("", "civi-linkedin-oauth", "width=600,height=720");
+    if (!popup) { setBusy(false); toast.error("Popup blocked — allow popups and try again."); return; }
+    try {
+      const { authorizationUrl } = await startLinkedInConnect();
+      const completion = waitForOAuth(popup);
+      popup.location.href = authorizationUrl;
+      const code = await completion;
+      const result = await completeLinkedInConnect({ data: { code } });
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ["linkedin-status"] }),
+        qc.invalidateQueries({ queryKey: ["threads"] }),
+      ]);
+      toast.success(`Connected to LinkedIn as ${result.accountName}`);
+      if (result.threadId) navigate({ to: "/chat/$threadId", params: { threadId: result.threadId } });
+    } catch (e) {
+      popup.close();
+      toast.error(e instanceof Error ? e.message : "LinkedIn connection failed.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function disconnect() {
+    setBusy(true);
+    try {
+      await disconnectLinkedIn();
+      await qc.invalidateQueries({ queryKey: ["linkedin-status"] });
+      toast.success("LinkedIn disconnected.");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Disconnect failed.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const connected = status.data?.connected;
+  return (
+    <div className="rounded-2xl px-3 py-2.5 hover:bg-sidebar-accent">
+      <div className="flex items-center justify-between">
+        <span>LinkedIn</span>
+        {status.isLoading ? (
+          <span className="rounded-full bg-secondary px-2 py-0.5 text-xs text-muted-foreground">…</span>
+        ) : connected ? (
+          <span className="rounded-full bg-accent px-2 py-0.5 text-xs font-medium text-accent-foreground">Connected</span>
+        ) : (
+          <Button size="sm" variant="outline" disabled={busy} onClick={connect} className="h-7 rounded-full px-3 text-xs">
+            {busy ? "Connecting…" : "Connect"}
+          </Button>
+        )}
+      </div>
+      {connected && (
+        <div className="mt-1.5 flex items-center justify-between text-xs text-muted-foreground">
+          <span className="truncate">{status.data?.accountName}</span>
+          <button onClick={disconnect} disabled={busy} className="ml-2 shrink-0 underline hover:text-foreground">
+            Disconnect
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 const APPROVAL_TYPE: Record<string, { Icon: typeof Megaphone; label: string }> = {
   outreach: { Icon: Megaphone, label: "Outreach" },
   booking: { Icon: CalendarCheck, label: "Booking" },
@@ -300,6 +401,7 @@ function ApprovalsPanel() {
   const navigate = useNavigate();
   const [busyId, setBusyId] = useState<string | null>(null);
   const runEb = useServerFn(runEventbriteApproval);
+  const runLi = useServerFn(runLinkedInApproval);
   const main = threads.data?.find((t) => t.kind === "main");
   const pending = approvals.data?.filter((a) => a.status === "pending") ?? [];
   const resolved = approvals.data?.filter((a) => a.status !== "pending") ?? [];
@@ -319,6 +421,18 @@ function ApprovalsPanel() {
         if (r.threadId) qc.invalidateQueries({ queryKey: ["messages", r.threadId] });
       } catch (e) {
         toast.error(e instanceof Error ? e.message : "Eventbrite couldn't create the event");
+      }
+      await qc.invalidateQueries({ queryKey: ["approvals"] });
+      setBusyId(null);
+      return;
+    }
+    if (decision === "approved" && (payload as { kind?: string } | null)?.kind === "linkedin_post") {
+      try {
+        const r = await runLi({ data: { approvalId: id } });
+        toast.success("Posted to LinkedIn.");
+        if (r.threadId) qc.invalidateQueries({ queryKey: ["messages", r.threadId] });
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "LinkedIn couldn't publish the post");
       }
       await qc.invalidateQueries({ queryKey: ["approvals"] });
       setBusyId(null);

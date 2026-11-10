@@ -25,6 +25,9 @@ export const sendOrganizerMessage = createServerFn({ method: "POST" })
     const { data: ebConn } = await supabaseAdmin.from("connector_connections")
       .select("account_name").eq("user_id", userId).eq("connector", "eventbrite").maybeSingle();
 
+    const { data: liConn } = await supabaseAdmin.from("app_user_connections")
+      .select("account_name").eq("user_id", userId).eq("connector_id", "linkedin").maybeSingle();
+
     const [{ data: org }, { data: history }, { data: memories }] = await Promise.all([
       supabase.from("organizations").select("name, mission").eq("user_id", userId).maybeSingle(),
       supabase.from("messages").select("role, content").eq("thread_id", data.threadId).order("created_at").limit(60),
@@ -50,6 +53,9 @@ For multi-step objectives, show a visible task plan with statuses (Done / Workin
       ebConn
         ? `Eventbrite IS CONNECTED and live (account: ${ebConn.account_name}). You can really create events on it. Be the planner: from the event type, audience and location, YOU propose a compelling event name, and the best day and time for that kind of event in that community (e.g. weekday evenings 6–8pm for volunteer meetups, Saturday mornings for family/outdoor events, avoid holidays, Arizona summer heat midday and major local conflicts), a realistic capacity, and a cover image concept — explain your reasoning in one line each. Only ask for what you truly can't decide (e.g. which venue, if unknown). Invite them to tweak the name/time or give cover image ideas (colors, logo, mood). The cover image is generated with AI and uploaded to Eventbrite automatically. Summarize the listing, say it's queued in Approvals, and add a final line exactly like: [[eventbrite_event: {"title":"...","start":"YYYY-MM-DDTHH:MM:00-07:00","end":"YYYY-MM-DDTHH:MM:00-07:00","timezone":"America/Phoenix","location":"venue + address or Online","capacity":100,"price":0,"description":"<p>...</p>","image_prompt":"detailed visual description of the cover image incl. their suggestions"}]]. After approval it is created as a draft the organizer publishes. Never say Eventbrite isn't connected.`
         : "Eventbrite is not connected yet; if they want an event listing, draft it and ask them to connect Eventbrite in the Connectors tab.",
+      liConn
+        ? `LinkedIn IS CONNECTED (member: ${liConn.account_name}). You can really publish posts as this member. When a post is wanted, write it (professional, warm, under 1,300 characters, a few relevant hashtags, include event links if known), show it, say it's queued in Approvals, and add a final line exactly like: [[linkedin_post: {"text":"<full post text, use \\n for line breaks>"}]]. It publishes only after approval.`
+        : "LinkedIn is not connected yet; draft posts and suggest connecting LinkedIn in the Connectors tab.",
       `Approvals: when you propose any outreach, booking or payment action, describe it in the message, tell the user it is queued in the Approvals inbox for their review, and add a final line exactly like: [[approval: <outreach|booking|payment> | <short title> | <one line of details>]]. One line per proposed action. Never claim an action is done until the user has approved it.`,
       `Live browser: you can open a real web browser that the user watches live inside the chat. When the user asks you to browse the web or a task genuinely needs live browsing (researching vendors on a site, checking event listings, looking at a page), add a final line exactly like: [[browse: <what you will do in the browser>]] and tell the user you're opening a live browser they can watch and take over. The browse task is your goal: you will drive the browser yourself step by step (navigate sites like Eventbrite, search, fill forms), the user watches each step and can take over anytime, and before submitting any form, message, booking or payment you pause for their approval in the Approvals inbox. Write the browse goal specifically (site, search terms, what to fill in). Never claim results before the browser task reports back.`,
       `Be concise, decisive and practical. Use markdown with short headings and bullets.`,
@@ -101,6 +107,15 @@ For multi-step objectives, show a visible task plan with statuses (Done / Workin
       } catch { return []; }
     });
     if (ebConn) approvalRows.push(...ebRows);
+    const liRows = [...text.matchAll(/\[\[linkedin_post:\s*(\{.+?\})\s*\]\]/gs)].flatMap((m) => {
+      try {
+        const p = JSON.parse(m[1] ?? "") as { text?: string };
+        if (!p.text) return [];
+        return [{ user_id: userId, action_type: "outreach", title: "Publish LinkedIn post",
+          details: p.text.slice(0, 240), payload: { kind: "linkedin_post", text: p.text } }];
+      } catch { return []; }
+    });
+    if (liConn) approvalRows.push(...liRows);
     const browseTasks = [...text.matchAll(/\[\[browse:\s*(.+?)\]\]/g)].map((m) => (m[1] ?? "").trim()).filter(Boolean);
     const resourceRows = [...text.matchAll(/\[\[resource:\s*(.+?)\]\]/g)]
       .map((m) => (m[1] ?? "").split("|").map((s) => s.trim()))
@@ -114,7 +129,7 @@ For multi-step objectives, show a visible task plan with statuses (Done / Workin
         source: "Civi chat",
         status: "suggested",
       }));
-    let clean = text.replace(/\n?\[\[(?:remember|approval|browse|resource|eventbrite_event):.+?\]\]/gs, "").trim() || "…";
+    let clean = text.replace(/\n?\[\[(?:remember|approval|browse|resource|eventbrite_event|linkedin_post):.+?\]\]/gs, "").trim() || "…";
 
     for (const task of browseTasks.slice(0, 2)) {
       const lovableKey = process.env["LOVABLE_API_KEY"];

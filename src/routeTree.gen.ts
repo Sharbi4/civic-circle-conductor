@@ -16,6 +16,7 @@ import { Route as AuthenticatedChatRouteImport } from './routes/_authenticated/c
 import { Route as AuthenticatedChatIndexRouteImport } from './routes/_authenticated/chat.index'
 import { Route as AuthenticatedChatThreadIdRouteImport } from './routes/_authenticated/chat.$threadId'
 import { Route as ApiOauthEventbriteReturnRouteImport } from './routes/api/oauth/eventbrite/return'
+import { Route as ApiOauthLinkedinReturnRouteImport } from './routes/api/oauth/linkedin/return'
 import { Route as ApiPublicJobsCommunityScoutRouteImport } from './routes/api/public/jobs/community-scout'
 
 const IndexRoute = IndexRouteImport.update({
@@ -54,6 +55,11 @@ const ApiOauthEventbriteReturnRoute =
     path: '/api/oauth/eventbrite/return',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiOauthLinkedinReturnRoute = ApiOauthLinkedinReturnRouteImport.update({
+  id: '/api/oauth/linkedin/return',
+  path: '/api/oauth/linkedin/return',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicJobsCommunityScoutRoute =
   ApiPublicJobsCommunityScoutRouteImport.update({
     id: '/api/public/jobs/community-scout',
@@ -68,6 +74,7 @@ export interface FileRoutesByFullPath {
   '/chat/$threadId': typeof AuthenticatedChatThreadIdRoute
   '/chat/': typeof AuthenticatedChatIndexRoute
   '/api/oauth/eventbrite/return': typeof ApiOauthEventbriteReturnRoute
+  '/api/oauth/linkedin/return': typeof ApiOauthLinkedinReturnRoute
   '/api/public/jobs/community-scout': typeof ApiPublicJobsCommunityScoutRoute
 }
 export interface FileRoutesByTo {
@@ -76,6 +83,7 @@ export interface FileRoutesByTo {
   '/chat/$threadId': typeof AuthenticatedChatThreadIdRoute
   '/chat': typeof AuthenticatedChatIndexRoute
   '/api/oauth/eventbrite/return': typeof ApiOauthEventbriteReturnRoute
+  '/api/oauth/linkedin/return': typeof ApiOauthLinkedinReturnRoute
   '/api/public/jobs/community-scout': typeof ApiPublicJobsCommunityScoutRoute
 }
 export interface FileRoutesById {
@@ -87,6 +95,7 @@ export interface FileRoutesById {
   '/_authenticated/chat/$threadId': typeof AuthenticatedChatThreadIdRoute
   '/_authenticated/chat/': typeof AuthenticatedChatIndexRoute
   '/api/oauth/eventbrite/return': typeof ApiOauthEventbriteReturnRoute
+  '/api/oauth/linkedin/return': typeof ApiOauthLinkedinReturnRoute
   '/api/public/jobs/community-scout': typeof ApiPublicJobsCommunityScoutRoute
 }
 export interface FileRouteTypes {
@@ -98,6 +107,7 @@ export interface FileRouteTypes {
     | '/chat/$threadId'
     | '/chat/'
     | '/api/oauth/eventbrite/return'
+    | '/api/oauth/linkedin/return'
     | '/api/public/jobs/community-scout'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -106,6 +116,7 @@ export interface FileRouteTypes {
     | '/chat/$threadId'
     | '/chat'
     | '/api/oauth/eventbrite/return'
+    | '/api/oauth/linkedin/return'
     | '/api/public/jobs/community-scout'
   id:
     | '__root__'
@@ -116,6 +127,7 @@ export interface FileRouteTypes {
     | '/_authenticated/chat/$threadId'
     | '/_authenticated/chat/'
     | '/api/oauth/eventbrite/return'
+    | '/api/oauth/linkedin/return'
     | '/api/public/jobs/community-scout'
   fileRoutesById: FileRoutesById
 }
@@ -124,6 +136,7 @@ export interface RootRouteChildren {
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
   ApiOauthEventbriteReturnRoute: typeof ApiOauthEventbriteReturnRoute
+  ApiOauthLinkedinReturnRoute: typeof ApiOauthLinkedinReturnRoute
   ApiPublicJobsCommunityScoutRoute: typeof ApiPublicJobsCommunityScoutRoute
 }
 
@@ -178,6 +191,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiOauthEventbriteReturnRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/oauth/linkedin/return': {
+      id: '/api/oauth/linkedin/return'
+      path: '/api/oauth/linkedin/return'
+      fullPath: '/api/oauth/linkedin/return'
+      preLoaderRoute: typeof ApiOauthLinkedinReturnRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/jobs/community-scout': {
       id: '/api/public/jobs/community-scout'
       path: '/api/public/jobs/community-scout'
@@ -217,6 +237,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
   ApiOauthEventbriteReturnRoute: ApiOauthEventbriteReturnRoute,
+  ApiOauthLinkedinReturnRoute: ApiOauthLinkedinReturnRoute,
   ApiPublicJobsCommunityScoutRoute: ApiPublicJobsCommunityScoutRoute,
 }
 export const routeTree = rootRouteImport
