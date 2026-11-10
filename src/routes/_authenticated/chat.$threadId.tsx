@@ -121,6 +121,31 @@ function BrowserCard({ sessionRowId, task }: { sessionRowId: string; task: strin
   const [showSteps, setShowSteps] = useState(false);
   const [frameH, setFrameH] = useState(380);
   const [dragging, setDragging] = useState(false);
+  const [frameW, setFrameW] = useState<number | null>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
+  useEffect(() => { const v = Number(localStorage.getItem("civi-browser-w")); if (v > 0) setFrameW(v); }, []);
+  function startCorner(e: React.PointerEvent, dir: "both" | "x") {
+    e.preventDefault(); e.stopPropagation();
+    const el = e.currentTarget as HTMLElement;
+    try { el.setPointerCapture(e.pointerId); } catch { /* ignore */ }
+    const x0 = e.clientX, y0 = e.clientY, h0 = frameH;
+    const parentW = cardRef.current?.parentElement?.clientWidth ?? 800;
+    const w0 = cardRef.current?.offsetWidth ?? parentW;
+    setDragging(true);
+    let lw = w0, lh = h0;
+    const move = (ev: PointerEvent) => {
+      lw = Math.round(Math.min(parentW, Math.max(320, w0 + ev.clientX - x0)));
+      setFrameW(lw);
+      if (dir === "both") { lh = Math.round(Math.min(window.innerHeight * 0.8, Math.max(160, h0 + ev.clientY - y0))); setFrameH(lh); }
+    };
+    const up = () => {
+      setDragging(false);
+      localStorage.setItem("civi-browser-w", String(lw));
+      localStorage.setItem("civi-browser-h", String(lh));
+      el.removeEventListener("pointermove", move); el.removeEventListener("pointerup", up); el.removeEventListener("pointercancel", up);
+    };
+    el.addEventListener("pointermove", move); el.addEventListener("pointerup", up); el.addEventListener("pointercancel", up);
+  }
   useEffect(() => { const v = Number(localStorage.getItem("civi-browser-h")); if (v > 0) setFrameH(v); }, []);
   function startResize(e: React.PointerEvent) {
     e.preventDefault();
@@ -201,7 +226,13 @@ function BrowserCard({ sessionRowId, task }: { sessionRowId: string; task: strin
   }
 
   return (
-    <div className="overflow-hidden rounded-2xl border bg-card shadow-soft">
+    <div ref={cardRef} className="relative mx-auto max-w-full overflow-hidden rounded-2xl border bg-card shadow-soft" style={frameW ? { width: frameW } : undefined}>
+      {running && (
+        <>
+          <div aria-label="Drag to change browser width" onPointerDown={(e) => startCorner(e, "x")} className="absolute inset-y-0 right-0 z-10 w-2 cursor-col-resize touch-none hover:bg-accent/20" />
+          <div aria-label="Drag to resize the browser" onPointerDown={(e) => startCorner(e, "both")} className="absolute bottom-0 right-0 z-20 h-5 w-5 cursor-nwse-resize touch-none rounded-tl-md bg-muted-foreground/30 hover:bg-accent/60" />
+        </>
+      )}
       <div className="flex items-center gap-2 px-4 py-2.5">
         <MonitorUp className="h-4 w-4 shrink-0 text-accent" />
         <span className="truncate text-sm font-medium">{task}</span>
