@@ -3,6 +3,8 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { MessageCircle, Plus, Plug, LogOut, Pin, Brain, Inbox, Megaphone, CalendarCheck, CreditCard, Sparkles, Check, X, Compass, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -494,7 +496,9 @@ function ScoutPanel() {
             {findings.data.map((f) => (
               <div key={f.id} className="rounded-2xl border bg-card p-3 text-sm shadow-soft">
                 <div className="text-xs text-muted-foreground">{new Date(f.created_at).toLocaleString()}</div>
-                <p className="mt-1 whitespace-pre-wrap leading-relaxed">{f.summary}</p>
+                <div className="prose prose-sm mt-1 max-w-none leading-relaxed dark:prose-invert prose-a:text-primary">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{f.summary}</ReactMarkdown>
+                </div>
               </div>
             ))}
           </div>
@@ -512,6 +516,11 @@ function ScoutPanel() {
                 <span className="shrink-0 rounded-full bg-secondary px-2 py-0.5 text-[10px] uppercase tracking-wider text-muted-foreground">{r.type}</span>
               </div>
               {r.details && <div className="truncate text-xs text-muted-foreground">{r.details}</div>}
+              {r.source?.startsWith("http") && (
+                <a href={r.source} target="_blank" rel="noreferrer" className="mt-0.5 block truncate text-xs text-primary hover:underline">
+                  Source ↗
+                </a>
+              )}
             </div>
             <button aria-label={`Remove ${r.name}`} onClick={() => removeResource(r.id)} className="ml-2 shrink-0 rounded-lg p-1 text-muted-foreground opacity-0 hover:bg-secondary group-hover:opacity-100">
               <Trash2 className="h-3.5 w-3.5" />
