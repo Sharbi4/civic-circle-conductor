@@ -25,3 +25,6 @@
 - [x] LinkedIn company page publishing: org scopes (rw_organization_admin, w_organization_social, r_organization_social) added to connect flow; posts and events publish as the organization when a page ID is set. Requires the "Community Management API" product enabled in the LinkedIn developer app + reconnect in Civi. Live org-post verification pending.
 - [x] LinkedIn event covers: uploaded/inspiration/AI cover uploaded via LinkedIn assets API and set as the event's backgroundImage on create and edit (live LinkedIn verification still pending a real approved event)
 - [x] Settings → Saved logins: encrypted per-org website logins; live browser fills them on matching sites (password never sent to AI)
+- [x] Browser handoff: Civi asks for control ('Your turn') and resumes when handed back
+- [x] First Facebook sign-in pop-up: city/ZIP → find groups (no joining without approval) + Page TLC review
+- [ ] Facebook Page: upload photos, scheduled recurring posts with generated/uploaded images (via browser, approval-gated)

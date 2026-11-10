@@ -85,6 +85,13 @@
       "when": 1794346257348,
       "tag": "0011_site_credentials_column_grants",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1794347136965,
+      "tag": "0012_facebook_setup_and_handoff",
+      "breakpoints": true
     }
   ]
 }

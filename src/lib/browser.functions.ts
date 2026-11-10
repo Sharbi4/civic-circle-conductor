@@ -190,6 +190,10 @@ export const browserAgentStep = createServerFn({ method: "POST" })
     try {
       const result = await withPage(row.connect_url, async (page) => {
         const state = await snapshot(page);
+        try {
+          const host = new URL(state.url).hostname.replace(/^www\./, "");
+          await supabase.from("browser_sessions").update({ site: host, signed_in: !state.hasPassword && !/login|checkpoint|two_step/.test(state.url) }).eq("id", row.id);
+        } catch { /* about:blank etc. */ }
         const { data: saved } = await supabase.from("site_credentials").select("domain").eq("user_id", userId);
         const savedSites = (saved ?? []).map((c: { domain: string }) => c.domain).join(", ") || "(none)";
         const res = await generateResponse({
@@ -197,13 +201,14 @@ export const browserAgentStep = createServerFn({ method: "POST" })
           instructions: [
             "You are Civi, a community-organizing agent driving a real web browser one action at a time to reach the organizer's goal (e.g. find vendors on Eventbrite, fill a booking/inquiry form).",
             "Reply with ONLY one JSON object. Allowed actions:",
-            '{"action":"navigate","url":"https://..."} | {"action":"click","index":N} | {"action":"type","index":N,"text":"..."} | {"action":"select","index":N,"value":"..."} | {"action":"press_enter","index":N} | {"action":"scroll"} | {"action":"login","username_index":N,"password_index":N} | {"action":"submit","index":N} | {"action":"request_approval","title":"...","details":"..."} | {"action":"done","summary":"markdown summary of what you found/did, with links"}',
+            '{"action":"navigate","url":"https://..."} | {"action":"click","index":N} | {"action":"type","index":N,"text":"..."} | {"action":"select","index":N,"value":"..."} | {"action":"press_enter","index":N} | {"action":"scroll"} | {"action":"login","username_index":N,"password_index":N} | {"action":"submit","index":N} | {"action":"handoff","reason":"what the organizer needs to do"} | {"action":"request_approval","title":"...","details":"..."} | {"action":"done","summary":"markdown summary of what you found/did, with links"}',
             "Add a short \"reason\" field to every action. Use element indexes from the page state only.",
             row.submit_approved
               ? "The organizer has APPROVED submitting. You may use submit on the final send/book/pay button."
-              : "Never click a button that sends a message, books, registers, purchases or pays. When a form is filled and ready, use request_approval describing exactly what will be sent and to whom. Use plain click only for navigation, search and opening pages.",
+              : "Never click a button that sends a message, posts, joins a group, books, registers, purchases or pays. When a form is filled and ready, use request_approval describing exactly what will be sent and to whom. Use plain click only for navigation, search and opening pages.",
             "If the page shows a sign-in form and the site is in the organizer's saved logins, use login with the username/email field index and the password field index (use the same index for both if only one field shows). You never see the password; the system fills it in. After login, click the sign-in button with click.",
-            "Never invent contact details. If a login with no saved credentials or a CAPTCHA blocks you, use done and say the organizer should take over.",
+            "Use handoff (NOT done) whenever only the organizer can continue: a login with no saved credentials, a verification/2FA code, a CAPTCHA, or a personal choice. Say exactly what they need to do. They'll hand control back and you'll continue the same goal.",
+            "Never invent contact details. Never ask the organizer to paste passwords or codes in chat.",
           ].join("\n"),
           input: [{
             role: "user" as const,
@@ -244,6 +249,12 @@ export const browserAgentStep = createServerFn({ method: "POST" })
         await post(`🛑 The form for **${goal}** is filled in and ready. Before I submit, please review it in the **Approvals** inbox:\n\n**${a.title}** — ${a.details}${ap ? "" : ""}`);
         return { agentStatus: "awaiting_approval" };
       }
+      if (a.action === "handoff") {
+        await supabase.from("browser_sessions").update({ handoff_reason: a.reason }).eq("id", row.id);
+        await save({ agent_status: "needs_user" }, { action: "handoff", note: `Your turn: ${a.reason}` });
+        await post(`🙋 I need you for a moment in the browser: **${a.reason}**\n\nClick into the browser to do it, then press **Done — Civi, continue** and I'll pick up where I left off.`);
+        return { agentStatus: "needs_user" };
+      }
       if (a.action === "done") {
         await save({ agent_status: "done" }, { action: "done", note: "Finished" });
         await post(`✅ Browser task finished: **${goal}**\n\n${a.summary}`);
@@ -264,11 +275,30 @@ export const browserAgentStep = createServerFn({ method: "POST" })
 
 export const setBrowserDriving = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) => z.object({ sessionRowId: z.string().uuid(), driving: z.boolean(), goal: z.string().max(500).optional() }).parse(d))
+  .inputValidator((d) => z.object({ sessionRowId: z.string().uuid(), driving: z.boolean(), goal: z.string().max(1500).optional() }).parse(d))
   .handler(async ({ data, context }) => {
-    const patch: { agent_status: string; goal?: string } = { agent_status: data.driving ? "driving" : "stopped" };
-    if (data.goal) patch.goal = data.goal;
+    const patch: { agent_status: string; goal?: string; handoff_reason?: null; steps?: never[] } = { agent_status: data.driving ? "driving" : "stopped" };
+    if (data.driving) patch.handoff_reason = null;
+    if (data.goal) { patch.goal = data.goal; patch.steps = []; }
     const { error } = await context.supabase.from("browser_sessions").update(patch).eq("id", data.sessionRowId);
     if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+/** First-time Facebook setup: saves the area and points the open browser at the groups + page review task. */
+export const startFacebookSetup = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({ sessionRowId: z.string().uuid(), location: z.string().trim().min(2).max(120) }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    const { data: row } = await supabase.from("browser_sessions").select("id, thread_id").eq("id", data.sessionRowId).maybeSingle();
+    if (!row) throw new Error("Browser session not found");
+    await supabase.from("organizations").update({ facebook_setup_location: data.location }).eq("user_id", userId);
+    const goal = `On Facebook (already signed in): 1) Search Facebook groups near ${data.location} that match our mission and focus areas. Open the best 5-8, note name, link, member count, privacy and join questions. Do NOT click Join. 2) Check whether our organization has a Facebook Page (search our org name, and check the Pages the account manages). Review it: profile/cover photo, about/bio, contact info, how recent the last post is. When finished, use done with a markdown summary: a shortlist of groups (with links) to approve joining, and a Page "TLC" checklist with concrete fixes and 3 suggested post ideas.`;
+    await supabase.from("browser_sessions").update({ goal, agent_status: "driving", steps: [], submit_approved: false, handoff_reason: null }).eq("id", row.id);
+    await supabase.from("messages").insert({
+      thread_id: row.thread_id, user_id: userId, role: "assistant",
+      content: `Great — I'm searching Facebook for groups near **${data.location}** and checking your organization's Page. I won't join anything or post until you approve. Watch along in the browser above.`,
+    });
     return { ok: true };
   });

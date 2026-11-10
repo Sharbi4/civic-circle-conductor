@@ -6,6 +6,7 @@ export type PageState = {
   title: string;
   text: string;
   elements: { i: number; tag: string; type?: string; label: string }[];
+  hasPassword?: boolean;
 };
 
 export type AgentAction =
@@ -18,6 +19,7 @@ export type AgentAction =
   | { action: "submit"; index: number; reason?: string }
   | { action: "request_approval"; title: string; details: string; reason?: string }
   | { action: "login"; username_index: number; password_index: number; reason?: string }
+  | { action: "handoff"; reason: string }
   | { action: "done"; summary: string; reason?: string };
 
 const SNAPSHOT = `(() => {
@@ -33,7 +35,7 @@ const SNAPSHOT = `(() => {
     out.push({ i, tag: el.tagName.toLowerCase(), type: el.getAttribute('type') || undefined, label: String(lbl).replace(/\\s+/g,' ').trim().slice(0, 90) });
     if (++i >= 70) break;
   }
-  return { url: location.href, title: document.title, text: (document.body ? document.body.innerText : '').replace(/\\s+/g,' ').slice(0, 2000), elements: out };
+  return { url: location.href, title: document.title, text: (document.body ? document.body.innerText : '').replace(/\\s+/g,' ').slice(0, 2000), elements: out, hasPassword: !!document.querySelector('input[type=password]') };
 })()`;
 
 const el = (i: number) => `document.querySelector('[data-civi-idx="${Number(i)}"]')`;

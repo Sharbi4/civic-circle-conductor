@@ -1,0 +1,2 @@
+ALTER TABLE public.browser_sessions ADD COLUMN IF NOT EXISTS site text, ADD COLUMN IF NOT EXISTS signed_in boolean NOT NULL DEFAULT false, ADD COLUMN IF NOT EXISTS handoff_reason text;
+ALTER TABLE public.organizations ADD COLUMN IF NOT EXISTS facebook_setup_location text;
