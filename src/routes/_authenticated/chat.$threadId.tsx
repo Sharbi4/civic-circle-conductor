@@ -4,6 +4,8 @@ import { useServerFn } from "@tanstack/react-start";
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import { getSuggestions, setAutonomy } from "@/lib/suggestions.functions";
+import { speakText, transcribeSpeech } from "@/lib/voice.functions";
+import { Mic, Volume2, VolumeX, Loader2 } from "lucide-react";
 import { ArrowUp, ImagePlus, X, CalendarHeart, ExternalLink, Mail, Megaphone, MonitorUp, Phone, Square, Hand, Play, Maximize2, Vote, HeartPulse, MessageSquareHeart } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -455,6 +457,47 @@ function ChatWindow({ threadId }: { threadId: string }) {
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [all.length, busy]);
   useEffect(() => { inputRef.current?.focus(); }, [busy]);
 
+  const voice = useVoice();
+  const transcribe = useServerFn(transcribeSpeech);
+  const [autoRead, setAutoRead] = useState(false);
+  useEffect(() => { setAutoRead(localStorage.getItem("civi-autoread") === "1"); }, []);
+  const [rec, setRec] = useState<"idle" | "recording" | "working">("idle");
+  const recRef = useRef<MediaRecorder | null>(null);
+  async function toggleMic() {
+    if (rec === "recording") { recRef.current?.stop(); return; }
+    if (rec !== "idle") return;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
+      const mr = new MediaRecorder(stream);
+      const chunks: Blob[] = [];
+      mr.ondataavailable = (e) => e.data.size && chunks.push(e.data);
+      mr.onstop = async () => {
+        stream.getTracks().forEach((t) => t.stop());
+        setRec("working");
+        try {
+          const blob = new Blob(chunks, { type: mr.mimeType || "audio/webm" });
+          const buf = new Uint8Array(await blob.arrayBuffer());
+          let bin = ""; for (let i = 0; i < buf.length; i += 0x8000) bin += String.fromCharCode(...buf.subarray(i, i + 0x8000));
+          const { text } = await transcribe({ data: { audio: btoa(bin), mime: blob.type } });
+          if (text) submit(text); else toast("I didn't catch that — try again.");
+        } catch (e) { toast.error(e instanceof Error ? e.message : "Couldn't hear that"); }
+        finally { setRec("idle"); }
+      };
+      recRef.current = mr;
+      mr.start();
+      setRec("recording");
+    } catch { toast.error("Allow microphone access to talk to Civi."); }
+  }
+  const lastSpoken = useRef<string | null>(null);
+  useEffect(() => {
+    const last = msgs.data?.[msgs.data.length - 1];
+    if (!autoRead || !last || last.role !== "assistant" || busy) return;
+    if (lastSpoken.current === null) { lastSpoken.current = last.id; return; }
+    if (lastSpoken.current === last.id) return;
+    lastSpoken.current = last.id;
+    voice.play(last.id, last.content);
+  }, [msgs.data, autoRead, busy]);
+
   async function submit(text: string) {
     const typed = text.trim();
     if ((!typed && !attachment) || busy || uploading) return;
@@ -538,6 +581,12 @@ function ChatWindow({ threadId }: { threadId: string }) {
                   <div className="max-w-[92%] rounded-3xl bg-bubble px-6 py-4">
                     <MessageBody content={m.content.replace(CHOICES_MARKER, "").trim()} />
                   </div>
+                  {m.id !== "p" && (
+                    <button onClick={() => voice.play(m.id, m.content)} aria-label={voice.speakingId === m.id ? "Stop reading" : "Read aloud"} title={voice.speakingId === m.id ? "Stop" : "Read aloud"}
+                      className={`ml-3 mt-1 inline-flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground ${voice.speakingId === m.id ? "text-accent" : ""}`}>
+                      {voice.speakingId === m.id ? <span className="flex items-end gap-0.5">{[0,1,2].map((i) => <span key={i} className="w-0.5 animate-pulse rounded-full bg-current" style={{ height: 6 + i * 3, animationDelay: `${i * 0.15}s` }} />)}</span> : <Volume2 className="h-3.5 w-3.5" />}
+                    </button>
+                  )}
                   {m.id === all[all.length - 1]?.id && !busy && (() => {
                     const c = m.content.match(CHOICES_MARKER);
                     if (!c) return null;
@@ -608,6 +657,17 @@ function ChatWindow({ threadId }: { threadId: string }) {
             placeholder="Message your organizer"
             className="max-h-40 flex-1 resize-none bg-transparent py-2 outline-none placeholder:text-muted-foreground"
           />
+          <button type="button" onClick={() => { const v = !autoRead; setAutoRead(v); localStorage.setItem("civi-autoread", v ? "1" : "0"); toast(v ? "Civi will read replies aloud" : "Read-aloud off"); }}
+            aria-label={autoRead ? "Turn off read-aloud" : "Read replies aloud"} title={autoRead ? "Read-aloud on" : "Read replies aloud"}
+            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full hover:bg-secondary ${autoRead ? "text-accent" : "text-muted-foreground"}`}>
+            {autoRead ? <Volume2 className="h-5 w-5" /> : <VolumeX className="h-5 w-5" />}
+          </button>
+          <button type="button" onClick={toggleMic} disabled={busy || rec === "working"}
+            aria-label={rec === "recording" ? "Stop and send" : "Talk to Civi"} title={rec === "recording" ? "Tap to send" : "Talk to Civi"}
+            className={`relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full disabled:opacity-40 ${rec === "recording" ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-secondary"}`}>
+            {rec === "recording" && <span className="absolute inset-0 animate-ping rounded-full bg-accent/40" />}
+            {rec === "working" ? <Loader2 className="h-5 w-5 animate-spin" /> : <Mic className="relative h-5 w-5" />}
+          </button>
           <button
             type="submit"
             aria-label="Send"
@@ -621,4 +681,29 @@ function ChatWindow({ threadId }: { threadId: string }) {
       </PinnedBrowser.Provider>
     </>
   );
+}
+
+
+let currentAudio: HTMLAudioElement | null = null;
+function speakable(md: string) {
+  return md.replace(/\[\[[\s\S]*?\]\]/g, "").replace(/!?\[([^\]]*)\]\([^)]*\)/g, "$1").replace(/[#*_`>|~]/g, "").replace(/\n{2,}/g, ". ").replace(/\s+/g, " ").trim().slice(0, 4400);
+}
+function useVoice() {
+  const speak = useServerFn(speakText);
+  const [speakingId, setSpeakingId] = useState<string | null>(null);
+  async function play(id: string, content: string) {
+    if (currentAudio) { currentAudio.pause(); currentAudio = null; }
+    if (speakingId === id) { setSpeakingId(null); return; }
+    const text = speakable(content);
+    if (!text) return;
+    setSpeakingId(id);
+    try {
+      const { audio } = await speak({ data: { text } });
+      const a = new Audio(`data:audio/mpeg;base64,${audio}`);
+      currentAudio = a;
+      a.onended = () => setSpeakingId((s) => (s === id ? null : s));
+      await a.play();
+    } catch (e) { setSpeakingId(null); toast.error(e instanceof Error ? e.message : "Couldn't play voice"); }
+  }
+  return { play, speakingId };
 }

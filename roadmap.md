@@ -37,4 +37,4 @@
 - [x] Event planning leads with ideas + shared event playbook; browser saves vendors to directory
 - [x] + menu lists connected agents with logos; Facebook opens browser with saved login
 - [x] Perplexity research during onboarding + event planning
-- [ ] ElevenLabs voice: read replies aloud + talk to Civi
+- [x] ElevenLabs voice: read replies aloud + talk to Civi
