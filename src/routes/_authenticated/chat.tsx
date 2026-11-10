@@ -15,6 +15,7 @@ import { startLinkedInConnect, completeLinkedInConnect, getLinkedInStatus, disco
 import { startEventbriteConnect, completeEventbriteConnect, getEventbriteStatus, disconnectEventbrite, runEventbriteApproval } from "@/lib/eventbrite.functions";
 import { saveSiteCredential } from "@/lib/credentials.functions";
 import { sendOrganizerMessage } from "@/lib/organizer.functions";
+import { startXConnect, completeXConnect, getXStatus, disconnectX, runXApproval } from "@/lib/x.functions";
 import { runFacebookApproval } from "@/lib/browser.functions";
 import { startNextdoorConnect, completeNextdoorConnect, getNextdoorStatus, disconnectNextdoor } from "@/lib/nextdoor.functions";
 
@@ -179,6 +180,8 @@ function Sidebar({ orgName }: { orgName: string }) {
                 <EventbriteConnectorRow key={c.id} />
               ) : c.id === "nextdoor" ? (
                 <NextdoorConnectorRow key={c.id} />
+              ) : c.id === "x" ? (
+                <XConnectorRow key={c.id} />
               ) : c.id === "linkedin" ? (
                 <LinkedInConnectorRow key={c.id} />
               ) : (
@@ -490,7 +493,104 @@ function LinkedInConnectorRow() {
         </div>
       )}
       {connected && <LinkedInPageField current={status.data?.orgPageId ?? ""} />}
-      {connected && <LinkedInPageField current={status.data?.orgPageId ?? ""} />}
+    </div>
+  );
+}
+
+function XConnectorRow() {
+  const qc = useQueryClient();
+  const navigate = useNavigate();
+  const [busy, setBusy] = useState(false);
+  const status = useQuery({ queryKey: ["x-status"], queryFn: () => getXStatus() });
+
+  function waitForOAuth(popup: Window) {
+    return new Promise<string>((resolve, reject) => {
+      let poll: number | undefined;
+      const cleanup = () => {
+        window.removeEventListener("message", onMessage);
+        if (poll !== undefined) window.clearInterval(poll);
+      };
+      const onMessage = (event: MessageEvent) => {
+        // The OAuth popup can land on the published domain while the opener is
+        // the preview (X allows only one redirect URI), so accept our
+        // own app origins rather than only this window's origin.
+        if (event.origin !== window.location.origin || event.source !== popup) return;
+        const type = event.data?.type;
+        if (event.data?.connectorId !== "x") return;
+        if (type !== "appUserConnectorOAuthComplete" && type !== "appUserConnectorOAuthFailed") return;
+        cleanup();
+        if (type === "appUserConnectorOAuthComplete" && typeof event.data?.code === "string") resolve(event.data.code);
+        else { popup.close(); reject(new Error("X connection failed.")); }
+      };
+      window.addEventListener("message", onMessage);
+      poll = window.setInterval(() => {
+        if (!popup.closed) return;
+        cleanup();
+        reject(new Error("X window closed before finishing."));
+      }, 500);
+    });
+  }
+
+  async function connect() {
+    setBusy(true);
+    const popup = window.open("", "civi-x-oauth", "width=600,height=720");
+    if (!popup) { setBusy(false); toast.error("Popup blocked — allow popups and try again."); return; }
+    try {
+      const { authorizationUrl } = await startXConnect();
+      const completion = waitForOAuth(popup);
+      popup.location.href = authorizationUrl;
+      const code = await completion;
+      const result = await completeXConnect({ data: { code } });
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ["x-status"] }),
+        qc.invalidateQueries({ queryKey: ["threads"] }),
+      ]);
+      toast.success(`Connected to X as ${result.accountName}`);
+      if (result.threadId) navigate({ to: "/chat/$threadId", params: { threadId: result.threadId } });
+    } catch (e) {
+      popup.close();
+      toast.error(e instanceof Error ? e.message : "X connection failed.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function disconnect() {
+    setBusy(true);
+    try {
+      await disconnectX();
+      await qc.invalidateQueries({ queryKey: ["x-status"] });
+      toast.success("X disconnected.");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Disconnect failed.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const connected = status.data?.connected;
+  return (
+    <div className="rounded-2xl px-3 py-2.5 hover:bg-sidebar-accent">
+      <div className="flex items-center justify-between">
+        <span>X</span>
+        {status.isLoading ? (
+          <span className="rounded-full bg-secondary px-2 py-0.5 text-xs text-muted-foreground">…</span>
+        ) : connected ? (
+          <span className="rounded-full bg-accent px-2 py-0.5 text-xs font-medium text-accent-foreground">Connected</span>
+        ) : (
+          <Button size="sm" variant="outline" disabled={busy} onClick={connect} className="h-7 rounded-full px-3 text-xs">
+            {busy ? "Connecting…" : "Connect"}
+          </Button>
+        )}
+      </div>
+      {connected && (
+        <div className="mt-1.5 flex items-center justify-between text-xs text-muted-foreground">
+          <span className="truncate">{status.data?.accountName}</span>
+          <button onClick={disconnect} disabled={busy} className="ml-2 shrink-0 underline hover:text-foreground">
+            Disconnect
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -540,6 +640,7 @@ function ApprovalsPanel() {
   const runLi = useServerFn(runLinkedInApproval);
   const runFb = useServerFn(runFacebookApproval);
   const runSend = useServerFn(sendOrganizerMessage);
+  const runX = useServerFn(runXApproval);
   const main = threads.data?.find((t) => t.kind === "main");
   const pending = approvals.data?.filter((a) => a.status === "pending") ?? [];
   const resolved = approvals.data?.filter((a) => a.status !== "pending") ?? [];
@@ -572,6 +673,16 @@ function ApprovalsPanel() {
       } catch (e) {
         toast.error(e instanceof Error ? e.message : "LinkedIn couldn't complete that");
       }
+      await qc.invalidateQueries({ queryKey: ["approvals"] });
+      setBusyId(null);
+      return;
+    }
+    if (decision === "approved" && (payload as { kind?: string } | null)?.kind === "x_post") {
+      try {
+        const r = await runX({ data: { approvalId: id } });
+        if (r.ok) toast.success("Posted on X."); else toast.warning("X finished with a problem — see the X Agent chat.");
+        if (r.threadId) qc.invalidateQueries({ queryKey: ["messages", r.threadId] });
+      } catch (e) { toast.error(e instanceof Error ? e.message : "X couldn't post that"); }
       await qc.invalidateQueries({ queryKey: ["approvals"] });
       setBusyId(null);
       return;

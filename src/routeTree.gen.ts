@@ -18,6 +18,7 @@ import { Route as AuthenticatedChatThreadIdRouteImport } from './routes/_authent
 import { Route as ApiOauthEventbriteReturnRouteImport } from './routes/api/oauth/eventbrite/return'
 import { Route as ApiOauthLinkedinReturnRouteImport } from './routes/api/oauth/linkedin/return'
 import { Route as ApiOauthNextdoorReturnRouteImport } from './routes/api/oauth/nextdoor/return'
+import { Route as ApiOauthXReturnRouteImport } from './routes/api/oauth/x/return'
 import { Route as ApiPublicJobsCiviAutopilotRouteImport } from './routes/api/public/jobs/civi-autopilot'
 import { Route as ApiPublicJobsCommunityScoutRouteImport } from './routes/api/public/jobs/community-scout'
 
@@ -67,6 +68,11 @@ const ApiOauthNextdoorReturnRoute = ApiOauthNextdoorReturnRouteImport.update({
   path: '/api/oauth/nextdoor/return',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiOauthXReturnRoute = ApiOauthXReturnRouteImport.update({
+  id: '/api/oauth/x/return',
+  path: '/api/oauth/x/return',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicJobsCiviAutopilotRoute =
   ApiPublicJobsCiviAutopilotRouteImport.update({
     id: '/api/public/jobs/civi-autopilot',
@@ -89,6 +95,7 @@ export interface FileRoutesByFullPath {
   '/api/oauth/eventbrite/return': typeof ApiOauthEventbriteReturnRoute
   '/api/oauth/linkedin/return': typeof ApiOauthLinkedinReturnRoute
   '/api/oauth/nextdoor/return': typeof ApiOauthNextdoorReturnRoute
+  '/api/oauth/x/return': typeof ApiOauthXReturnRoute
   '/api/public/jobs/civi-autopilot': typeof ApiPublicJobsCiviAutopilotRoute
   '/api/public/jobs/community-scout': typeof ApiPublicJobsCommunityScoutRoute
 }
@@ -100,6 +107,7 @@ export interface FileRoutesByTo {
   '/api/oauth/eventbrite/return': typeof ApiOauthEventbriteReturnRoute
   '/api/oauth/linkedin/return': typeof ApiOauthLinkedinReturnRoute
   '/api/oauth/nextdoor/return': typeof ApiOauthNextdoorReturnRoute
+  '/api/oauth/x/return': typeof ApiOauthXReturnRoute
   '/api/public/jobs/civi-autopilot': typeof ApiPublicJobsCiviAutopilotRoute
   '/api/public/jobs/community-scout': typeof ApiPublicJobsCommunityScoutRoute
 }
@@ -114,6 +122,7 @@ export interface FileRoutesById {
   '/api/oauth/eventbrite/return': typeof ApiOauthEventbriteReturnRoute
   '/api/oauth/linkedin/return': typeof ApiOauthLinkedinReturnRoute
   '/api/oauth/nextdoor/return': typeof ApiOauthNextdoorReturnRoute
+  '/api/oauth/x/return': typeof ApiOauthXReturnRoute
   '/api/public/jobs/civi-autopilot': typeof ApiPublicJobsCiviAutopilotRoute
   '/api/public/jobs/community-scout': typeof ApiPublicJobsCommunityScoutRoute
 }
@@ -128,6 +137,7 @@ export interface FileRouteTypes {
     | '/api/oauth/eventbrite/return'
     | '/api/oauth/linkedin/return'
     | '/api/oauth/nextdoor/return'
+    | '/api/oauth/x/return'
     | '/api/public/jobs/civi-autopilot'
     | '/api/public/jobs/community-scout'
   fileRoutesByTo: FileRoutesByTo
@@ -139,6 +149,7 @@ export interface FileRouteTypes {
     | '/api/oauth/eventbrite/return'
     | '/api/oauth/linkedin/return'
     | '/api/oauth/nextdoor/return'
+    | '/api/oauth/x/return'
     | '/api/public/jobs/civi-autopilot'
     | '/api/public/jobs/community-scout'
   id:
@@ -152,6 +163,7 @@ export interface FileRouteTypes {
     | '/api/oauth/eventbrite/return'
     | '/api/oauth/linkedin/return'
     | '/api/oauth/nextdoor/return'
+    | '/api/oauth/x/return'
     | '/api/public/jobs/civi-autopilot'
     | '/api/public/jobs/community-scout'
   fileRoutesById: FileRoutesById
@@ -163,6 +175,7 @@ export interface RootRouteChildren {
   ApiOauthEventbriteReturnRoute: typeof ApiOauthEventbriteReturnRoute
   ApiOauthLinkedinReturnRoute: typeof ApiOauthLinkedinReturnRoute
   ApiOauthNextdoorReturnRoute: typeof ApiOauthNextdoorReturnRoute
+  ApiOauthXReturnRoute: typeof ApiOauthXReturnRoute
   ApiPublicJobsCiviAutopilotRoute: typeof ApiPublicJobsCiviAutopilotRoute
   ApiPublicJobsCommunityScoutRoute: typeof ApiPublicJobsCommunityScoutRoute
 }
@@ -232,6 +245,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiOauthNextdoorReturnRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/oauth/x/return': {
+      id: '/api/oauth/x/return'
+      path: '/api/oauth/x/return'
+      fullPath: '/api/oauth/x/return'
+      preLoaderRoute: typeof ApiOauthXReturnRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/jobs/civi-autopilot': {
       id: '/api/public/jobs/civi-autopilot'
       path: '/api/public/jobs/civi-autopilot'
@@ -280,6 +300,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiOauthEventbriteReturnRoute: ApiOauthEventbriteReturnRoute,
   ApiOauthLinkedinReturnRoute: ApiOauthLinkedinReturnRoute,
   ApiOauthNextdoorReturnRoute: ApiOauthNextdoorReturnRoute,
+  ApiOauthXReturnRoute: ApiOauthXReturnRoute,
   ApiPublicJobsCiviAutopilotRoute: ApiPublicJobsCiviAutopilotRoute,
   ApiPublicJobsCommunityScoutRoute: ApiPublicJobsCommunityScoutRoute,
 }
