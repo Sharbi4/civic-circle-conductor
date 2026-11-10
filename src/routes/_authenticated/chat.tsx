@@ -2,7 +2,7 @@ import { createFileRoute, Link, Outlet, useNavigate, useParams } from "@tanstack
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
-import { MessageCircle, Plus, Plug, LogOut, Pin, Brain, Inbox, Megaphone, CalendarCheck, CreditCard, Sparkles, Check, X, Compass, Trash2 } from "lucide-react";
+import { MessageCircle, Plus, Plug, LogOut, Pin, Brain, Inbox, Megaphone, CalendarCheck, CreditCard, Sparkles, Check, X, Compass, Trash2, KeyRound } from "lucide-react";
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -13,6 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { CONNECTORS } from "@/lib/connectors";
 import { startLinkedInConnect, completeLinkedInConnect, getLinkedInStatus, disconnectLinkedIn, runLinkedInApproval, setLinkedInOrgPage } from "@/lib/linkedin.functions";
 import { startEventbriteConnect, completeEventbriteConnect, getEventbriteStatus, disconnectEventbrite, runEventbriteApproval } from "@/lib/eventbrite.functions";
+import { saveSiteCredential } from "@/lib/credentials.functions";
 import { startNextdoorConnect, completeNextdoorConnect, getNextdoorStatus, disconnectNextdoor } from "@/lib/nextdoor.functions";
 
 export const Route = createFileRoute("/_authenticated/chat")({
@@ -85,7 +86,7 @@ function Sidebar({ orgName }: { orgName: string }) {
   const qc = useQueryClient();
   const navigate = useNavigate();
   const params = useParams({ strict: false }) as { threadId?: string };
-  const [tab, setTab] = useState<"chats" | "connectors" | "memory" | "approvals" | "scout">("chats");
+  const [tab, setTab] = useState<"chats" | "connectors" | "memory" | "approvals" | "scout" | "logins">("chats");
   const approvals = useApprovals();
   const pendingCount = approvals.data?.filter((a) => a.status === "pending").length ?? 0;
   const main = threads.data?.find((t) => t.kind === "main");
@@ -123,6 +124,7 @@ function Sidebar({ orgName }: { orgName: string }) {
         {railBtn("connectors", Plug, "Connectors")}
         {railBtn("scout", Compass, "Community Scout")}
         {railBtn("memory", Brain, "Memory")}
+        {railBtn("logins", KeyRound, "Settings: saved logins")}
         <div className="flex-1" />
         <button aria-label="Sign out" onClick={() => supabase.auth.signOut()} className="flex h-11 w-11 items-center justify-center rounded-2xl text-muted-foreground hover:bg-secondary">
           <LogOut className="h-5 w-5" />
@@ -189,6 +191,7 @@ function Sidebar({ orgName }: { orgName: string }) {
         {tab === "approvals" && <ApprovalsPanel />}
         {tab === "scout" && <ScoutPanel />}
         {tab === "memory" && <MemoryPanel />}
+        {tab === "logins" && <LoginsPanel />}
       </aside>
     </>
   );
@@ -866,5 +869,65 @@ function Onboarding({ existing }: { existing: { name: string | null; mission: st
         )}
       </div>
     </main>
+  );
+}
+
+function LoginsPanel() {
+  const qc = useQueryClient();
+  const save = useServerFn(saveSiteCredential);
+  const [f, setF] = useState({ label: "", domain: "", username: "", password: "" });
+  const [busy, setBusy] = useState(false);
+  const list = useQuery({
+    queryKey: ["site_credentials"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("site_credentials").select("id, label, domain, username").order("label");
+      if (error) throw error;
+      return data;
+    },
+  });
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    try {
+      await save({ data: { ...f, label: f.label || f.domain } });
+      setF({ label: "", domain: "", username: "", password: "" });
+      toast.success("Login saved securely");
+      qc.invalidateQueries({ queryKey: ["site_credentials"] });
+    } catch (err) { toast.error(err instanceof Error ? err.message : "Couldn't save"); }
+    finally { setBusy(false); }
+  }
+  async function remove(id: string) {
+    const { error } = await supabase.from("site_credentials").delete().eq("id", id);
+    if (error) { toast.error(error.message); return; }
+    qc.invalidateQueries({ queryKey: ["site_credentials"] });
+  }
+  return (
+    <div className="flex-1 overflow-y-auto px-3 pb-4">
+      <h2 className="px-3 pb-1 font-medium">Saved logins</h2>
+      <p className="px-3 pb-3 text-sm text-muted-foreground">
+        Civi signs in with these when its live browser reaches that website. Passwords are encrypted, never shown again, and never sent to the AI.
+      </p>
+      <form onSubmit={submit} className="space-y-2 px-3 pb-4">
+        <Input placeholder="Website (e.g. eventbrite.com)" value={f.domain} onChange={(e) => setF({ ...f, domain: e.target.value })} required />
+        <Input placeholder="Name (optional)" value={f.label} onChange={(e) => setF({ ...f, label: e.target.value })} />
+        <Input placeholder="Username or email" autoComplete="off" value={f.username} onChange={(e) => setF({ ...f, username: e.target.value })} required />
+        <Input type="password" placeholder="Password" autoComplete="new-password" value={f.password} onChange={(e) => setF({ ...f, password: e.target.value })} required />
+        <Button type="submit" className="w-full" disabled={busy}>{busy ? "Saving…" : "Save login"}</Button>
+      </form>
+      <div className="space-y-1">
+        {list.data?.map((c) => (
+          <div key={c.id} className="flex items-center justify-between rounded-2xl px-3 py-2.5 hover:bg-sidebar-accent">
+            <div className="min-w-0">
+              <div className="truncate font-medium">{c.label}</div>
+              <div className="truncate text-xs text-muted-foreground">{c.domain} · {c.username} · ••••••</div>
+            </div>
+            <button aria-label={`Delete ${c.label}`} onClick={() => remove(c.id)} className="rounded-lg p-1 text-muted-foreground hover:bg-secondary">
+              <Trash2 className="h-4 w-4" />
+            </button>
+          </div>
+        ))}
+        {list.data?.length === 0 && <p className="px-3 text-sm text-muted-foreground">No saved logins yet.</p>}
+      </div>
+    </div>
   );
 }

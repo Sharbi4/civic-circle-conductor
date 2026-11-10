@@ -71,6 +71,20 @@
       "when": 1794338153983,
       "tag": "0009_event_images_policies",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1794346247248,
+      "tag": "0010_site_credentials",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1794346257348,
+      "tag": "0011_site_credentials_column_grants",
+      "breakpoints": true
     }
   ]
 }

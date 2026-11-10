@@ -17,6 +17,7 @@ export type AgentAction =
   | { action: "scroll"; reason?: string }
   | { action: "submit"; index: number; reason?: string }
   | { action: "request_approval"; title: string; details: string; reason?: string }
+  | { action: "login"; username_index: number; password_index: number; reason?: string }
   | { action: "done"; summary: string; reason?: string };
 
 const SNAPSHOT = `(() => {
@@ -28,7 +29,7 @@ const SNAPSHOT = `(() => {
     if (r.width < 2 || r.height < 2 || r.bottom < 0 || r.top > innerHeight * 2.5) continue;
     const st = getComputedStyle(el); if (st.visibility === 'hidden' || st.display === 'none') continue;
     el.setAttribute('data-civi-idx', String(i));
-    const lbl = (el.labels && el.labels[0] && el.labels[0].innerText) || el.getAttribute('aria-label') || el.getAttribute('placeholder') || el.innerText || el.value || el.getAttribute('name') || el.getAttribute('href') || '';
+    const lbl = (el.labels && el.labels[0] && el.labels[0].innerText) || el.getAttribute('aria-label') || el.getAttribute('placeholder') || el.innerText || (el.type === 'password' ? '' : el.value) || el.getAttribute('name') || el.getAttribute('href') || '';
     out.push({ i, tag: el.tagName.toLowerCase(), type: el.getAttribute('type') || undefined, label: String(lbl).replace(/\\s+/g,' ').trim().slice(0, 90) });
     if (++i >= 70) break;
   }
@@ -123,6 +124,18 @@ export async function perform(p: { eval: (e: string) => Promise<any>; send: (m: 
     default:
       return "";
   }
+}
+
+/** Fills a saved login into the page. The password never leaves the server or reaches the AI. */
+export async function fillLogin(p: { eval: (e: string) => Promise<any> }, userIdx: number, passIdx: number, creds: { username: string; password: string }) {
+  const fill = (i: number, v: string) => `(() => { const e = ${el(i)}; if (!e) return false; e.focus();
+    const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value'); set.set.call(e, ${JSON.stringify(v)});
+    e.dispatchEvent(new Event('input', {bubbles:true})); e.dispatchEvent(new Event('change', {bubbles:true})); return true; })()`;
+  const a = await p.eval(fill(userIdx, creds.username));
+  const isPw = await p.eval(`(() => { const e = ${el(passIdx)}; return !!e && e.getAttribute('type') === 'password'; })()`);
+  if (!isPw) return a ? "Filled the username (no password box found yet)" : "Couldn't find the login fields";
+  const b = await p.eval(fill(passIdx, creds.password));
+  return a && b ? "Filled in your saved login" : "Couldn't find the login fields";
 }
 
 export function parseAction(text: string): AgentAction | null {

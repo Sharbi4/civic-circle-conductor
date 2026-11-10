@@ -190,21 +190,24 @@ export const browserAgentStep = createServerFn({ method: "POST" })
     try {
       const result = await withPage(row.connect_url, async (page) => {
         const state = await snapshot(page);
+        const { data: saved } = await supabase.from("site_credentials").select("domain").eq("user_id", userId);
+        const savedSites = (saved ?? []).map((c: { domain: string }) => c.domain).join(", ") || "(none)";
         const res = await generateResponse({
           model: "openai/gpt-6.1-terra",
           instructions: [
             "You are Civi, a community-organizing agent driving a real web browser one action at a time to reach the organizer's goal (e.g. find vendors on Eventbrite, fill a booking/inquiry form).",
             "Reply with ONLY one JSON object. Allowed actions:",
-            '{"action":"navigate","url":"https://..."} | {"action":"click","index":N} | {"action":"type","index":N,"text":"..."} | {"action":"select","index":N,"value":"..."} | {"action":"press_enter","index":N} | {"action":"scroll"} | {"action":"submit","index":N} | {"action":"request_approval","title":"...","details":"..."} | {"action":"done","summary":"markdown summary of what you found/did, with links"}',
+            '{"action":"navigate","url":"https://..."} | {"action":"click","index":N} | {"action":"type","index":N,"text":"..."} | {"action":"select","index":N,"value":"..."} | {"action":"press_enter","index":N} | {"action":"scroll"} | {"action":"login","username_index":N,"password_index":N} | {"action":"submit","index":N} | {"action":"request_approval","title":"...","details":"..."} | {"action":"done","summary":"markdown summary of what you found/did, with links"}',
             "Add a short \"reason\" field to every action. Use element indexes from the page state only.",
             row.submit_approved
               ? "The organizer has APPROVED submitting. You may use submit on the final send/book/pay button."
               : "Never click a button that sends a message, books, registers, purchases or pays. When a form is filled and ready, use request_approval describing exactly what will be sent and to whom. Use plain click only for navigation, search and opening pages.",
-            "Never invent contact details. If a login or CAPTCHA blocks you, use done and say the organizer should take over.",
+            "If the page shows a sign-in form and the site is in the organizer's saved logins, use login with the username/email field index and the password field index (use the same index for both if only one field shows). You never see the password; the system fills it in. After login, click the sign-in button with click.",
+            "Never invent contact details. If a login with no saved credentials or a CAPTCHA blocks you, use done and say the organizer should take over.",
           ].join("\n"),
           input: [{
             role: "user" as const,
-            content: `Goal: ${goal}\n\nSteps so far:\n${steps.map((s, i) => `${i + 1}. ${s.note}`).join("\n") || "(none)"}\n\nCurrent page state:\n${JSON.stringify(state)}`,
+            content: `Goal: ${goal}\n\nSaved logins available for: ${savedSites}\n\nSteps so far:\n${steps.map((s, i) => `${i + 1}. ${s.note}`).join("\n") || "(none)"}\n\nCurrent page state:\n${JSON.stringify(state)}`,
           }],
         });
         let text = "";
@@ -213,6 +216,15 @@ export const browserAgentStep = createServerFn({ method: "POST" })
         if (!action) return { action: null, note: "" };
         if (action.action === "submit" && !row.submit_approved) {
           return { action: { action: "request_approval", title: "Submit form", details: action.reason ?? goal } satisfies AgentAction as AgentAction, note: "" };
+        }
+        if (action.action === "login") {
+          const { findLoginForHost, normalizeDomain } = await import("@/lib/credentials.functions");
+          const host = normalizeDomain(state.url);
+          const creds = await findLoginForHost(userId, host);
+          if (!creds) return { action: { action: "done", summary: `I reached a sign-in page on ${host}, but there's no saved login for it. Add one in **Saved logins**, or take over and sign in yourself.` } as AgentAction, note: "" };
+          const { fillLogin } = await import("@/lib/browserAgent.server");
+          const note = await fillLogin(page, action.username_index, action.password_index, creds);
+          return { action, note: `${note} (${creds.label})` };
         }
         const note = await perform(page, action);
         return { action, note };

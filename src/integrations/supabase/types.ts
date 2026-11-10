@@ -411,6 +411,39 @@ export type Database = {
         }
         Relationships: []
       }
+      site_credentials: {
+        Row: {
+          created_at: string
+          domain: string
+          id: string
+          label: string
+          secret_ciphertext: string
+          updated_at: string
+          user_id: string
+          username: string
+        }
+        Insert: {
+          created_at?: string
+          domain: string
+          id?: string
+          label: string
+          secret_ciphertext: string
+          updated_at?: string
+          user_id: string
+          username: string
+        }
+        Update: {
+          created_at?: string
+          domain?: string
+          id?: string
+          label?: string
+          secret_ciphertext?: string
+          updated_at?: string
+          user_id?: string
+          username?: string
+        }
+        Relationships: []
+      }
       threads: {
         Row: {
           created_at: string
