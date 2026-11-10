@@ -2,6 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { ArrowDown, ChevronRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { StoryScroll } from "@/components/landing/StoryScroll";
 import logo from "@/assets/civimeet-logo.png.asset.json";
 
 export const Route = createFileRoute("/")({
@@ -67,35 +68,29 @@ function Index() {
           The organizer for nonprofits, parties and campaigns. Connect your channels and Civi runs the outreach.
         </p>
 
-        <p className="mt-14 text-muted-foreground">Log in or create an account</p>
+        <p className="mt-14 text-muted-foreground">Private preview</p>
         <Link
           to="/auth"
           className="mt-4 flex w-full max-w-md items-center justify-between rounded-3xl bg-card px-6 py-4 text-left transition-colors hover:bg-secondary"
         >
           <span>
             <span className="block font-medium">Continue to Civi Meet</span>
-            <span className="text-sm text-muted-foreground">Google or email</span>
+            <span className="text-sm text-muted-foreground">Demo access</span>
           </span>
           <ChevronRight className="h-5 w-5 text-muted-foreground" />
         </Link>
 
-        <a href="#learn" className="mt-20 inline-flex items-center gap-2 rounded-full bg-secondary px-5 py-2.5 text-sm font-medium">
+        <a href="#learn" className="mb-24 mt-20 inline-flex items-center gap-2 rounded-full bg-secondary px-5 py-2.5 text-sm font-medium">
           Learn more <ArrowDown className="h-4 w-4" />
         </a>
 
-        <section id="learn" className="mx-auto grid max-w-5xl gap-4 py-24 text-left md:grid-cols-3">
-          {[
-            ["Outreach on autopilot", "Civi posts, comments and replies across Facebook, Instagram, X, Nextdoor, TikTok and Gmail."],
-            ["Events end to end", "Plans the event, lists it on Eventbrite, recruits vendors and volunteers, and follows up."],
-            ["One shared memory", "Your mission, contacts and vendor lists live in one place every agent works from."],
-          ].map(([t, d]) => (
-            <div key={t} className="rounded-3xl bg-card p-6">
-              <h3 className="text-lg font-semibold">{t}</h3>
-              <p className="mt-2 text-muted-foreground">{d}</p>
-            </div>
-          ))}
-        </section>
       </main>
+      <StoryScroll />
+      <section className="px-6 py-32 text-center">
+        <h2 className="text-4xl font-semibold tracking-tight md:text-5xl">Contribute. Connect. Convene.</h2>
+        <p className="mx-auto mt-4 max-w-lg text-muted-foreground">Civi keeps your community engaged so people actually show up.</p>
+        <Link to="/auth" className="mt-8 inline-flex rounded-full bg-primary px-6 py-3 font-medium text-primary-foreground">Try the demo</Link>
+      </section>
     </div>
   );
 }
