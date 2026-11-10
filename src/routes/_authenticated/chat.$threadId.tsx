@@ -79,6 +79,17 @@ function MessageBody({ content }: { content: string }) {
 // One driver per browser, even when several chat cards show the same session.
 const DRIVING_NOW = new Set<string>();
 
+function friendlyStep(note: string): string {
+  const q = note.match(/facebook\.com\/search\/groups\/\?q=([^\s—]+)/);
+  if (q) { try { return `Searched groups: ${decodeURIComponent(q[1]!)}`; } catch { /* fall through */ } }
+  if (/^Finished:/.test(note)) return "Finished the task";
+  if (/^New task:/.test(note)) return note;
+  const reason = note.split(" — ").slice(1).join(" — ").trim();
+  const base = reason || note.replace(/element \d+/g, "").trim();
+  if (/join/i.test(base) && /^Submitted|^Clicked/.test(note)) return base.replace(/^Click(ing)? /i, "").replace(/^Join/i, "Joined");
+  return base.replace(/\.$/, "");
+}
+
 function BrowserCard({ sessionRowId, task }: { sessionRowId: string; task: string }) {
   const qc = useQueryClient();
   const end = useServerFn(endBrowserSession);
@@ -218,7 +229,7 @@ function BrowserCard({ sessionRowId, task }: { sessionRowId: string; task: strin
                 <span className="relative inline-flex h-2 w-2 rounded-full bg-primary" />
               </span>
               <span key={steps.length} className="min-w-0 flex-1 truncate animate-in fade-in slide-in-from-bottom-1 duration-300">
-                <span className="font-semibold text-foreground">{steps.length}.</span> {steps[steps.length - 1]!.note}
+                <span className="font-semibold text-foreground">{steps.length}.</span> {friendlyStep(steps[steps.length - 1]!.note)}
               </span>
               <span className="shrink-0 text-[10px] uppercase tracking-wide">View all</span>
             </button>
@@ -232,7 +243,7 @@ function BrowserCard({ sessionRowId, task }: { sessionRowId: string; task: strin
                 </div>
                 <ol className="max-h-[65vh] space-y-1.5 overflow-y-auto px-4 py-3 text-xs text-muted-foreground">
                   {steps.map((st, i) => (
-                    <li key={i}><span className="font-semibold text-foreground">{i + 1}.</span> {st.note}</li>
+                    <li key={i}><span className="font-semibold text-foreground">{i + 1}.</span> {friendlyStep(st.note)}</li>
                   ))}
                 </ol>
               </div>
