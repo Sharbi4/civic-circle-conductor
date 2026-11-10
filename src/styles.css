@@ -200,3 +200,22 @@
 .prose-chat strong { font-weight: 700; }
 .prose-chat a { text-decoration: underline; color: var(--color-primary); }
 .prose-chat code { background: var(--color-muted); padding: 0 0.3rem; border-radius: 0.3rem; }
+
+.doc-body { font-size: 0.95rem; line-height: 1.7; }
+.doc-body h2 { margin-top: 1.75rem; margin-bottom: 0.5rem; font-size: 1.15rem; font-weight: 600; border-bottom: 1px solid var(--border); padding-bottom: 0.25rem; }
+.doc-body h3 { margin-top: 1.25rem; font-weight: 600; }
+.doc-body p { margin: 0.6rem 0; }
+.doc-body ul, .doc-body ol { margin: 0.5rem 0; padding-left: 1.4rem; }
+.doc-body ul { list-style: disc; } .doc-body ol { list-style: decimal; }
+.doc-body li { margin: 0.25rem 0; }
+.doc-body li.task-list-item { list-style: none; margin-left: -1.4rem; }
+.doc-body input[type="checkbox"] { margin-right: 0.6rem; transform: translateY(1px); accent-color: var(--foreground); }
+.doc-body table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 0.875rem; }
+.doc-body th, .doc-body td { border: 1px solid var(--border); padding: 0.45rem 0.65rem; text-align: left; }
+.doc-body th { background: var(--muted); font-weight: 600; }
+@media print {
+  @page { size: letter; margin: 16mm; }
+  html, body { background: white !important; }
+  .official-doc { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .doc-body h2, .doc-body tr, .doc-body li { break-inside: avoid; }
+}

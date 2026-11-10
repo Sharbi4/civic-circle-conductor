@@ -206,6 +206,36 @@ export type Database = {
         }
         Relationships: []
       }
+      documents: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          kind: string
+          thread_id: string | null
+          title: string
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          kind?: string
+          thread_id?: string | null
+          title: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          kind?: string
+          thread_id?: string | null
+          title?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       focus_areas: {
         Row: {
           city: string
@@ -372,6 +402,7 @@ export type Database = {
           created_at: string
           facebook_setup_location: string | null
           linkedin_org_id: string | null
+          logo_url: string | null
           mission: string | null
           name: string | null
           notif_checks: boolean
@@ -388,6 +419,7 @@ export type Database = {
           created_at?: string
           facebook_setup_location?: string | null
           linkedin_org_id?: string | null
+          logo_url?: string | null
           mission?: string | null
           name?: string | null
           notif_checks?: boolean
@@ -404,6 +436,7 @@ export type Database = {
           created_at?: string
           facebook_setup_location?: string | null
           linkedin_org_id?: string | null
+          logo_url?: string | null
           mission?: string | null
           name?: string | null
           notif_checks?: boolean

@@ -72,6 +72,7 @@ For multi-step objectives, show a visible task plan with statuses (Done / Workin
       EVENT_PLAYBOOK,
       ...(liveResearch ? [`Fresh web research for this request (cite as markdown links when used; save useful vendors/venues with [[resource: ...]]):\n${liveResearch}`] : []),
       `Saved vendors & venues (use these by name when planning): ${(savedResources ?? []).map((r) => `${r.type}: ${r.name}${r.details ? ` — ${r.details}` : ""}`).join("; ") || "none yet — offer to have the browser agent search Facebook and the web for local food trucks, caterers and venues"}`,
+      `OFFICIAL DOCUMENTS: whenever you draft a checklist (organization, event, setup, Page TLC), a plan, agenda, run-of-show, budget, vendor brief, press release, letter, flyer copy or any formal communication, do NOT put the full document in the chat. Instead write one short sentence introducing it, then output the document exactly like:\n[[document: <Title> | <checklist|plan|agenda|communication|budget|brief|letter|other>]]\n<full document in clean markdown: short intro paragraph, ## section headings, - [ ] checkboxes for checklist items, tables where useful, no emojis>\n[[/document]]\nThe app turns it into an official branded document (org logo, letterhead) the user can open and download. One or two documents per reply max.`,
       `Resource directory: the org keeps a reusable directory of vendors, venues, partners and groups so research is never repeated. When you identify a real, useful vendor, venue, nonprofit, community group or event worth saving, add a final line exactly like: [[resource: <vendor|venue|nonprofit|group|event|professional|other> | <name> | <one line of details>]]. One line per record, max 4 per reply. Only save genuinely useful, specific records.`,
       `Facebook groups (be proactive): after a group search, each group lands in Approvals ranked by relevance; once approved, the browser joins them one by one and reports each in chat. Keep a running tally of groups joined and still waiting. When the queue finishes (and at every 10 joined), celebrate progress, name the most relevant groups still waiting, and offer to find more, post in joined groups, or pause — with [[choices: ...]]. Never join or post without approval.`,
       `CONNECTION STATUS (checked live just now — this is the only truth; never claim a capability not listed as live):\n- Facebook: ${fbLogin ? "LIVE via the browser with saved login (no Facebook API). You can search/join groups, comment, post on the Page and message vendors through [[browse: ...]], each action approval-gated." : "NO saved Facebook login — ask them to add it in Settings → Saved logins, then you can work Facebook through the live browser."}\n- Eventbrite: ${ebConn ? "LIVE" : "not connected"}\n- LinkedIn: ${liConn ? "LIVE" : "not connected"}\n- X: ${xConn ? "LIVE" : "not connected"}\n- Nextdoor: ${ndConn ? "LIVE account linked, but posting isn't built yet — draft Nextdoor posts for them to paste" : "waiting on Nextdoor to issue API access — draft posts for them to paste manually"}\n- Instagram, Gmail, TikTok, Square payments: not connected yet — draft content and say which agent would run it once connected.\nHow to handle requests: (1) check this list first; (2) if live, DO the action by emitting the right marker so it queues in Approvals — don't just describe it; (3) if not live, say so in one line, give the ready-to-use draft, and tell them exactly how to connect. When an action fails, explain in plain words what happened, what it means, and the next step (retry, reconnect, take over the browser). Never take outreach, booking or payment actions without the organization's explicit approval.`,
@@ -192,6 +193,16 @@ For multi-step objectives, show a visible task plan with statuses (Done / Workin
         source: "Civi chat",
         status: "suggested",
       }));
+    const docMatches = [...text.matchAll(/\[\[document:\s*([^\]|]+?)(?:\|\s*([a-z]+)\s*)?\]\]([\s\S]*?)\[\[\/document\]\]/g)].slice(0, 2);
+    const docLinks: string[] = [];
+    for (const m of docMatches) {
+      const title = (m[1] ?? "Document").trim().slice(0, 160), kind = (m[2] ?? "document").trim().slice(0, 30), body = (m[3] ?? "").trim().slice(0, 30000);
+      if (!body) continue;
+      const { data: d, error: dErr } = await supabase.from("documents").insert({ user_id: userId, thread_id: data.threadId, title, kind, content: body }).select("id").single();
+      if (dErr || !d) { console.error("Failed to save document", dErr?.message); continue; }
+      docLinks.push(`[[doc: ${d.id} | ${title} | ${kind}]]`);
+      text = text.replace(m[0], `\n[[doc: ${d.id} | ${title} | ${kind}]]\n`);
+    }
     let clean = text.replace(/\n?\[\[(?:remember|approval|browse|resource|eventbrite_event|linkedin_post|x_post|linkedin_event_create|linkedin_event_update|linkedin_event_publish):.+?\]\]/gs, "").trim() || "…";
 
     for (const task of browseTasks.slice(0, 2)) {

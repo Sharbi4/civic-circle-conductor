@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { createContext, useContext, useEffect, useRef, useState } from "react";
@@ -6,7 +6,7 @@ import ReactMarkdown from "react-markdown";
 import { getSuggestions, setAutonomy } from "@/lib/suggestions.functions";
 import { speakText, transcribeSpeech } from "@/lib/voice.functions";
 import { Mic, Volume2, VolumeX, Loader2 } from "lucide-react";
-import { ArrowUp, ImagePlus, X, CalendarHeart, ExternalLink, Mail, Megaphone, MonitorUp, Phone, Square, Hand, Play, Maximize2, Vote, HeartPulse, MessageSquareHeart } from "lucide-react";
+import { ArrowUp, ImagePlus, X, CalendarHeart, ExternalLink, Mail, Megaphone, MonitorUp, Phone, Square, Hand, Play, Maximize2, Vote, HeartPulse, MessageSquareHeart, FileText, Download } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { sendOrganizerMessage } from "@/lib/organizer.functions";
@@ -27,7 +27,20 @@ function ThreadPage() {
   return <ChatWindow key={threadId} threadId={threadId} />;
 }
 
-const BROWSER_MARKER = /\[\[browser:\s*([0-9a-f-]{36})\s*\|(.+?)\]\]|\[\[image:(cover|inspiration)\|([^\]]+)\]\]/g;
+const BROWSER_MARKER = /\[\[browser:\s*([0-9a-f-]{36})\s*\|(.+?)\]\]|\[\[image:(cover|inspiration)\|([^\]]+)\]\]|\[\[doc:\s*([0-9a-f-]{36})\s*\|([^|\]]+)(?:\|\s*([a-z]+)\s*)?\]\]/g;
+
+function DocCard({ id, title, kind }: { id: string; title: string; kind: string }) {
+  return (
+    <Link to="/documents/$id" params={{ id }} className="group flex max-w-sm items-center gap-3 rounded-2xl border bg-card p-3 shadow-soft transition hover:border-primary">
+      <span className="grid h-12 w-10 shrink-0 place-items-center rounded-md border bg-background"><FileText className="h-5 w-5 text-muted-foreground" /></span>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate font-medium">{title}</span>
+        <span className="text-xs text-muted-foreground"><span className="capitalize">{kind}</span> · Open or download PDF</span>
+      </span>
+      <Download className="h-4 w-4 shrink-0 text-muted-foreground group-hover:text-foreground" />
+    </Link>
+  );
+}
 
 function AttachedImage({ path, role }: { path: string; role: string }) {
   const url = useQuery({
@@ -50,13 +63,14 @@ function AttachedImage({ path, role }: { path: string; role: string }) {
 const CHOICES_MARKER = /\[\[choices:\s*([^\]]+)\]\]/;
 
 function MessageBody({ content }: { content: string }) {
-  type Part = { kind: "text"; text: string } | { kind: "browser"; id: string; task: string } | { kind: "image"; role: string; path: string };
+  type Part = { kind: "text"; text: string } | { kind: "browser"; id: string; task: string } | { kind: "image"; role: string; path: string } | { kind: "doc"; id: string; title: string; dkind: string };
   const parts: Part[] = [];
   let last = 0;
   for (const match of content.matchAll(BROWSER_MARKER)) {
     const idx = match.index ?? 0;
     if (idx > last) parts.push({ kind: "text", text: content.slice(last, idx) });
-    if (match[3]) parts.push({ kind: "image", role: match[3], path: (match[4] ?? "").trim() });
+    if (match[5]) parts.push({ kind: "doc", id: match[5], title: (match[6] ?? "Document").trim(), dkind: (match[7] ?? "document").trim() });
+    else if (match[3]) parts.push({ kind: "image", role: match[3], path: (match[4] ?? "").trim() });
     else parts.push({ kind: "browser", id: match[1] ?? "", task: (match[2] ?? "").trim() });
     last = idx + match[0].length;
   }
@@ -69,6 +83,8 @@ function MessageBody({ content }: { content: string }) {
           <div key={i} className="prose-chat leading-relaxed">
             <ReactMarkdown>{p.text}</ReactMarkdown>
           </div>
+        ) : p.kind === "doc" ? (
+          <DocCard key={i} id={p.id} title={p.title} kind={p.dkind} />
         ) : p.kind === "image" ? (
           <AttachedImage key={i} path={p.path} role={p.role} />
         ) : (
@@ -510,6 +526,7 @@ function ChatWindow({ threadId }: { threadId: string }) {
     setBusy(true);
     try {
       await send({ data: { threadId, content } });
+      qc.invalidateQueries({ queryKey: ["documents"] });
       await Promise.all([
         qc.invalidateQueries({ queryKey: ["messages", threadId] }),
         qc.invalidateQueries({ queryKey: ["threads"] }),

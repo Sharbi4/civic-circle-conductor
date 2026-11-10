@@ -15,6 +15,7 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedChatRouteImport } from './routes/_authenticated/chat'
 import { Route as AuthenticatedChatIndexRouteImport } from './routes/_authenticated/chat.index'
 import { Route as AuthenticatedChatThreadIdRouteImport } from './routes/_authenticated/chat.$threadId'
+import { Route as AuthenticatedDocumentsIdRouteImport } from './routes/_authenticated/documents.$id'
 import { Route as ApiOauthEventbriteReturnRouteImport } from './routes/api/oauth/eventbrite/return'
 import { Route as ApiOauthLinkedinReturnRouteImport } from './routes/api/oauth/linkedin/return'
 import { Route as ApiOauthNextdoorReturnRouteImport } from './routes/api/oauth/nextdoor/return'
@@ -51,6 +52,12 @@ const AuthenticatedChatThreadIdRoute =
     id: '/$threadId',
     path: '/$threadId',
     getParentRoute: () => AuthenticatedChatRoute,
+  } as any)
+const AuthenticatedDocumentsIdRoute =
+  AuthenticatedDocumentsIdRouteImport.update({
+    id: '/documents/$id',
+    path: '/documents/$id',
+    getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 const ApiOauthEventbriteReturnRoute =
   ApiOauthEventbriteReturnRouteImport.update({
@@ -91,6 +98,7 @@ export interface FileRoutesByFullPath {
   '/auth': typeof AuthRoute
   '/chat': typeof AuthenticatedChatRouteWithChildren
   '/chat/$threadId': typeof AuthenticatedChatThreadIdRoute
+  '/documents/$id': typeof AuthenticatedDocumentsIdRoute
   '/chat/': typeof AuthenticatedChatIndexRoute
   '/api/oauth/eventbrite/return': typeof ApiOauthEventbriteReturnRoute
   '/api/oauth/linkedin/return': typeof ApiOauthLinkedinReturnRoute
@@ -103,6 +111,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/chat/$threadId': typeof AuthenticatedChatThreadIdRoute
+  '/documents/$id': typeof AuthenticatedDocumentsIdRoute
   '/chat': typeof AuthenticatedChatIndexRoute
   '/api/oauth/eventbrite/return': typeof ApiOauthEventbriteReturnRoute
   '/api/oauth/linkedin/return': typeof ApiOauthLinkedinReturnRoute
@@ -118,6 +127,7 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/_authenticated/chat': typeof AuthenticatedChatRouteWithChildren
   '/_authenticated/chat/$threadId': typeof AuthenticatedChatThreadIdRoute
+  '/_authenticated/documents/$id': typeof AuthenticatedDocumentsIdRoute
   '/_authenticated/chat/': typeof AuthenticatedChatIndexRoute
   '/api/oauth/eventbrite/return': typeof ApiOauthEventbriteReturnRoute
   '/api/oauth/linkedin/return': typeof ApiOauthLinkedinReturnRoute
@@ -133,6 +143,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/chat'
     | '/chat/$threadId'
+    | '/documents/$id'
     | '/chat/'
     | '/api/oauth/eventbrite/return'
     | '/api/oauth/linkedin/return'
@@ -145,6 +156,7 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/chat/$threadId'
+    | '/documents/$id'
     | '/chat'
     | '/api/oauth/eventbrite/return'
     | '/api/oauth/linkedin/return'
@@ -159,6 +171,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/_authenticated/chat'
     | '/_authenticated/chat/$threadId'
+    | '/_authenticated/documents/$id'
     | '/_authenticated/chat/'
     | '/api/oauth/eventbrite/return'
     | '/api/oauth/linkedin/return'
@@ -224,6 +237,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedChatThreadIdRouteImport
       parentRoute: typeof AuthenticatedChatRoute
     }
+    '/_authenticated/documents/$id': {
+      id: '/_authenticated/documents/$id'
+      path: '/documents/$id'
+      fullPath: '/documents/$id'
+      preLoaderRoute: typeof AuthenticatedDocumentsIdRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/api/oauth/eventbrite/return': {
       id: '/api/oauth/eventbrite/return'
       path: '/api/oauth/eventbrite/return'
@@ -284,10 +304,12 @@ const AuthenticatedChatRouteWithChildren =
 
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedChatRoute: typeof AuthenticatedChatRouteWithChildren
+  AuthenticatedDocumentsIdRoute: typeof AuthenticatedDocumentsIdRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedChatRoute: AuthenticatedChatRouteWithChildren,
+  AuthenticatedDocumentsIdRoute: AuthenticatedDocumentsIdRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =

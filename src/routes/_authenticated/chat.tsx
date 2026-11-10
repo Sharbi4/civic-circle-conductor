@@ -2,7 +2,7 @@ import { createFileRoute, Link, Outlet, useNavigate, useParams } from "@tanstack
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useRef, useState, type ReactNode } from "react";
-import { MessageCircle, Plus, Plug, LogOut, Pin, Brain, Inbox, Megaphone, CalendarCheck, CreditCard, Sparkles, Check, X, Compass, Trash2, KeyRound, Mic } from "lucide-react";
+import { MessageCircle, Plus, Plug, LogOut, Pin, Brain, Inbox, Megaphone, CalendarCheck, CreditCard, Sparkles, Check, X, Compass, Trash2, KeyRound, Mic, FileText, ImagePlus } from "lucide-react";
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -94,7 +94,7 @@ function Sidebar({ orgName }: { orgName: string }) {
   const qc = useQueryClient();
   const navigate = useNavigate();
   const params = useParams({ strict: false }) as { threadId?: string };
-  const [tab, setTab] = useState<"chats" | "connectors" | "memory" | "approvals" | "scout" | "logins">("chats");
+  const [tab, setTab] = useState<"chats" | "connectors" | "memory" | "approvals" | "scout" | "logins" | "documents">("chats");
   const approvals = useApprovals();
   const pendingCount = approvals.data?.filter((a) => a.status === "pending").length ?? 0;
   const main = threads.data?.find((t) => t.kind === "main");
@@ -143,6 +143,7 @@ function Sidebar({ orgName }: { orgName: string }) {
         {railBtn("chats", MessageCircle, "Chats")}
         {railBtn("approvals", Inbox, "Approvals", pendingCount)}
         {railBtn("connectors", Plug, "Connectors")}
+        {railBtn("documents", FileText, "Documents")}
         {railBtn("scout", Compass, "Community Scout")}
         {railBtn("memory", Brain, "Memory")}
         {railBtn("logins", KeyRound, "Settings: saved logins")}
@@ -214,6 +215,7 @@ function Sidebar({ orgName }: { orgName: string }) {
         {tab === "scout" && <ScoutPanel />}
         {tab === "memory" && <MemoryPanel />}
         {tab === "logins" && <LoginsPanel />}
+        {tab === "documents" && <DocumentsPanel />}
       </aside>
     </>
   );
@@ -1149,6 +1151,56 @@ function Onboarding({ existing }: { existing: { name: string | null; mission: st
         </>)}
       </div>
     </main>
+  );
+}
+
+function DocumentsPanel() {
+  const qc = useQueryClient();
+  const fileRef = useRef<HTMLInputElement>(null);
+  const docs = useQuery({
+    queryKey: ["documents"],
+    queryFn: async () => (await supabase.from("documents").select("id, title, kind, created_at").order("created_at", { ascending: false }).limit(100)).data ?? [],
+  });
+  const org = useQuery({ queryKey: ["org-letterhead"], queryFn: async () => (await supabase.from("organizations").select("name, address, logo_url").maybeSingle()).data });
+  async function uploadLogo(f?: File) {
+    if (!f) return;
+    try {
+      const { logoToDataUrl } = await import("@/lib/logo");
+      const dataUrl = await logoToDataUrl(f);
+      const { data: u } = await supabase.auth.getUser();
+      const { error } = await supabase.from("organizations").update({ logo_url: dataUrl }).eq("user_id", u.user!.id);
+      if (error) throw error;
+      qc.invalidateQueries({ queryKey: ["org-letterhead"] });
+      toast.success("Logo added to all your documents.");
+    } catch (e) { toast.error(e instanceof Error ? e.message : "Couldn't add that logo"); }
+  }
+  async function remove(id: string) {
+    if (!confirm("Delete this document?")) return;
+    await supabase.from("documents").delete().eq("id", id);
+    qc.invalidateQueries({ queryKey: ["documents"] });
+  }
+  return (
+    <div className="flex-1 overflow-y-auto px-2 pb-4">
+      <h2 className="px-3 pb-1 font-medium">Documents</h2>
+      <p className="px-3 pb-3 text-xs text-muted-foreground">Checklists, plans and letters Civi drafts — on your letterhead, ready to download.</p>
+      <div className="mx-1 mb-3 flex items-center gap-3 rounded-2xl border bg-card p-3">
+        {org.data?.logo_url ? <img src={org.data.logo_url} alt="Organization logo" className="h-9 w-9 shrink-0 object-contain" /> : <span className="grid h-9 w-9 shrink-0 place-items-center rounded-md bg-secondary"><ImagePlus className="h-4 w-4 text-muted-foreground" /></span>}
+        <span className="min-w-0 flex-1 text-sm">{org.data?.logo_url ? "Letterhead logo" : "Add your logo to documents"}</span>
+        <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={(e) => uploadLogo(e.target.files?.[0])} />
+        <Button size="sm" variant="outline" className="rounded-full" onClick={() => fileRef.current?.click()}>{org.data?.logo_url ? "Change" : "Upload"}</Button>
+      </div>
+      {(docs.data ?? []).length === 0 && <p className="px-3 py-2 text-sm text-muted-foreground">No documents yet — ask Civi for an event checklist or a plan.</p>}
+      {(docs.data ?? []).map((d) => (
+        <div key={d.id} className="group flex items-center gap-2 rounded-2xl px-3 py-2.5 hover:bg-sidebar-accent">
+          <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
+          <Link to="/documents/$id" params={{ id: d.id }} className="min-w-0 flex-1">
+            <span className="block truncate text-sm">{d.title}</span>
+            <span className="text-xs capitalize text-muted-foreground">{d.kind} · {new Date(d.created_at).toLocaleDateString()}</span>
+          </Link>
+          <button aria-label="Delete document" onClick={() => remove(d.id)} className="opacity-0 transition group-hover:opacity-100"><Trash2 className="h-4 w-4 text-muted-foreground" /></button>
+        </div>
+      ))}
+    </div>
   );
 }
 
