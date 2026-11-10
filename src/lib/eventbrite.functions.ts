@@ -154,7 +154,35 @@ const EventPayload = z.object({
   capacity: z.coerce.number().int().positive().default(100),
   price: z.coerce.number().min(0).default(0),
   description: z.string().default(""),
+  image_prompt: z.string().max(2000).optional(),
 });
+
+/** Generates a cover with GPT Image 2.5 Sunburst and uploads it to Eventbrite. Returns media id + url. */
+async function createEventCover(prompt: string, eb: (path: string, init?: RequestInit) => Promise<any>) {
+  const { generateImage } = await import("@lovable.dev/ai-gateway");
+  const img = await generateImage({
+    model: "openai/gpt-image-2.5-sunburst",
+    prompt: `Eventbrite event cover image, wide banner composition with the subject centered and important details away from the top and bottom edges. No small text. ${prompt}`,
+    size: "1792x1024",
+    output_format: "jpeg",
+    quality: "high",
+  });
+  const b64 = img.data?.[0]?.b64_json;
+  if (!b64) throw new Error("No image returned");
+  const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+
+  const up = await eb("/media/upload/?type=image-event-logo");
+  const form = new FormData();
+  for (const [k, v] of Object.entries(up.upload_data ?? {})) form.append(k, String(v));
+  form.append(up.file_parameter_name ?? "file", new Blob([bytes], { type: "image/jpeg" }), "cover.jpg");
+  const put = await fetch(up.upload_url, { method: "POST", body: form });
+  if (!put.ok) throw new Error(`Cover upload failed [${put.status}]`);
+  const media = await eb("/media/upload/", {
+    method: "POST",
+    body: JSON.stringify({ upload_token: up.upload_token, crop_mask: { top_left: { x: 0, y: 64 }, width: 1792, height: 896 } }),
+  });
+  return { id: media.id as string, url: (media.url ?? media.original?.url) as string | undefined };
+}
 
 /** Runs an approved Eventbrite action. Creates the event as an unpublished draft. */
 export const runEventbriteApproval = createServerFn({ method: "POST" })
@@ -176,7 +204,7 @@ export const runEventbriteApproval = createServerFn({ method: "POST" })
     const eb = async (path: string, init?: RequestInit) => {
       const res = await fetch(`${API_BASE}${path}`, {
         ...init,
-        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        headers: { Authorization: `Bearer ${token}`, ...(init?.body ? { "Content-Type": "application/json" } : {}) },
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -193,6 +221,13 @@ export const runEventbriteApproval = createServerFn({ method: "POST" })
     const online = /online|virtual|zoom/i.test(p.location);
     const desc = `${p.description}${online ? "" : `<p><b>Location:</b> ${p.location}</p>`}`;
 
+    let cover: { id: string; url?: string | undefined } | null = null;
+    try {
+      cover = await createEventCover(p.image_prompt || `${p.title}. ${p.description.replace(/<[^>]+>/g, " ")}`, eb);
+    } catch (e) {
+      console.error("Event cover failed", e);
+    }
+
     const ev = await eb(`/organizations/${orgId}/events/`, {
       method: "POST",
       body: JSON.stringify({ event: {
@@ -201,6 +236,7 @@ export const runEventbriteApproval = createServerFn({ method: "POST" })
         start: { timezone: p.timezone, utc: utc(p.start) },
         end: { timezone: p.timezone, utc: utc(p.end) },
         currency: "USD", online_event: online, capacity: p.capacity, listed: true,
+        ...(cover ? { logo_id: cover.id } : {}),
       } }),
     });
     await eb(`/events/${ev.id}/ticket_classes/`, {
@@ -216,7 +252,7 @@ export const runEventbriteApproval = createServerFn({ method: "POST" })
     if (threadId) {
       await supabase.from("messages").insert({
         thread_id: threadId, user_id: userId, role: "assistant",
-        content: `🎉 Created **${p.title}** on Eventbrite as a draft.\n\n- [Review & publish it on Eventbrite](https://www.eventbrite.com/myevent?eid=${ev.id})\n- Public page (live after you publish): ${ev.url}`,
+        content: `🎉 Created **${p.title}** on Eventbrite as a draft.${cover?.url ? `\n\n![Event cover](${cover.url})` : cover ? " Cover image added." : "\n\n(I couldn't make a cover image this time — you can add one on Eventbrite.)"}\n\n- [Review & publish it on Eventbrite](https://www.eventbrite.com/myevent?eid=${ev.id})\n- Public page (live after you publish): ${ev.url}`,
       });
     }
     return { eventId: ev.id as string, url: ev.url as string, threadId };
