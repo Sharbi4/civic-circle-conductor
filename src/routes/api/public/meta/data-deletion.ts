@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-function b64urlDecode(s: string): Uint8Array {
+function b64urlDecode(s: string): Uint8Array<ArrayBuffer> {
   const b = atob(s.replace(/-/g, "+").replace(/_/g, "/").padEnd(Math.ceil(s.length / 4) * 4, "="));
   return Uint8Array.from(b, (c) => c.charCodeAt(0));
 }
@@ -18,7 +18,7 @@ export const Route = createFileRoute("/api/public/meta/data-deletion")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        const secret = process.env.FACEBOOK_APP_SECRET;
+        const secret = process.env["FACEBOOK_APP_SECRET"];
         if (!secret) return new Response("Not configured", { status: 500 });
         const form = await request.formData().catch(() => null);
         const signed = form?.get("signed_request");
