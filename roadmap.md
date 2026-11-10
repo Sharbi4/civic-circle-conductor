@@ -38,3 +38,4 @@
 - [x] + menu lists connected agents with logos; Facebook opens browser with saved login
 - [x] Perplexity research during onboarding + event planning
 - [x] ElevenLabs voice: read replies aloud + talk to Civi
+- [ ] Square vendor payments (approval-gated) — waiting on Square setup
