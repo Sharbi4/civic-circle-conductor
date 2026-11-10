@@ -9,3 +9,5 @@
 - [ ] Food vendor database (Facebook agent searches vendors, saves them; used for event outreach)
 - [ ] Settings page: connectors + secure saved logins the agent can fill into forms
 - [ ] Voice agent (ElevenLabs or OpenAI voice)
+- [x] Civi character: unique character modeled on the user's uploaded reference (not a robot)
+- [x] Civi character: robot penguin
