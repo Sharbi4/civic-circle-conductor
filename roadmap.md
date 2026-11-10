@@ -35,3 +35,4 @@
 - [x] Browser buttons as see-through icons on the browser; more zoom
 - [x] Pin / delete buttons on side chats
 - [x] Event planning leads with ideas + shared event playbook; browser saves vendors to directory
+- [x] + menu lists connected agents with logos; Facebook opens browser with saved login

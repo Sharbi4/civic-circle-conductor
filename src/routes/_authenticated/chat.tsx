@@ -1,7 +1,7 @@
 import { createFileRoute, Link, Outlet, useNavigate, useParams } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { MessageCircle, Plus, Plug, LogOut, Pin, Brain, Inbox, Megaphone, CalendarCheck, CreditCard, Sparkles, Check, X, Compass, Trash2, KeyRound } from "lucide-react";
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
@@ -16,7 +16,10 @@ import { startEventbriteConnect, completeEventbriteConnect, getEventbriteStatus,
 import { saveSiteCredential } from "@/lib/credentials.functions";
 import { sendOrganizerMessage } from "@/lib/organizer.functions";
 import { startXConnect, completeXConnect, getXStatus, disconnectX, runXApproval } from "@/lib/x.functions";
-import { runFacebookApproval } from "@/lib/browser.functions";
+import { runFacebookApproval, startBrowserSession } from "@/lib/browser.functions";
+import { SiFacebook, SiNextdoor, SiX } from "react-icons/si";
+import { FaLinkedin } from "react-icons/fa";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { startNextdoorConnect, completeNextdoorConnect, getNextdoorStatus, disconnectNextdoor } from "@/lib/nextdoor.functions";
 
 export const Route = createFileRoute("/_authenticated/chat")({
@@ -163,9 +166,7 @@ function Sidebar({ orgName }: { orgName: string }) {
             )}
             <div className="mt-4 flex items-center justify-between px-3 text-sm text-muted-foreground">
               Side chats
-              <button aria-label="New side chat" onClick={newSide} className="rounded-lg p-1 hover:bg-sidebar-accent">
-                <Plus className="h-4 w-4" />
-              </button>
+              <NewChatMenu onBlank={newSide} />
             </div>
             <div className="mt-1 space-y-0.5">
               {[...side].sort((a, b) => Number(b.pinned) - Number(a.pinned)).map((t) => (
@@ -1049,14 +1050,14 @@ function LoginsPanel() {
       await save({ data: { ...f, label: f.label || f.domain } });
       setF({ label: "", domain: "", username: "", password: "" });
       toast.success("Login saved securely");
-      qc.invalidateQueries({ queryKey: ["site_credentials"] });
+      qc.invalidateQueries({ queryKey: ["site_credentials"] }); qc.invalidateQueries({ queryKey: ["fb-login"] });
     } catch (err) { toast.error(err instanceof Error ? err.message : "Couldn't save"); }
     finally { setBusy(false); }
   }
   async function remove(id: string) {
     const { error } = await supabase.from("site_credentials").delete().eq("id", id);
     if (error) { toast.error(error.message); return; }
-    qc.invalidateQueries({ queryKey: ["site_credentials"] });
+    qc.invalidateQueries({ queryKey: ["site_credentials"] }); qc.invalidateQueries({ queryKey: ["fb-login"] });
   }
   return (
     <div className="flex-1 overflow-y-auto px-3 pb-4">
@@ -1086,5 +1087,69 @@ function LoginsPanel() {
         {list.data?.length === 0 && <p className="px-3 text-sm text-muted-foreground">No saved logins yet.</p>}
       </div>
     </div>
+  );
+}
+
+
+function NewChatMenu({ onBlank }: { onBlank: () => void }) {
+  const qc = useQueryClient();
+  const navigate = useNavigate();
+  const startBrowser = useServerFn(startBrowserSession);
+  const eb = useQuery({ queryKey: ["eventbrite-status"], queryFn: () => getEventbriteStatus() });
+  const nd = useQuery({ queryKey: ["nextdoor-status"], queryFn: () => getNextdoorStatus() });
+  const li = useQuery({ queryKey: ["linkedin-status"], queryFn: () => getLinkedInStatus() });
+  const x = useQuery({ queryKey: ["x-status"], queryFn: () => getXStatus() });
+  const fb = useQuery({
+    queryKey: ["fb-login"],
+    queryFn: async () => {
+      const { data } = await supabase.from("site_credentials").select("domain");
+      return (data ?? []).some((c) => c.domain.endsWith("facebook.com"));
+    },
+  });
+  const items = [
+    eb.data?.connected && { id: "eb", name: "Eventbrite", title: "Eventbrite Agent", icon: <CalendarCheck className="h-4 w-4" /> },
+    x.data?.connected && { id: "x", name: "X", title: "X Agent", icon: <SiX className="h-4 w-4" /> },
+    li.data?.connected && { id: "li", name: "LinkedIn", title: "LinkedIn Agent", icon: <FaLinkedin className="h-4 w-4" /> },
+    nd.data?.connected && { id: "nd", name: "Nextdoor", title: "Nextdoor Agent", icon: <SiNextdoor className="h-4 w-4" /> },
+    fb.data && { id: "fb", name: "Facebook", title: "Facebook Agent", icon: <SiFacebook className="h-4 w-4" /> },
+  ].filter(Boolean) as { id: string; name: string; title: string; icon: ReactNode }[];
+
+  async function open(it: (typeof items)[number]) {
+    const { data: u } = await supabase.auth.getUser();
+    let threadId: string | undefined;
+    if (it.id !== "fb") {
+      const { data: ex } = await supabase.from("threads").select("id").eq("kind", "side").eq("title", it.title).limit(1).maybeSingle();
+      threadId = ex?.id;
+    }
+    if (!threadId) {
+      const { data, error } = await supabase.from("threads").insert({ user_id: u.user!.id, kind: "side", title: it.title }).select("id").single();
+      if (error) { toast.error(error.message); return; }
+      threadId = data.id;
+    }
+    await qc.invalidateQueries({ queryKey: ["threads"] });
+    navigate({ to: "/chat/$threadId", params: { threadId } });
+    if (it.id === "fb") {
+      try {
+        await startBrowser({ data: { threadId, task: "Open https://www.facebook.com/ and sign in with the saved Facebook login, then wait for the organizer's next task" } });
+        qc.invalidateQueries({ queryKey: ["messages"] });
+      } catch (e) { toast.error(e instanceof Error ? e.message : "Couldn't open the browser"); }
+    }
+  }
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button aria-label="New side chat" className="rounded-lg p-1 hover:bg-sidebar-accent"><Plus className="h-4 w-4" /></button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-52">
+        <DropdownMenuItem onClick={onBlank}><MessageCircle className="h-4 w-4" /> New chat</DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuLabel className="text-xs text-muted-foreground">Connected agents</DropdownMenuLabel>
+        {items.map((it) => (
+          <DropdownMenuItem key={it.id} onClick={() => open(it)}>{it.icon} {it.name}</DropdownMenuItem>
+        ))}
+        {items.length === 0 && <p className="px-2 py-1.5 text-xs text-muted-foreground">Nothing connected yet</p>}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
