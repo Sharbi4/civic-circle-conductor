@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { CONNECTORS } from "@/lib/connectors";
+import { startEventbriteConnect, completeEventbriteConnect, getEventbriteStatus, disconnectEventbrite } from "@/lib/eventbrite.functions";
 
 export const Route = createFileRoute("/_authenticated/chat")({
   head: () => ({
@@ -163,18 +164,117 @@ function Sidebar({ orgName }: { orgName: string }) {
             <p className="px-3 pb-3 text-sm text-muted-foreground">
               Connect a channel and a dedicated agent opens as its own side chat.
             </p>
-            {CONNECTORS.map((c) => (
-              <div key={c.id} className="flex items-center justify-between rounded-2xl px-3 py-2.5 hover:bg-sidebar-accent">
-                <span>{c.name}</span>
-                <span className="rounded-full bg-secondary px-2 py-0.5 text-xs text-muted-foreground">Soon</span>
-              </div>
-            ))}
+            {CONNECTORS.map((c) =>
+              c.id === "eventbrite" ? (
+                <EventbriteConnectorRow key={c.id} />
+              ) : (
+                <div key={c.id} className="flex items-center justify-between rounded-2xl px-3 py-2.5 hover:bg-sidebar-accent">
+                  <span>{c.name}</span>
+                  <span className="rounded-full bg-secondary px-2 py-0.5 text-xs text-muted-foreground">Soon</span>
+                </div>
+              ),
+            )}
           </div>
         )}
         {tab === "approvals" && <ApprovalsPanel />}
         {tab === "memory" && <MemoryPanel />}
       </aside>
     </>
+  );
+}
+
+function EventbriteConnectorRow() {
+  const qc = useQueryClient();
+  const navigate = useNavigate();
+  const [busy, setBusy] = useState(false);
+  const status = useQuery({ queryKey: ["eventbrite-status"], queryFn: () => getEventbriteStatus() });
+
+  function waitForOAuth(popup: Window) {
+    return new Promise<string>((resolve, reject) => {
+      let poll: number | undefined;
+      const cleanup = () => {
+        window.removeEventListener("message", onMessage);
+        if (poll !== undefined) window.clearInterval(poll);
+      };
+      const onMessage = (event: MessageEvent) => {
+        if (event.origin !== window.location.origin || event.source !== popup) return;
+        const type = event.data?.type;
+        if (event.data?.connectorId !== "eventbrite") return;
+        if (type !== "civiOauthComplete" && type !== "civiOauthFailed") return;
+        cleanup();
+        if (type === "civiOauthComplete" && typeof event.data?.code === "string") resolve(event.data.code);
+        else { popup.close(); reject(new Error("Eventbrite connection failed.")); }
+      };
+      window.addEventListener("message", onMessage);
+      poll = window.setInterval(() => {
+        if (!popup.closed) return;
+        cleanup();
+        reject(new Error("Eventbrite window closed before finishing."));
+      }, 500);
+    });
+  }
+
+  async function connect() {
+    setBusy(true);
+    const popup = window.open("", "civi-eventbrite-oauth", "width=600,height=720");
+    if (!popup) { setBusy(false); toast.error("Popup blocked — allow popups and try again."); return; }
+    try {
+      const { authorizationUrl } = await startEventbriteConnect();
+      const completion = waitForOAuth(popup);
+      popup.location.href = authorizationUrl;
+      const code = await completion;
+      const result = await completeEventbriteConnect({ data: { code } });
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ["eventbrite-status"] }),
+        qc.invalidateQueries({ queryKey: ["threads"] }),
+      ]);
+      toast.success(`Connected to Eventbrite as ${result.accountName}`);
+      if (result.threadId) navigate({ to: "/chat/$threadId", params: { threadId: result.threadId } });
+    } catch (e) {
+      popup.close();
+      toast.error(e instanceof Error ? e.message : "Eventbrite connection failed.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function disconnect() {
+    setBusy(true);
+    try {
+      await disconnectEventbrite();
+      await qc.invalidateQueries({ queryKey: ["eventbrite-status"] });
+      toast.success("Eventbrite disconnected.");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Disconnect failed.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const connected = status.data?.connected;
+  return (
+    <div className="rounded-2xl px-3 py-2.5 hover:bg-sidebar-accent">
+      <div className="flex items-center justify-between">
+        <span>Eventbrite</span>
+        {status.isLoading ? (
+          <span className="rounded-full bg-secondary px-2 py-0.5 text-xs text-muted-foreground">…</span>
+        ) : connected ? (
+          <span className="rounded-full bg-accent px-2 py-0.5 text-xs font-medium text-accent-foreground">Connected</span>
+        ) : (
+          <Button size="sm" variant="outline" disabled={busy} onClick={connect} className="h-7 rounded-full px-3 text-xs">
+            {busy ? "Connecting…" : "Connect"}
+          </Button>
+        )}
+      </div>
+      {connected && (
+        <div className="mt-1.5 flex items-center justify-between text-xs text-muted-foreground">
+          <span className="truncate">{status.data?.accountName}</span>
+          <button onClick={disconnect} disabled={busy} className="ml-2 shrink-0 underline hover:text-foreground">
+            Disconnect
+          </button>
+        </div>
+      )}
+    </div>
   );
 }
 

@@ -83,6 +83,36 @@ export type Database = {
         }
         Relationships: []
       }
+      connector_connections: {
+        Row: {
+          access_token_ciphertext: string
+          account_name: string | null
+          connector: string
+          created_at: string
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          access_token_ciphertext: string
+          account_name?: string | null
+          connector: string
+          created_at?: string
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          access_token_ciphertext?: string
+          account_name?: string | null
+          connector?: string
+          created_at?: string
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       memories: {
         Row: {
           content: string

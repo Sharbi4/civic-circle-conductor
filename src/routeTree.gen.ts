@@ -15,6 +15,7 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedChatRouteImport } from './routes/_authenticated/chat'
 import { Route as AuthenticatedChatIndexRouteImport } from './routes/_authenticated/chat.index'
 import { Route as AuthenticatedChatThreadIdRouteImport } from './routes/_authenticated/chat.$threadId'
+import { Route as ApiOauthEventbriteReturnRouteImport } from './routes/api/oauth/eventbrite/return'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -46,6 +47,12 @@ const AuthenticatedChatThreadIdRoute =
     path: '/$threadId',
     getParentRoute: () => AuthenticatedChatRoute,
   } as any)
+const ApiOauthEventbriteReturnRoute =
+  ApiOauthEventbriteReturnRouteImport.update({
+    id: '/api/oauth/eventbrite/return',
+    path: '/api/oauth/eventbrite/return',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -53,12 +60,14 @@ export interface FileRoutesByFullPath {
   '/chat': typeof AuthenticatedChatRouteWithChildren
   '/chat/$threadId': typeof AuthenticatedChatThreadIdRoute
   '/chat/': typeof AuthenticatedChatIndexRoute
+  '/api/oauth/eventbrite/return': typeof ApiOauthEventbriteReturnRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/chat/$threadId': typeof AuthenticatedChatThreadIdRoute
   '/chat': typeof AuthenticatedChatIndexRoute
+  '/api/oauth/eventbrite/return': typeof ApiOauthEventbriteReturnRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -68,12 +77,20 @@ export interface FileRoutesById {
   '/_authenticated/chat': typeof AuthenticatedChatRouteWithChildren
   '/_authenticated/chat/$threadId': typeof AuthenticatedChatThreadIdRoute
   '/_authenticated/chat/': typeof AuthenticatedChatIndexRoute
+  '/api/oauth/eventbrite/return': typeof ApiOauthEventbriteReturnRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/auth' | '/chat' | '/chat/$threadId' | '/chat/'
+  fullPaths:
+    | '/'
+    | '/auth'
+    | '/chat'
+    | '/chat/$threadId'
+    | '/chat/'
+    | '/api/oauth/eventbrite/return'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/auth' | '/chat/$threadId' | '/chat'
+  to:
+    '/' | '/auth' | '/chat/$threadId' | '/chat' | '/api/oauth/eventbrite/return'
   id:
     | '__root__'
     | '/'
@@ -82,12 +99,14 @@ export interface FileRouteTypes {
     | '/_authenticated/chat'
     | '/_authenticated/chat/$threadId'
     | '/_authenticated/chat/'
+    | '/api/oauth/eventbrite/return'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
+  ApiOauthEventbriteReturnRoute: typeof ApiOauthEventbriteReturnRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -134,6 +153,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedChatThreadIdRouteImport
       parentRoute: typeof AuthenticatedChatRoute
     }
+    '/api/oauth/eventbrite/return': {
+      id: '/api/oauth/eventbrite/return'
+      path: '/api/oauth/eventbrite/return'
+      fullPath: '/api/oauth/eventbrite/return'
+      preLoaderRoute: typeof ApiOauthEventbriteReturnRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -165,6 +191,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
+  ApiOauthEventbriteReturnRoute: ApiOauthEventbriteReturnRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
