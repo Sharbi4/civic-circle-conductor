@@ -1,0 +1,7 @@
+# Civi Meet roadmap
+- [x] Sign-in, onboarding (org name + mission), main organizer chat, side chats, per-org memory
+- [ ] Eventbrite connector agent (first connector) — needs Eventbrite OAuth client
+- [ ] Live browser agent view — needs browser service account + key (e.g. Browserbase)
+- [ ] Scheduled agent tasks (5/15/30 min)
+- [ ] Remaining connectors: Facebook, Instagram, Instagram DMs, X, Nextdoor, Gmail, TikTok
+- [ ] Streaming replies
