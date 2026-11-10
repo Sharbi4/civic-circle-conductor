@@ -258,6 +258,7 @@ export const browserAgentStep = createServerFn({ method: "POST" })
             "If the page shows a sign-in form and the site is in the organizer's saved logins, use login with the username/email field index and the password field index (use the same index for both if only one field shows). You never see the password; the system fills it in. After login, click the sign-in button with click.",
             "Use handoff (NOT done) whenever only the organizer can continue: a login with no saved credentials, a verification/2FA code, a CAPTCHA, or a personal choice. Say exactly what they need to do. They'll hand control back and you'll continue the same goal.",
             "When your goal involved finding Facebook groups or reviewing a Facebook Page, end your done summary with these lines (exact format, real links you visited only): [[fb_groups: [{\"name\":\"...\",\"url\":\"https://www.facebook.com/groups/...\"}]]] and, if you found the organization's Page, [[fb_page: {\"url\":\"https://www.facebook.com/...\",\"post_text\":\"a warm, short Page update sharing what the org is refreshing/working on (no checklist jargon), ready to post\"}]].",
+            "List fb_groups most relevant to the mission first; skip groups already joined earlier in this browser.",
             "When the goal says it is APPROVED by the organizer, you may use submit on the Join / Post button that completes it.",
             "Never invent contact details. Never ask the organizer to paste passwords or codes in chat.",
           ].join("\n"),
@@ -324,7 +325,18 @@ export const browserAgentStep = createServerFn({ method: "POST" })
         if (fbRows.length) await supabase.from("approvals").insert(fbRows);
         await save({ agent_status: "done" }, { action: "done", note: `Finished: ${cleanSummary.replace(/\s+/g, " ").slice(0, 400)}` });
         await post(`✅ Browser task finished: **${goal}**\n\n${cleanSummary}${fbRows.length ? `\n\n📥 I put ${fbRows.length} request${fbRows.length > 1 ? "s" : ""} in your **Approvals** inbox — ${groups.length ? `one per group to join` : ""}${groups.length && page ? " and " : ""}${page ? "the Page update post" : ""}. Approve the ones you want and I'll do them one by one in this browser.` : ""}`);
-        if (await startNextQueued(supabase, row.id)) return { agentStatus: "driving" };
+        if (await startNextQueued(supabase, row.id)) {
+          if (goal.startsWith("APPROVED")) await post(`▶️ On to the next approved task in the browser…`);
+          return { agentStatus: "driving" };
+        }
+        if (goal.startsWith("APPROVED") && /Facebook group/.test(goal)) {
+          const { data: aps } = await supabase.from("approvals").select("status, title, payload").eq("user_id", userId);
+          const fb = (aps ?? []).filter((x: { payload: { kind?: string } | null }) => x.payload?.kind === "fb_join_group");
+          const joined = fb.filter((x: { status: string }) => x.status === "approved").length;
+          const waiting = fb.filter((x: { status: string }) => x.status === "pending").map((x: { title: string }) => x.title.replace("Join Facebook group: ", ""));
+          const milestone = joined >= 10 && joined % 10 === 0 ? `🎉 That's **${joined} groups** joined — a strong local footprint. ` : `📊 **${joined}** Facebook group${joined === 1 ? "" : "s"} joined so far. `;
+          await post(`${milestone}${waiting.length ? `Still waiting on your OK for ${waiting.length}: ${waiting.slice(0, 5).map((w) => `**${w}**`).join(", ")}${waiting.length > 5 ? "…" : ""} (most relevant first — see Approvals).` : "No group requests are waiting."} Want me to keep going?\n\n[[choices: Find more groups | Post in a joined group | Pause for now]]`);
+        }
         return { agentStatus: "done" };
       }
       if (a.action === "submit") {
