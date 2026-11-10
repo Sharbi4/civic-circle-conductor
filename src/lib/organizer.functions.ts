@@ -152,6 +152,16 @@ For multi-step objectives, show a visible task plan with statuses (Done / Workin
         clean += `\n\n⚠️ I tried to open a live browser for "${task}", but the browser service isn't connected yet.`;
         continue;
       }
+      // Reuse this chat's open browser (keeps logins, avoids the concurrent-browser limit).
+      const { data: open } = await supabase.from("browser_sessions")
+        .select("id").eq("thread_id", data.threadId).eq("status", "running")
+        .order("created_at", { ascending: false }).limit(1).maybeSingle();
+      if (open) {
+        await supabase.from("browser_sessions")
+          .update({ goal: task, agent_status: "driving", steps: [], submit_approved: false }).eq("id", open.id);
+        clean += `\n\n[[browser: ${open.id} | ${task}]]`;
+        continue;
+      }
       try {
         const { id } = await openBrowserSession({
           supabase, userId, threadId: data.threadId, task, lovableKey, connKey,
@@ -159,7 +169,7 @@ For multi-step objectives, show a visible task plan with statuses (Done / Workin
         clean += `\n\n[[browser: ${id} | ${task}]]`;
       } catch (e) {
         console.error("Failed to open browser session", e);
-        clean += `\n\n⚠️ I couldn't open a live browser for "${task}" just now — the browser service didn't respond. Try again in a moment.`;
+        clean += `\n\n⚠️ I couldn't open a live browser for "${task}" just now — ${String(e).includes("429") ? "too many browsers are already open. Press End on a browser you're done with, then ask again." : "the browser service didn't respond. Try again in a moment."}`;
       }
     }
 

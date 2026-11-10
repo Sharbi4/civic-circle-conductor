@@ -71,6 +71,9 @@ function MessageBody({ content }: { content: string }) {
   );
 }
 
+// One driver per browser, even when several chat cards show the same session.
+const DRIVING_NOW = new Set<string>();
+
 function BrowserCard({ sessionRowId, task }: { sessionRowId: string; task: string }) {
   const qc = useQueryClient();
   const end = useServerFn(endBrowserSession);
@@ -94,12 +97,14 @@ function BrowserCard({ sessionRowId, task }: { sessionRowId: string; task: strin
   const steps = (Array.isArray(session.data?.steps) ? session.data!.steps : []) as { action: string; note: string }[];
 
   useEffect(() => {
-    if (!running || agent !== "driving" || stepping.current) return;
+    if (!running || agent !== "driving" || stepping.current || DRIVING_NOW.has(sessionRowId)) return;
     stepping.current = true;
+    DRIVING_NOW.add(sessionRowId);
     step({ data: { sessionRowId } })
       .catch((e) => toast.error(e instanceof Error ? e.message : "Civi lost the browser"))
       .finally(async () => {
         stepping.current = false;
+        DRIVING_NOW.delete(sessionRowId);
         await qc.invalidateQueries({ queryKey: ["browser_session", sessionRowId] });
         qc.invalidateQueries({ queryKey: ["approvals"] });
         qc.invalidateQueries({ queryKey: ["messages"] });
