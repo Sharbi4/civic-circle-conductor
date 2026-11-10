@@ -331,7 +331,7 @@ export const browserAgentStep = createServerFn({ method: "POST" })
         }
         if (goal.startsWith("APPROVED") && /Facebook group/.test(goal)) {
           const { data: aps } = await supabase.from("approvals").select("status, title, payload").eq("user_id", userId);
-          const fb = (aps ?? []).filter((x: { payload: { kind?: string } | null }) => x.payload?.kind === "fb_join_group");
+          const fb = (aps ?? []).filter((x) => (x.payload as { kind?: string } | null)?.kind === "fb_join_group");
           const joined = fb.filter((x: { status: string }) => x.status === "approved").length;
           const waiting = fb.filter((x: { status: string }) => x.status === "pending").map((x: { title: string }) => x.title.replace("Join Facebook group: ", ""));
           const milestone = joined >= 10 && joined % 10 === 0 ? `🎉 That's **${joined} groups** joined — a strong local footprint. ` : `📊 **${joined}** Facebook group${joined === 1 ? "" : "s"} joined so far. `;
