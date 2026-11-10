@@ -4,7 +4,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import { getSuggestions, setAutonomy } from "@/lib/suggestions.functions";
-import { ArrowUp, ImagePlus, X, CalendarHeart, ExternalLink, Mail, Megaphone, MonitorUp, Phone, Square, Vote, HeartPulse, MessageSquareHeart } from "lucide-react";
+import { ArrowUp, ImagePlus, X, CalendarHeart, ExternalLink, Mail, Megaphone, MonitorUp, Phone, Square, Hand, Play, Maximize2, Vote, HeartPulse, MessageSquareHeart } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { sendOrganizerMessage } from "@/lib/organizer.functions";
@@ -236,6 +236,7 @@ function BrowserCard({ sessionRowId, task }: { sessionRowId: string; task: strin
       <div className="flex items-center gap-2 px-4 py-2.5">
         <MonitorUp className="h-4 w-4 shrink-0 text-accent" />
         <span className="truncate text-sm font-medium">{task}</span>
+        {running && <span className="hidden shrink-0 text-xs text-muted-foreground sm:inline">· {AGENT_LABEL[agent] ?? "Watching"}</span>}
         {running ? (
           <span className="ml-auto flex shrink-0 items-center gap-1.5 rounded-full bg-secondary px-2 py-0.5 text-[11px] font-bold uppercase tracking-wider text-accent">
             <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent" />
@@ -256,6 +257,15 @@ function BrowserCard({ sessionRowId, task }: { sessionRowId: string; task: strin
               className={`h-full w-full bg-background ${dragging ? "pointer-events-none" : ""}`}
               allow="clipboard-read; clipboard-write"
             />
+            <div className="absolute right-2 top-2 flex gap-1.5 opacity-70 transition-opacity hover:opacity-100">
+              {session.data?.connect_url && (agent === "driving" ? (
+                <button onClick={() => toggleDrive(false)} title="Take over" aria-label="Take over" className="flex h-8 w-8 items-center justify-center rounded-full bg-background/50 text-foreground shadow-soft backdrop-blur-md hover:bg-background/80 disabled:opacity-40"><Hand className="h-4 w-4" /></button>
+              ) : agent !== "needs_user" && agent !== "awaiting_approval" ? (
+                <button onClick={() => toggleDrive(true)} title="Let Civi drive" aria-label="Let Civi drive" className="flex h-8 w-8 items-center justify-center rounded-full bg-background/50 text-foreground shadow-soft backdrop-blur-md hover:bg-background/80 disabled:opacity-40"><Play className="h-4 w-4" /></button>
+              ) : null)}
+              <a href={session.data!.live_url!} target="_blank" rel="noreferrer" title="Full view" aria-label="Full view" className="flex h-8 w-8 items-center justify-center rounded-full bg-background/50 text-foreground shadow-soft backdrop-blur-md hover:bg-background/80 disabled:opacity-40"><Maximize2 className="h-4 w-4" /></a>
+              <button onClick={stop} disabled={ending} title="Stop and close browser" aria-label="Stop" className="flex h-8 w-8 items-center justify-center rounded-full bg-background/50 text-foreground shadow-soft backdrop-blur-md hover:bg-background/80 disabled:opacity-40"><Square className="h-4 w-4" /></button>
+            </div>
           </div>
           <div
             role="separator" aria-orientation="horizontal" aria-label="Drag to resize the browser"
@@ -276,24 +286,6 @@ function BrowserCard({ sessionRowId, task }: { sessionRowId: string; task: strin
               <Button size="sm" variant="outline" onClick={() => toggleDrive(true)}>Give control back to Civi</Button>
             </div>
           )}
-          <div className="flex items-center justify-between gap-2 border-t px-4 py-2.5">
-            <p className="text-xs text-muted-foreground">{AGENT_LABEL[agent] ?? "Watch Civi work"}{agent === "driving" ? "…" : ""}</p>
-            <div className="flex shrink-0 gap-2">
-              {session.data?.connect_url && (agent === "driving" ? (
-                <button onClick={() => toggleDrive(false)} className="rounded-full border px-3 py-1 text-xs hover:bg-secondary">Take over</button>
-              ) : agent === "needs_user" ? null : agent !== "awaiting_approval" ? (
-                <button onClick={() => toggleDrive(true)} className="rounded-full border px-3 py-1 text-xs hover:bg-secondary">Let Civi drive</button>
-              ) : null)}
-              <a href={session.data!.live_url!} target="_blank" rel="noreferrer"
-                className="flex items-center gap-1 rounded-full border px-3 py-1 text-xs hover:bg-secondary">
-                <ExternalLink className="h-3 w-3" /> Full view
-              </a>
-              <button onClick={stop} disabled={ending}
-                className="flex items-center gap-1 rounded-full border px-3 py-1 text-xs hover:bg-secondary disabled:opacity-40">
-                <Square className="h-3 w-3" /> {ending ? "Ending…" : "End"}
-              </button>
-            </div>
-          </div>
           {steps.length > 0 && (
             <button onClick={() => setShowSteps(true)} title="See everything Civi has done"
               className="flex w-full items-center gap-2 border-t px-4 py-2.5 text-left text-xs text-muted-foreground hover:bg-secondary/60">

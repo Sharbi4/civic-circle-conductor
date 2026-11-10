@@ -48,7 +48,7 @@ export async function openBrowserSession(opts: {
 
   const session = await bbRequest(
     "/v1/sessions",
-    { method: "POST", body: JSON.stringify({ timeout: 3600, keepAlive: true, browserSettings: { viewport: { width: 800, height: 600 } } }) },
+    { method: "POST", body: JSON.stringify({ timeout: 3600, keepAlive: true, browserSettings: { viewport: { width: 640, height: 480 } } }) },
     lovableKey,
     connKey,
   );

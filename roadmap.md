@@ -32,3 +32,4 @@
 - [x] Browser memory: one browser per chat, new tasks keep earlier steps/results as context
 - [ ] Browser keeps driving when the chat is closed (now only steps while a chat page is open)
 - [x] Eventbrite: uploaded cover auto-attached to event requests, cropped 2:1, verified on listing after create
+- [x] Browser buttons as see-through icons on the browser; more zoom
