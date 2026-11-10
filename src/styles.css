@@ -129,6 +129,17 @@
   animation: float-y 3.2s ease-in-out infinite;
 }
 
+@keyframes drift-y {
+  0%, 100% { transform: translateY(0) rotate(-2.5deg); }
+  50% { transform: translateY(-12px) rotate(2.5deg); }
+}
+@utility animate-drift {
+  animation: drift-y 5.5s ease-in-out infinite;
+}
+@utility civi-glow {
+  filter: drop-shadow(0 0 26px oklch(0.68 0.17 32 / 0.32)) drop-shadow(0 0 70px oklch(0.68 0.17 32 / 0.16));
+}
+
 @layer base {
   * {
     border-color: var(--color-border);
