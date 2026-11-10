@@ -8,13 +8,17 @@ const AUTHORIZE_URL = "https://www.eventbrite.com/oauth/authorize";
 const TOKEN_URL = "https://www.eventbrite.com/oauth/token";
 const API_BASE = "https://www.eventbriteapi.com/v3";
 
-function redirectUri(): string {
+// Eventbrite only allows one redirect URI, registered for the published app.
+// The popup lands on the published domain and posts the code back to whatever
+// origin opened it (preview or published) via the `state` parameter.
+const REDIRECT_URI = "https://civic-circle-conductor.lovable.app/api/oauth/eventbrite/return";
+
+function requestOrigin(): string {
   const request = getRequest();
   if (!request) throw new Error("Eventbrite connect must start from an app request.");
   const url = new URL(request.url);
   const sandboxHost = url.hostname === "localhost" ? request.headers.get("x-forwarded-host") : null;
-  const origin = sandboxHost ? `https://${sandboxHost}` : url.origin;
-  return `${origin}/api/oauth/eventbrite/return`;
+  return sandboxHost ? `https://${sandboxHost}` : url.origin;
 }
 
 export const startEventbriteConnect = createServerFn({ method: "POST" })
@@ -27,7 +31,8 @@ export const startEventbriteConnect = createServerFn({ method: "POST" })
     const params = new URLSearchParams({
       response_type: "code",
       client_id: clientId,
-      redirect_uri: redirectUri(),
+      redirect_uri: REDIRECT_URI,
+      state: requestOrigin(),
     });
     return { authorizationUrl: `${AUTHORIZE_URL}?${params.toString()}` };
   });
@@ -50,7 +55,7 @@ export const completeEventbriteConnect = createServerFn({ method: "POST" })
         client_id: clientId,
         client_secret: clientSecret,
         code: data.code,
-        redirect_uri: redirectUri(),
+        redirect_uri: REDIRECT_URI,
       }).toString(),
     });
     if (!tokenRes.ok) {

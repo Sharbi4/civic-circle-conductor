@@ -197,7 +197,10 @@ function EventbriteConnectorRow() {
         if (poll !== undefined) window.clearInterval(poll);
       };
       const onMessage = (event: MessageEvent) => {
-        if (event.origin !== window.location.origin || event.source !== popup) return;
+        // The OAuth popup can land on the published domain while the opener is
+        // the preview (Eventbrite allows only one redirect URI), so accept our
+        // own app origins rather than only this window's origin.
+        if (!event.origin.endsWith(".lovable.app") || event.source !== popup) return;
         const type = event.data?.type;
         if (event.data?.connectorId !== "eventbrite") return;
         if (type !== "civiOauthComplete" && type !== "civiOauthFailed") return;

@@ -10,6 +10,19 @@ export const Route = createFileRoute("/api/oauth/eventbrite/return")({
         const url = new URL(request.url);
         const code = url.searchParams.get("code");
         const error = url.searchParams.get("error");
+        // The opener's origin travels through OAuth `state` so the popup can
+        // post the code back to the preview even though the redirect lives on
+        // the published domain. Only trust our own app origins.
+        const state = url.searchParams.get("state") ?? "";
+        let targetOrigin = url.origin;
+        try {
+          const origin = new URL(state).origin;
+          if (origin.endsWith(".lovable.app") || origin === "https://civic-circle-conductor.lovable.app") {
+            targetOrigin = origin;
+          }
+        } catch {
+          // fall back to this page's own origin
+        }
 
         const result = code
           ? { success: true, connectorId: "eventbrite", code }
@@ -30,7 +43,7 @@ export const Route = createFileRoute("/api/oauth/eventbrite/return")({
         connectorId: result.connectorId,
         code: result.code ?? null,
         error: result.error ?? null
-      }, window.location.origin);
+      }, ${JSON.stringify(targetOrigin)});
     }
     window.close();
   </script>
