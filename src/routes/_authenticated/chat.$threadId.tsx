@@ -99,6 +99,7 @@ function BrowserCard({ sessionRowId, task }: { sessionRowId: string; task: strin
 
   const running = session.data?.status === "running" && session.data.live_url;
   const agent = session.data?.agent_status ?? "idle";
+  const [showSteps, setShowSteps] = useState(false);
   const steps = (Array.isArray(session.data?.steps) ? session.data!.steps : []) as { action: string; note: string }[];
 
   useEffect(() => {
@@ -210,11 +211,32 @@ function BrowserCard({ sessionRowId, task }: { sessionRowId: string; task: strin
             </div>
           </div>
           {steps.length > 0 && (
-            <ol className="max-h-40 space-y-1 overflow-y-auto border-t px-4 py-2.5 text-xs text-muted-foreground">
-              {steps.map((st, i) => (
-                <li key={i}><span className="font-semibold text-foreground">{i + 1}.</span> {st.note}</li>
-              ))}
-            </ol>
+            <button onClick={() => setShowSteps(true)} title="See everything Civi has done"
+              className="flex w-full items-center gap-2 border-t px-4 py-2.5 text-left text-xs text-muted-foreground hover:bg-secondary/60">
+              <span className="relative flex h-2 w-2 shrink-0">
+                {session.data?.agent_status === "driving" && <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary/60" />}
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-primary" />
+              </span>
+              <span key={steps.length} className="min-w-0 flex-1 truncate animate-in fade-in slide-in-from-bottom-1 duration-300">
+                <span className="font-semibold text-foreground">{steps.length}.</span> {steps[steps.length - 1]!.note}
+              </span>
+              <span className="shrink-0 text-[10px] uppercase tracking-wide">View all</span>
+            </button>
+          )}
+          {showSteps && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/40 p-4 backdrop-blur-sm" onClick={() => setShowSteps(false)}>
+              <div className="relative max-h-[80vh] w-full max-w-lg overflow-hidden rounded-2xl border bg-card/85 shadow-soft backdrop-blur-md" onClick={(e) => e.stopPropagation()}>
+                <div className="flex items-center justify-between border-b px-4 py-3">
+                  <p className="text-sm font-semibold">What Civi is doing</p>
+                  <button onClick={() => setShowSteps(false)} aria-label="Close" className="rounded-full p-1 hover:bg-secondary"><X className="h-4 w-4" /></button>
+                </div>
+                <ol className="max-h-[65vh] space-y-1.5 overflow-y-auto px-4 py-3 text-xs text-muted-foreground">
+                  {steps.map((st, i) => (
+                    <li key={i}><span className="font-semibold text-foreground">{i + 1}.</span> {st.note}</li>
+                  ))}
+                </ol>
+              </div>
+            </div>
           )}
         </>
       ) : (
