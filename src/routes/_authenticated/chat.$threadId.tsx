@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useEffect, useRef, useState } from "react";
+import { createContext, useContext, useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import { getSuggestions, setAutonomy } from "@/lib/suggestions.functions";
 import { ArrowUp, ImagePlus, X, CalendarHeart, ExternalLink, Mail, Megaphone, MonitorUp, Phone, Square, Vote, HeartPulse, MessageSquareHeart } from "lucide-react";
@@ -70,11 +70,18 @@ function MessageBody({ content }: { content: string }) {
         ) : p.kind === "image" ? (
           <AttachedImage key={i} path={p.path} role={p.role} />
         ) : (
-          <BrowserCard key={p.id} sessionRowId={p.id} task={p.task} />
+          <PinnedAware key={p.id} id={p.id} task={p.task} />
         ),
       )}
     </div>
   );
+}
+
+const PinnedBrowser = createContext<string | null>(null);
+function PinnedAware({ id, task }: { id: string; task: string }) {
+  const pinned = useContext(PinnedBrowser);
+  if (pinned === id) return <p className="text-xs text-muted-foreground">🖥️ Live browser pinned at the top of the chat ↑</p>;
+  return <BrowserCard sessionRowId={id} task={task} />;
 }
 
 // One driver per browser, even when several chat cards show the same session.
@@ -378,6 +385,15 @@ function ChatWindow({ threadId }: { threadId: string }) {
     },
   });
 
+  const pinned = useQuery({
+    queryKey: ["pinned_browser", threadId, msgs.data?.length ?? 0],
+    queryFn: async () => {
+      const { data } = await supabase.from("browser_sessions").select("id, task")
+        .eq("thread_id", threadId).eq("status", "running").order("created_at", { ascending: false }).limit(1).maybeSingle();
+      return data;
+    },
+    refetchInterval: 15000,
+  });
   const all = [...(msgs.data ?? []), ...pending];
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [all.length, busy]);
   useEffect(() => { inputRef.current?.focus(); }, [busy]);
@@ -411,7 +427,15 @@ function ChatWindow({ threadId }: { threadId: string }) {
 
   return (
     <>
+      <PinnedBrowser.Provider value={pinned.data?.id ?? null}>
       <div className="flex-1 overflow-y-auto">
+        {pinned.data && (
+          <div className="sticky top-0 z-20 border-b bg-background/85 px-5 py-2 backdrop-blur">
+            <div className="mx-auto max-w-3xl [&_iframe]:max-h-[38vh]">
+              <BrowserCard sessionRowId={pinned.data.id} task={pinned.data.task} />
+            </div>
+          </div>
+        )}
         <div className="mx-auto w-full max-w-3xl px-5 pb-40 pt-8">
           {all.length === 0 && !msgs.isLoading && (
             <div className="flex flex-col items-center pt-14 text-center">
@@ -537,6 +561,7 @@ function ChatWindow({ threadId }: { threadId: string }) {
           </button>
         </div>
       </form>
+      </PinnedBrowser.Provider>
     </>
   );
 }
