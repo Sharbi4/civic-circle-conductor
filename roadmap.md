@@ -11,3 +11,4 @@
 - [ ] Voice agent (ElevenLabs or OpenAI voice)
 - [x] Civi character: unique character modeled on the user's uploaded reference (not a robot)
 - [x] Civi character: robot penguin
+- [x] Approvals inbox: Civi queues outreach/booking/payment proposals; Approve/Decline cards in a sidebar inbox, decision posted back to main chat

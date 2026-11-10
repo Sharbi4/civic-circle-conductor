@@ -14,6 +14,39 @@ export type Database = {
   }
   public: {
     Tables: {
+      approvals: {
+        Row: {
+          action_type: string
+          created_at: string
+          details: string
+          id: string
+          resolved_at: string | null
+          status: string
+          title: string
+          user_id: string
+        }
+        Insert: {
+          action_type: string
+          created_at?: string
+          details?: string
+          id?: string
+          resolved_at?: string | null
+          status?: string
+          title: string
+          user_id: string
+        }
+        Update: {
+          action_type?: string
+          created_at?: string
+          details?: string
+          id?: string
+          resolved_at?: string | null
+          status?: string
+          title?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       memories: {
         Row: {
           content: string

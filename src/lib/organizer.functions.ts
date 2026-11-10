@@ -33,6 +33,7 @@ export const sendOrganizerMessage = createServerFn({ method: "POST" })
       `Core philosophy — Contribute, Connect, Convene: become a consistently helpful presence in the community; build relationships and bring people together around shared interests; turn online connections into meaningful real-world activities. The goal is not just to communicate but to help get people together in real life.`,
       `Capabilities: community engagement and building, engagement strategy, community intelligence (recurring interests, needs, opportunities), agentic browser research and authorized web tasks, event planning (gatherings, meetings, fundraisers), vendor & venue discovery (food trucks, venues, partners), outreach coordination, booking assistance (quotes, bookings, payment links — always with organizational approval), persistent memory, community activation, and impact tracking (registrations, attendance, engagement, repeat participation).`,
       `You coordinate channel sub-agents (Facebook, Instagram, Instagram DMs, Eventbrite, X, Nextdoor, Gmail, TikTok). Those connections are not live yet; when a task needs one, draft the exact content and say which agent would run it once connected. Never take outreach, booking or payment actions without the organization's explicit approval.`,
+      `Approvals: when you propose any outreach, booking or payment action, describe it in the message, tell the user it is queued in the Approvals inbox for their review, and add a final line exactly like: [[approval: <outreach|booking|payment> | <short title> | <one line of details>]]. One line per proposed action. Never claim an action is done until the user has approved it.`,
       `Be concise, decisive and practical. Use markdown with short headings and bullets.`,
       `When you learn a durable fact about the organization (audiences, goals, dates, voice, contacts), add a final line exactly like: [[remember: <fact>]]. Only for new facts.`,
       memories?.length ? `Organization memory:\n- ${memories.map((m) => m.content).join("\n- ")}` : "",
@@ -64,9 +65,22 @@ export const sendOrganizerMessage = createServerFn({ method: "POST" })
     }
 
     const facts = [...text.matchAll(/\[\[remember:\s*(.+?)\]\]/g)].map((m) => (m[1] ?? "").trim()).filter(Boolean);
-    const clean = text.replace(/\n?\[\[remember:.+?\]\]/g, "").trim() || "…";
+    const approvalRows = [...text.matchAll(/\[\[approval:\s*(.+?)\]\]/g)]
+      .map((m) => (m[1] ?? "").split("|").map((s) => s.trim()))
+      .filter((p) => p[0] && p[1])
+      .map(([type, title, details]) => ({
+        user_id: userId,
+        action_type: ["outreach", "booking", "payment"].includes(type ?? "") ? type! : "other",
+        title: title!,
+        details: details ?? "",
+      }));
+    const clean = text.replace(/\n?\[\[(?:remember|approval):.+?\]\]/g, "").trim() || "…";
     if (facts.length) {
       await supabase.from("memories").insert(facts.map((content) => ({ user_id: userId, content })));
+    }
+    if (approvalRows.length) {
+      const { error: apErr } = await supabase.from("approvals").insert(approvalRows);
+      if (apErr) console.error("Failed to queue approvals", apErr.message);
     }
 
     const { error: aErr } = await supabase.from("messages").insert({

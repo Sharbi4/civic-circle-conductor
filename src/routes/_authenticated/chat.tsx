@@ -1,7 +1,7 @@
 import { createFileRoute, Link, Outlet, useNavigate, useParams } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { MessageCircle, Plus, Plug, LogOut, Pin, Brain } from "lucide-react";
+import { MessageCircle, Plus, Plug, LogOut, Pin, Brain, Inbox, Megaphone, CalendarCheck, CreditCard, Sparkles, Check, X } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -29,6 +29,20 @@ export function useOrg() {
     queryFn: async () => {
       const { data: u } = await supabase.auth.getUser();
       const { data } = await supabase.from("organizations").select("*").eq("user_id", u.user!.id).maybeSingle();
+      return data;
+    },
+  });
+}
+
+export function useApprovals() {
+  return useQuery({
+    queryKey: ["approvals"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("approvals")
+        .select("*")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
       return data;
     },
   });
@@ -65,7 +79,9 @@ function Sidebar({ orgName }: { orgName: string }) {
   const qc = useQueryClient();
   const navigate = useNavigate();
   const params = useParams({ strict: false }) as { threadId?: string };
-  const [tab, setTab] = useState<"chats" | "connectors" | "memory">("chats");
+  const [tab, setTab] = useState<"chats" | "connectors" | "memory" | "approvals">("chats");
+  const approvals = useApprovals();
+  const pendingCount = approvals.data?.filter((a) => a.status === "pending").length ?? 0;
   const main = threads.data?.find((t) => t.kind === "main");
   const side = threads.data?.filter((t) => t.kind !== "main") ?? [];
 
@@ -77,13 +93,18 @@ function Sidebar({ orgName }: { orgName: string }) {
     navigate({ to: "/chat/$threadId", params: { threadId: data.id } });
   }
 
-  const railBtn = (key: typeof tab, Icon: typeof MessageCircle, label: string) => (
+  const railBtn = (key: typeof tab, Icon: typeof MessageCircle, label: string, badge = 0) => (
     <button
       aria-label={label}
       onClick={() => setTab(key)}
-      className={`flex h-11 w-11 items-center justify-center rounded-2xl transition-colors ${tab === key ? "bg-secondary text-foreground" : "text-muted-foreground hover:bg-secondary"}`}
+      className={`relative flex h-11 w-11 items-center justify-center rounded-2xl transition-colors ${tab === key ? "bg-secondary text-foreground" : "text-muted-foreground hover:bg-secondary"}`}
     >
       <Icon className="h-5 w-5" />
+      {badge > 0 && (
+        <span className="absolute -right-0.5 -top-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-accent px-1 text-[11px] font-bold text-accent-foreground">
+          {badge}
+        </span>
+      )}
     </button>
   );
 
@@ -92,6 +113,7 @@ function Sidebar({ orgName }: { orgName: string }) {
       <nav className="hidden w-[72px] flex-col items-center gap-3 border-r bg-rail py-5 md:flex">
         <div className="font-display mb-3 text-xl font-bold text-primary">C</div>
         {railBtn("chats", MessageCircle, "Chats")}
+        {railBtn("approvals", Inbox, "Approvals", pendingCount)}
         {railBtn("connectors", Plug, "Connectors")}
         {railBtn("memory", Brain, "Memory")}
         <div className="flex-1" />
@@ -149,9 +171,111 @@ function Sidebar({ orgName }: { orgName: string }) {
             ))}
           </div>
         )}
+        {tab === "approvals" && <ApprovalsPanel />}
         {tab === "memory" && <MemoryPanel />}
       </aside>
     </>
+  );
+}
+
+const APPROVAL_TYPE: Record<string, { Icon: typeof Megaphone; label: string }> = {
+  outreach: { Icon: Megaphone, label: "Outreach" },
+  booking: { Icon: CalendarCheck, label: "Booking" },
+  payment: { Icon: CreditCard, label: "Payment" },
+  other: { Icon: Sparkles, label: "Action" },
+};
+
+function ApprovalsPanel() {
+  const approvals = useApprovals();
+  const threads = useThreads();
+  const qc = useQueryClient();
+  const navigate = useNavigate();
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const main = threads.data?.find((t) => t.kind === "main");
+  const pending = approvals.data?.filter((a) => a.status === "pending") ?? [];
+  const resolved = approvals.data?.filter((a) => a.status !== "pending") ?? [];
+
+  async function respond(id: string, decision: "approved" | "declined", title: string) {
+    setBusyId(id);
+    const { data: u } = await supabase.auth.getUser();
+    const { error } = await supabase
+      .from("approvals")
+      .update({ status: decision, resolved_at: new Date().toISOString() })
+      .eq("id", id);
+    if (error) { toast.error(error.message); setBusyId(null); return; }
+    if (main && u.user) {
+      await supabase.from("messages").insert({
+        thread_id: main.id,
+        user_id: u.user.id,
+        role: "assistant",
+        content: decision === "approved"
+          ? `✅ You approved: **${title}**. I'll get started on it.`
+          : `🚫 You declined: **${title}**. I won't take that action — tell me if you'd like a different approach.`,
+      });
+      qc.invalidateQueries({ queryKey: ["messages", main.id] });
+    }
+    await qc.invalidateQueries({ queryKey: ["approvals"] });
+    setBusyId(null);
+    toast.success(decision === "approved" ? "Approved — Civi will take it from here." : "Declined — Civi won't act on it.");
+  }
+
+  const card = (a: NonNullable<typeof approvals.data>[number]) => {
+    const { Icon, label } = APPROVAL_TYPE[a.action_type] ?? APPROVAL_TYPE["other"]!;
+    return (
+      <div key={a.id} className="rounded-2xl border bg-card p-4 shadow-soft">
+        <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          <Icon className="h-4 w-4 text-accent" />
+          {label}
+          {a.status !== "pending" && (
+            <span className={`ml-auto rounded-full px-2 py-0.5 ${a.status === "approved" ? "bg-secondary text-foreground" : "bg-secondary text-muted-foreground line-through"}`}>
+              {a.status}
+            </span>
+          )}
+        </div>
+        <div className="mt-2 font-medium">{a.title}</div>
+        {a.details && <p className="mt-1 text-sm text-muted-foreground">{a.details}</p>}
+        {a.status === "pending" && (
+          <div className="mt-3 flex gap-2">
+            <Button size="sm" disabled={busyId === a.id} onClick={() => respond(a.id, "approved", a.title)} className="rounded-full">
+              <Check className="h-4 w-4" /> Approve
+            </Button>
+            <Button size="sm" variant="outline" disabled={busyId === a.id} onClick={() => respond(a.id, "declined", a.title)} className="rounded-full">
+              <X className="h-4 w-4" /> Decline
+            </Button>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  return (
+    <div className="flex-1 overflow-y-auto px-3 pb-4">
+      <p className="px-3 pb-3 text-sm text-muted-foreground">
+        Civi asks before any outreach, booking or payment. Review and decide here.
+      </p>
+      <div className="space-y-2.5">
+        {pending.map(card)}
+        {pending.length === 0 && (
+          <p className="px-3 py-2 text-sm text-muted-foreground">
+            Nothing waiting on you. Ask Civi to plan outreach or an event and it will queue actions here.
+          </p>
+        )}
+        {resolved.length > 0 && (
+          <>
+            <div className="px-3 pt-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Decided</div>
+            {resolved.map(card)}
+          </>
+        )}
+        {main && pending.length > 0 && (
+          <button
+            onClick={() => navigate({ to: "/chat/$threadId", params: { threadId: main.id } })}
+            className="w-full rounded-2xl px-3 py-2.5 text-sm text-muted-foreground hover:bg-sidebar-accent"
+          >
+            Discuss with your organizer →
+          </button>
+        )}
+      </div>
+    </div>
   );
 }
 
