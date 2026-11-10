@@ -34,3 +34,4 @@
 - [x] Eventbrite: uploaded cover auto-attached to event requests, cropped 2:1, verified on listing after create
 - [x] Browser buttons as see-through icons on the browser; more zoom
 - [x] Pin / delete buttons on side chats
+- [x] Event planning leads with ideas + shared event playbook; browser saves vendors to directory

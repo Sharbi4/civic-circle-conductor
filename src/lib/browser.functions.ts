@@ -1,3 +1,4 @@
+import { VENDOR_SCOUT_BROWSER } from "@/lib/eventPlaybook";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
@@ -269,6 +270,7 @@ export async function runAgentStep(supabase: any, userId: string, sessionRowId: 
             "Use handoff (NOT done) whenever only the organizer can continue: a login with no saved credentials, a verification/2FA code, a CAPTCHA, or a personal choice. Say exactly what they need to do. They'll hand control back and you'll continue the same goal.",
             "When your goal involved finding Facebook groups or reviewing a Facebook Page, end your done summary with these lines (exact format, real links you visited only): [[fb_groups: [{\"name\":\"...\",\"url\":\"https://www.facebook.com/groups/...\"}]]] and, if you found the organization's Page, [[fb_page: {\"url\":\"https://www.facebook.com/...\",\"post_text\":\"a warm, short Page update sharing what the org is refreshing/working on (no checklist jargon), ready to post\"}]].",
             "Write each step's reason as a short plain action in past tense, like \"Joined Tucson Activists\", \"Read the South Tucson group rules\", \"Searched groups for voter registration\" (no element numbers or URLs).",
+            VENDOR_SCOUT_BROWSER,
             "List fb_groups most relevant to the mission first; skip groups already joined earlier in this browser.",
             "When the goal says it is APPROVED by the organizer, you may use submit on the Join / Post button that completes it.",
             "Never invent contact details. Never ask the organizer to paste passwords or codes in chat.",
@@ -322,7 +324,18 @@ export async function runAgentStep(supabase: any, userId: string, sessionRowId: 
         const summary = String(a.summary ?? "");
         const groups = parseMarker<{ name: string; url: string }[]>(summary, "fb_groups") ?? [];
         const page = parseMarker<{ url: string; post_text: string }>(summary, "fb_page");
-        const cleanSummary = summary.replace(/\n?\[\[fb_(?:groups|page):[\s\S]+?\]\]\]?/g, "").trim();
+        const vendors = parseMarker<{ type?: string; name: string; details?: string; url?: string }[]>(summary, "vendors") ?? [];
+        const vRows = vendors.filter((v) => v?.name && (!v.url || v.url.startsWith("https://"))).slice(0, 10).map((v) => ({
+          user_id: userId, type: v.type === "venue" ? "venue" : "vendor", name: v.name.slice(0, 160),
+          details: (v.details ?? "").slice(0, 400) || null, source: v.url ?? null,
+        }));
+        if (vRows.length) {
+          const { data: existing } = await supabase.from("resources").select("name").eq("user_id", userId);
+          const have = new Set((existing ?? []).map((e: { name: string }) => e.name.toLowerCase()));
+          const fresh = vRows.filter((r) => !have.has(r.name.toLowerCase()));
+          if (fresh.length) await supabase.from("resources").insert(fresh);
+        }
+        const cleanSummary = summary.replace(/\n?\[\[vendors:[\s\S]+?\]\]\]?/g, "").replace(/\n?\[\[fb_(?:groups|page):[\s\S]+?\]\]\]?/g, "").trim();
         const fbRows = [
           ...groups.filter((g) => g?.url?.startsWith("https://www.facebook.com/groups/") && g.name).slice(0, 10).map((g) => ({
             user_id: userId, action_type: "outreach", title: `Join Facebook group: ${g.name.slice(0, 120)}`,
@@ -393,7 +406,7 @@ export const startFacebookSetup = createServerFn({ method: "POST" })
     const { data: row } = await supabase.from("browser_sessions").select("id, thread_id").eq("id", data.sessionRowId).maybeSingle();
     if (!row) throw new Error("Browser session not found");
     await supabase.from("organizations").update({ facebook_setup_location: data.location }).eq("user_id", userId);
-    const goal = `On Facebook (already signed in): 1) Search Facebook groups near ${data.location} that match our mission and focus areas. Open the best 5-8, note name, link, member count, privacy and join questions. Do NOT click Join. 2) Check whether our organization has a Facebook Page (search our org name, and check the Pages the account manages). Review it: profile/cover photo, about/bio, contact info, how recent the last post is. When finished, use done with a markdown summary: a shortlist of groups (with links) to approve joining, and a Page "TLC" checklist with concrete fixes and 3 suggested post ideas.`;
+    const goal = `On Facebook (already signed in): 1) Search Facebook groups near ${data.location} that match our mission and focus areas. Open the best 5-8, note name, link, member count, privacy and join questions. Do NOT click Join. 2) Search Facebook for food trucks, caterers and mobile event caterers near ${data.location} and note the best 5-10 for the vendor directory (do not message them). 3) Check whether our organization has a Facebook Page (search our org name, and check the Pages the account manages). Review it: profile/cover photo, about/bio, contact info, how recent the last post is. When finished, use done with a markdown summary: a shortlist of groups (with links) to approve joining, and a Page "TLC" checklist with concrete fixes and 3 suggested post ideas.`;
     await retargetSession(supabase, row.id, goal);
     await closeOtherBrowsers(supabase, row.thread_id, row.id);
     await supabase.from("messages").insert({
