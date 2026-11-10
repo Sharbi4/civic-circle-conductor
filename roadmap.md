@@ -9,7 +9,8 @@
 - [x] Resource directory: vendors/venues/partners saved via [[resource:]] markers from chat and Community Scout; browsable in the Scout panel
 - [x] Community Scout: scheduled background job (twice daily, up to 10 focus areas per org) — researches the live web (Firecrawl search), cites sources per finding, saves resources with source links, posts a findings report to the main chat; falls back to unverified model knowledge if search is unavailable; Facebook-group recommendations require admin approval
 - [x] LinkedIn connector: per-org connect, LinkedIn Agent side chat, posts published after approval (Events API still to build)
-- [ ] Remaining connectors: Facebook, Instagram, Instagram DMs, X, Nextdoor, Gmail, TikTok
+- [ ] Remaining connectors: Facebook, Instagram, Instagram DMs, X, Gmail, TikTok
+- [~] Nextdoor connector: per-org OAuth connect flow + callback route + Connect button built (mirrors Eventbrite); waiting on Nextdoor to issue client ID/secret (they required the redirect URI first: https://civic-circle-conductor.lovable.app/api/oauth/nextdoor/return); add NEXTDOOR_CLIENT_ID/NEXTDOOR_CLIENT_SECRET secrets, publish, then verify first connect. Token refresh (expires_in) not yet stored; posting via Share API not yet implemented
 - [ ] Streaming replies
 - [x] Muse-style animated homepage + Civi character
 - [ ] Food vendor database (Facebook agent searches vendors, saves them; used for event outreach)
