@@ -2,6 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { ArrowDown, ChevronRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { InfoRequestForm } from "@/components/landing/InfoRequestForm";
 import { StoryScroll } from "@/components/landing/StoryScroll";
 import logo from "@/assets/civimeet-logo.png.asset.json";
 
@@ -89,7 +90,7 @@ function Index() {
       <section className="px-6 py-32 text-center">
         <h2 className="text-4xl font-semibold tracking-tight md:text-5xl">Contribute. Connect. Convene.</h2>
         <p className="mx-auto mt-4 max-w-lg text-muted-foreground">Civi keeps your community engaged so people actually show up.</p>
-        <Link to="/auth" className="mt-8 inline-flex rounded-full bg-primary px-6 py-3 font-medium text-primary-foreground">Get started</Link>
+        <InfoRequestForm />
       </section>
     </div>
   );
