@@ -36,5 +36,5 @@
 - [x] Pin / delete buttons on side chats
 - [x] Event planning leads with ideas + shared event playbook; browser saves vendors to directory
 - [x] + menu lists connected agents with logos; Facebook opens browser with saved login
-- [ ] Perplexity research during onboarding + event planning
+- [x] Perplexity research during onboarding + event planning
 - [ ] ElevenLabs voice: read replies aloud + talk to Civi

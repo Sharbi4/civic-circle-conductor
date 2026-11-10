@@ -15,6 +15,7 @@ import { startLinkedInConnect, completeLinkedInConnect, getLinkedInStatus, disco
 import { startEventbriteConnect, completeEventbriteConnect, getEventbriteStatus, disconnectEventbrite, runEventbriteApproval } from "@/lib/eventbrite.functions";
 import { saveSiteCredential } from "@/lib/credentials.functions";
 import { sendOrganizerMessage } from "@/lib/organizer.functions";
+import { runOnboardingResearch } from "@/lib/research.functions";
 import { startXConnect, completeXConnect, getXStatus, disconnectX, runXApproval } from "@/lib/x.functions";
 import { runFacebookApproval, startBrowserSession } from "@/lib/browser.functions";
 import { SiFacebook, SiNextdoor, SiX } from "react-icons/si";
@@ -982,6 +983,8 @@ function Onboarding({ existing }: { existing: { name: string | null; mission: st
   const [name, setName] = useState(existing?.name ?? "");
   const [mission, setMission] = useState(existing?.mission ?? "");
   const [busy, setBusy] = useState(false);
+  const [researching, setResearching] = useState(false);
+  const research = useServerFn(runOnboardingResearch);
 
   async function save(finish: boolean) {
     setBusy(true);
@@ -1000,13 +1003,24 @@ function Onboarding({ existing }: { existing: { name: string | null; mission: st
     }
     setBusy(false);
     if (error) { toast.error(error.message); return; }
-    if (finish) qc.invalidateQueries();
-    else setStep(1);
+    if (finish) {
+      setResearching(true);
+      try { await research(); } catch (e) { console.error(e); }
+      setResearching(false);
+      qc.invalidateQueries();
+    } else setStep(1);
   }
 
   return (
     <main className="flex min-h-screen items-center justify-center px-6">
       <div className="w-full max-w-xl">
+        {researching ? (
+          <div className="flex flex-col items-center text-center">
+            <div className="relative h-14 w-14"><span className="absolute inset-0 animate-ping rounded-full bg-primary/30" /><span className="absolute inset-3 rounded-full bg-primary" /></div>
+            <h1 className="font-display mt-6 text-3xl font-bold">Civi is researching your community…</h1>
+            <p className="mt-2 text-muted-foreground">Looking up local allies, events, venues and food vendors so your agents start out informed.</p>
+          </div>
+        ) : (<>
         <div className="text-sm text-muted-foreground">Step {step + 1} of 2</div>
         {step === 0 ? (
           <form onSubmit={(e) => { e.preventDefault(); save(false); }}>
@@ -1025,6 +1039,7 @@ function Onboarding({ existing }: { existing: { name: string | null; mission: st
             </div>
           </form>
         )}
+        </>)}
       </div>
     </main>
   );

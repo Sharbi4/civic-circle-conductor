@@ -3,6 +3,7 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { generateResponse, GatewayError } from "@lovable.dev/ai-gateway";
 import { EVENT_PLAYBOOK } from "@/lib/eventPlaybook";
+import { perplexitySearch, formatHits } from "@/lib/research.server";
 import { openBrowserSession, retargetSession, closeOtherBrowsers } from "@/lib/browser.functions";
 
 const MODEL = "openai/gpt-6.1-terra";
@@ -34,6 +35,10 @@ export const sendOrganizerMessage = createServerFn({ method: "POST" })
 
     const { data: liEvents } = await supabase.from("linkedin_events").select("event_id, name, starts_at, status").order("created_at", { ascending: false }).limit(15);
     const { data: savedResources } = await supabase.from("resources").select("type, name, details, source").in("type", ["vendor", "venue", "professional", "nonprofit"]).order("created_at", { ascending: false }).limit(40);
+    const wantsEvent = /\b(event|meetup|rally|fundraiser|gathering|festival|town hall|cookout|food truck|venue|vendor)s?\b/i.test(data.content);
+    const liveResearch = wantsEvent
+      ? formatHits(await perplexitySearch([`${data.content.slice(0, 150)} Tucson Arizona`, "food trucks caterers for community events Tucson", "community event venues Tucson Arizona"], 4).catch(() => []), 10)
+      : "";
     const [{ data: org }, { data: history }, { data: memories }] = await Promise.all([
       supabase.from("organizations").select("name, mission, linkedin_org_id").eq("user_id", userId).maybeSingle(),
       supabase.from("messages").select("role, content").eq("thread_id", data.threadId).order("created_at").limit(60),
@@ -58,6 +63,7 @@ export const sendOrganizerMessage = createServerFn({ method: "POST" })
 6. Phone Outreach — purpose, consented contacts, approved script, schedule; prepare call workflows, record outcomes, escalate important conversations.
 For multi-step objectives, show a visible task plan with statuses (Done / Working / Approval / Pending) and keep it updated as work progresses. Prioritize contributing value to the community over promoting the organization.`,
       EVENT_PLAYBOOK,
+      ...(liveResearch ? [`Fresh web research for this request (cite as markdown links when used; save useful vendors/venues with [[resource: ...]]):\n${liveResearch}`] : []),
       `Saved vendors & venues (use these by name when planning): ${(savedResources ?? []).map((r) => `${r.type}: ${r.name}${r.details ? ` — ${r.details}` : ""}`).join("; ") || "none yet — offer to have the browser agent search Facebook and the web for local food trucks, caterers and venues"}`,
       `Resource directory: the org keeps a reusable directory of vendors, venues, partners and groups so research is never repeated. When you identify a real, useful vendor, venue, nonprofit, community group or event worth saving, add a final line exactly like: [[resource: <vendor|venue|nonprofit|group|event|professional|other> | <name> | <one line of details>]]. One line per record, max 4 per reply. Only save genuinely useful, specific records.`,
       `Facebook groups (be proactive): after a group search, each group lands in Approvals ranked by relevance; once approved, the browser joins them one by one and reports each in chat. Keep a running tally of groups joined and still waiting. When the queue finishes (and at every 10 joined), celebrate progress, name the most relevant groups still waiting, and offer to find more, post in joined groups, or pause — with [[choices: ...]]. Never join or post without approval.`,
