@@ -119,6 +119,27 @@ function BrowserCard({ sessionRowId, task }: { sessionRowId: string; task: strin
   const running = session.data?.status === "running" && session.data.live_url;
   const agent = session.data?.agent_status ?? "idle";
   const [showSteps, setShowSteps] = useState(false);
+  const [frameH, setFrameH] = useState(380);
+  const [dragging, setDragging] = useState(false);
+  useEffect(() => { const v = Number(localStorage.getItem("civi-browser-h")); if (v > 0) setFrameH(v); }, []);
+  function startResize(e: React.PointerEvent) {
+    e.preventDefault();
+    const y0 = e.clientY, h0 = frameH;
+    setDragging(true);
+    let last = h0;
+    const move = (ev: PointerEvent) => {
+      last = Math.round(Math.min(window.innerHeight * 0.8, Math.max(160, h0 + ev.clientY - y0)));
+      setFrameH(last);
+    };
+    const up = () => {
+      setDragging(false);
+      localStorage.setItem("civi-browser-h", String(last));
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+  }
   const steps = (Array.isArray(session.data?.steps) ? session.data!.steps : []) as { action: string; note: string }[];
 
   useEffect(() => {
@@ -193,12 +214,21 @@ function BrowserCard({ sessionRowId, task }: { sessionRowId: string; task: strin
       </div>
       {running ? (
         <>
-          <iframe
-            src={session.data!.live_url!}
-            title={`Live browser: ${task}`}
-            className="aspect-video w-full border-t bg-background"
-            allow="clipboard-read; clipboard-write"
-          />
+          <div className="relative border-t" style={{ height: frameH }}>
+            <iframe
+              src={session.data!.live_url!}
+              title={`Live browser: ${task}`}
+              className={`h-full w-full bg-background ${dragging ? "pointer-events-none" : ""}`}
+              allow="clipboard-read; clipboard-write"
+            />
+          </div>
+          <div
+            role="separator" aria-orientation="horizontal" aria-label="Drag to resize the browser"
+            onPointerDown={startResize}
+            className="flex h-3 cursor-row-resize touch-none items-center justify-center border-t bg-secondary/60 hover:bg-secondary"
+          >
+            <span className="h-1 w-10 rounded-full bg-muted-foreground/40" />
+          </div>
           {agent === "needs_user" && (
             <div className="flex flex-wrap items-center justify-between gap-2 border-t bg-secondary px-4 py-3">
               <p className="text-sm"><span className="font-semibold">Your turn:</span> {session.data?.handoff_reason ?? "Civi needs you in the browser."}</p>
@@ -431,7 +461,7 @@ function ChatWindow({ threadId }: { threadId: string }) {
       <div className="flex-1 overflow-y-auto">
         {pinned.data && (
           <div className="sticky top-0 z-20 border-b bg-background/85 px-5 py-2 backdrop-blur">
-            <div className="mx-auto max-w-3xl [&_iframe]:max-h-[38vh]">
+            <div className="mx-auto max-w-3xl">
               <BrowserCard sessionRowId={pinned.data.id} task={pinned.data.task} />
             </div>
           </div>
