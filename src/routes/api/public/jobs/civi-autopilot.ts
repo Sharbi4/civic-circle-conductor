@@ -30,7 +30,24 @@ export const Route = createFileRoute("/api/public/jobs/civi-autopilot")({
         const { data: idle } = await db.from("browser_sessions").select("id, queue").eq("status", "running").eq("agent_status", "done").limit(10);
         for (const s of idle ?? []) if (Array.isArray(s.queue) && s.queue.length) await startNextQueued(db, s.id);
 
-        // 2) Every 30 minutes: review chats and act per the org's autonomy level.
+        // 2) Every 5 minutes (on by default): check Facebook notifications in an idle, signed-in browser.
+        const notifDue = new Date(Date.now() - 5 * 60_000).toISOString();
+        const { data: fbs } = await db.from("browser_sessions").select("id, user_id, agent_status, site, signed_in, created_at")
+          .eq("status", "running").eq("signed_in", true).ilike("site", "%facebook%").order("created_at", { ascending: false }).limit(20);
+        const seen = new Set<string>();
+        for (const b of fbs ?? []) {
+          if (seen.has(b.user_id)) continue; seen.add(b.user_id);
+          if (["driving", "needs_user", "awaiting_approval"].includes(b.agent_status ?? "")) continue;
+          const { data: o } = await db.from("organizations").select("notif_checks").eq("user_id", b.user_id).maybeSingle();
+          if (o && o.notif_checks === false) continue;
+          const { data: st } = await db.from("autopilot_state").select("last_notif_check").eq("user_id", b.user_id).maybeSingle();
+          if (st?.last_notif_check && st.last_notif_check > notifDue) continue;
+          await db.from("autopilot_state").upsert({ user_id: b.user_id, last_notif_check: new Date().toISOString() }, { onConflict: "user_id" });
+          await retargetSession(db, b.id, `NOTIFICATION CHECK: open https://www.facebook.com/notifications and look for comments, replies and mentions newer than ${st?.last_notif_check ?? "the last hour"} (on our Page, our posts and groups we're in). Don't reply, like or post anything. Use done with a short list: who, what they said, where, and a suggested reply for each. If there is nothing new, use done with exactly NO_NEW.`);
+          out.push({ notif: b.id });
+        }
+
+        // 3) Every 30 minutes: review chats and act per the org's autonomy level.
         const due = new Date(Date.now() - REVIEW_EVERY_MIN * 60_000).toISOString();
         const { data: orgs } = await db.from("organizations").select("user_id, autonomy").neq("autonomy", "manual").limit(50);
         let reviewed = 0;

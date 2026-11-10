@@ -85,18 +85,21 @@ export type Database = {
       }
       autopilot_state: {
         Row: {
+          last_notif_check: string | null
           last_review_at: string | null
           lease_until: string | null
           paused_reason: string | null
           user_id: string
         }
         Insert: {
+          last_notif_check?: string | null
           last_review_at?: string | null
           lease_until?: string | null
           paused_reason?: string | null
           user_id: string
         }
         Update: {
+          last_notif_check?: string | null
           last_review_at?: string | null
           lease_until?: string | null
           paused_reason?: string | null
@@ -342,6 +345,7 @@ export type Database = {
           linkedin_org_id: string | null
           mission: string | null
           name: string | null
+          notif_checks: boolean
           onboarded: boolean
           user_id: string
         }
@@ -352,6 +356,7 @@ export type Database = {
           linkedin_org_id?: string | null
           mission?: string | null
           name?: string | null
+          notif_checks?: boolean
           onboarded?: boolean
           user_id: string
         }
@@ -362,6 +367,7 @@ export type Database = {
           linkedin_org_id?: string | null
           mission?: string | null
           name?: string | null
+          notif_checks?: boolean
           onboarded?: boolean
           user_id?: string
         }

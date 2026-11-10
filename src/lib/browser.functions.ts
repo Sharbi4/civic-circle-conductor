@@ -333,9 +333,14 @@ export async function runAgentStep(supabase: any, userId: string, sessionRowId: 
             details: page.post_text.slice(0, 2000), payload: { kind: "fb_page_post", session: row.id, url: page.url, text: page.post_text.slice(0, 2000) },
           }] : []),
         ];
+        if (goal.startsWith("NOTIFICATION CHECK") && /^\s*NO_NEW\s*$/.test(cleanSummary)) {
+          await save({ agent_status: "done" }, { action: "done", note: "Checked notifications — nothing new" });
+          if (await startNextQueued(supabase, row.id)) return { agentStatus: "driving" };
+          return { agentStatus: "done" };
+        }
         if (fbRows.length) await supabase.from("approvals").insert(fbRows);
         await save({ agent_status: "done" }, { action: "done", note: `Finished: ${cleanSummary.replace(/\s+/g, " ").slice(0, 400)}` });
-        await post(`✅ Browser task finished: **${goal}**\n\n${cleanSummary}${fbRows.length ? `\n\n📥 I put ${fbRows.length} request${fbRows.length > 1 ? "s" : ""} in your **Approvals** inbox — ${groups.length ? `one per group to join` : ""}${groups.length && page ? " and " : ""}${page ? "the Page update post" : ""}. Approve the ones you want and I'll do them one by one in this browser.` : ""}`);
+        await post(`${goal.startsWith("NOTIFICATION CHECK") ? "🔔 **New on Facebook**" : `✅ Browser task finished: **${goal}**`}\n\n${cleanSummary}${fbRows.length ? `\n\n📥 I put ${fbRows.length} request${fbRows.length > 1 ? "s" : ""} in your **Approvals** inbox — ${groups.length ? `one per group to join` : ""}${groups.length && page ? " and " : ""}${page ? "the Page update post" : ""}. Approve the ones you want and I'll do them one by one in this browser.` : ""}`);
         if (await startNextQueued(supabase, row.id)) {
           if (goal.startsWith("APPROVED")) await post(`▶️ On to the next approved task in the browser…`);
           return { agentStatus: "driving" };
