@@ -96,13 +96,13 @@ function Sidebar({ orgName }: { orgName: string }) {
   const side = threads.data?.filter((t) => t.kind !== "main") ?? [];
   async function togglePin(id: string, pinned: boolean) {
     const { error } = await supabase.from("threads").update({ pinned }).eq("id", id);
-    if (error) return toast.error(error.message);
+    if (error) { toast.error(error.message); return; }
     qc.invalidateQueries({ queryKey: ["threads"] });
   }
   async function deleteChat(id: string, title: string) {
     if (!window.confirm(`Delete "${title}"? This can't be undone.`)) return;
     const { error } = await supabase.from("threads").delete().eq("id", id);
-    if (error) return toast.error(error.message);
+    if (error) { toast.error(error.message); return; }
     await qc.invalidateQueries({ queryKey: ["threads"] });
     if (params.threadId === id && main) navigate({ to: "/chat/$threadId", params: { threadId: main.id } });
     toast.success("Chat deleted");
