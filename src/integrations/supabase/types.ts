@@ -17,6 +17,7 @@ export type Database = {
       approvals: {
         Row: {
           action_type: string
+          browser_session_id: string | null
           created_at: string
           details: string
           id: string
@@ -27,6 +28,7 @@ export type Database = {
         }
         Insert: {
           action_type: string
+          browser_session_id?: string | null
           created_at?: string
           details?: string
           id?: string
@@ -37,6 +39,7 @@ export type Database = {
         }
         Update: {
           action_type?: string
+          browser_session_id?: string | null
           created_at?: string
           details?: string
           id?: string
@@ -49,34 +52,49 @@ export type Database = {
       }
       browser_sessions: {
         Row: {
+          agent_status: string
+          connect_url: string | null
           created_at: string
           ended_at: string | null
+          goal: string | null
           id: string
           live_url: string
           session_id: string
           status: string
+          steps: Json
+          submit_approved: boolean
           task: string
           thread_id: string
           user_id: string
         }
         Insert: {
+          agent_status?: string
+          connect_url?: string | null
           created_at?: string
           ended_at?: string | null
+          goal?: string | null
           id?: string
           live_url: string
           session_id: string
           status?: string
+          steps?: Json
+          submit_approved?: boolean
           task: string
           thread_id: string
           user_id: string
         }
         Update: {
+          agent_status?: string
+          connect_url?: string | null
           created_at?: string
           ended_at?: string | null
+          goal?: string | null
           id?: string
           live_url?: string
           session_id?: string
           status?: string
+          steps?: Json
+          submit_approved?: boolean
           task?: string
           thread_id?: string
           user_id?: string

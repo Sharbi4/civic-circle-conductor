@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import type { AgentAction } from "@/lib/browserAgent.server";
 
 const GATEWAY = "https://connector-gateway.lovable.dev/udc_browserbase";
 
@@ -66,6 +67,9 @@ export async function openBrowserSession(opts: {
       task,
       session_id: session.id,
       live_url: debug.debuggerFullscreenUrl,
+      connect_url: session.connectUrl ?? null,
+      goal: task,
+      agent_status: session.connectUrl ? "driving" : "idle",
       status: "running",
     })
     .select("id")
@@ -145,5 +149,114 @@ export const endBrowserSession = createServerFn({ method: "POST" })
       .update({ status: "ended", ended_at: new Date().toISOString() })
       .eq("id", data.sessionRowId);
     if (upErr) throw new Error(upErr.message);
+    return { ok: true };
+  });
+
+const MAX_STEPS = 25;
+
+/** Runs ONE step of Civi driving the browser toward the session's goal. The card calls it in a loop. */
+export const browserAgentStep = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({ sessionRowId: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    const { withPage, snapshot, perform, parseAction } = await import("@/lib/browserAgent.server");
+    const { generateResponse } = await import("@lovable.dev/ai-gateway");
+
+    const { data: row, error } = await supabase
+      .from("browser_sessions")
+      .select("id, thread_id, goal, task, status, agent_status, steps, submit_approved, connect_url")
+      .eq("id", data.sessionRowId).maybeSingle();
+    if (error || !row) throw new Error("Browser session not found");
+    if (row.status !== "running" || row.agent_status !== "driving" || !row.connect_url) {
+      return { agentStatus: row.agent_status };
+    }
+    const steps = (Array.isArray(row.steps) ? row.steps : []) as { action: string; note: string }[];
+    const goal = row.goal ?? row.task;
+
+    const save = async (patch: { agent_status?: string; submit_approved?: boolean }, note?: { action: string; note: string }) => {
+      const next = note ? [...steps, note] : steps;
+      await supabase.from("browser_sessions").update({ ...patch, steps: next }).eq("id", row.id);
+    };
+    const post = (content: string) =>
+      supabase.from("messages").insert({ thread_id: row.thread_id, user_id: userId, role: "assistant", content });
+
+    if (steps.length >= MAX_STEPS) {
+      await save({ agent_status: "done" }, { action: "done", note: "Reached the step limit — paused so you can take over." });
+      await post(`⏸️ I paused the browser task **${goal}** after ${MAX_STEPS} steps. Take over in the browser, or tell me how to continue.`);
+      return { agentStatus: "done" };
+    }
+
+    try {
+      const result = await withPage(row.connect_url, async (page) => {
+        const state = await snapshot(page);
+        const res = await generateResponse({
+          model: "openai/gpt-6.1-terra",
+          instructions: [
+            "You are Civi, a community-organizing agent driving a real web browser one action at a time to reach the organizer's goal (e.g. find vendors on Eventbrite, fill a booking/inquiry form).",
+            "Reply with ONLY one JSON object. Allowed actions:",
+            '{"action":"navigate","url":"https://..."} | {"action":"click","index":N} | {"action":"type","index":N,"text":"..."} | {"action":"select","index":N,"value":"..."} | {"action":"press_enter","index":N} | {"action":"scroll"} | {"action":"submit","index":N} | {"action":"request_approval","title":"...","details":"..."} | {"action":"done","summary":"markdown summary of what you found/did, with links"}',
+            "Add a short \"reason\" field to every action. Use element indexes from the page state only.",
+            row.submit_approved
+              ? "The organizer has APPROVED submitting. You may use submit on the final send/book/pay button."
+              : "Never click a button that sends a message, books, registers, purchases or pays. When a form is filled and ready, use request_approval describing exactly what will be sent and to whom. Use plain click only for navigation, search and opening pages.",
+            "Never invent contact details. If a login or CAPTCHA blocks you, use done and say the organizer should take over.",
+          ].join("\n"),
+          input: [{
+            role: "user" as const,
+            content: `Goal: ${goal}\n\nSteps so far:\n${steps.map((s, i) => `${i + 1}. ${s.note}`).join("\n") || "(none)"}\n\nCurrent page state:\n${JSON.stringify(state)}`,
+          }],
+        });
+        let text = "";
+        for (const item of res.output ?? []) if (item.type === "message") for (const c of item.content ?? []) if (c.type === "output_text") text += c.text;
+        const action = parseAction(text);
+        if (!action) return { action: null, note: "" };
+        if (action.action === "submit" && !row.submit_approved) {
+          return { action: { action: "request_approval", title: "Submit form", details: action.reason ?? goal } satisfies AgentAction as AgentAction, note: "" };
+        }
+        const note = await perform(page, action);
+        return { action, note };
+      });
+
+      const a = result.action;
+      if (!a) {
+        await save({}, { action: "think", note: "Re-reading the page…" });
+        return { agentStatus: "driving" };
+      }
+      const why = a.reason ? ` — ${a.reason}` : "";
+      if (a.action === "request_approval") {
+        const { data: ap } = await supabase.from("approvals").insert({
+          user_id: userId, action_type: "booking", title: a.title, details: a.details, browser_session_id: row.id,
+        }).select("id").single();
+        await save({ agent_status: "awaiting_approval" }, { action: "approval", note: `Waiting for approval: ${a.title}` });
+        await post(`🛑 The form for **${goal}** is filled in and ready. Before I submit, please review it in the **Approvals** inbox:\n\n**${a.title}** — ${a.details}${ap ? "" : ""}`);
+        return { agentStatus: "awaiting_approval" };
+      }
+      if (a.action === "done") {
+        await save({ agent_status: "done" }, { action: "done", note: "Finished" });
+        await post(`✅ Browser task finished: **${goal}**\n\n${a.summary}`);
+        return { agentStatus: "done" };
+      }
+      if (a.action === "submit") {
+        await save({ submit_approved: false }, { action: a.action, note: `${result.note}${why}` });
+        return { agentStatus: "driving" };
+      }
+      await save({}, { action: a.action, note: `${result.note}${why}` });
+      return { agentStatus: "driving" };
+    } catch (e) {
+      console.error("Browser agent step failed", e);
+      await save({ agent_status: "failed" }, { action: "error", note: "Lost connection to the browser — the session may have expired." });
+      return { agentStatus: "failed" };
+    }
+  });
+
+export const setBrowserDriving = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({ sessionRowId: z.string().uuid(), driving: z.boolean(), goal: z.string().max(500).optional() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const patch: { agent_status: string; goal?: string } = { agent_status: data.driving ? "driving" : "stopped" };
+    if (data.goal) patch.goal = data.goal;
+    const { error } = await context.supabase.from("browser_sessions").update(patch).eq("id", data.sessionRowId);
+    if (error) throw new Error(error.message);
     return { ok: true };
   });

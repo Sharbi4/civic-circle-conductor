@@ -7,7 +7,7 @@ import { ArrowUp, CalendarHeart, ExternalLink, Mail, Megaphone, MonitorUp, Phone
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { sendOrganizerMessage } from "@/lib/organizer.functions";
-import { endBrowserSession } from "@/lib/browser.functions";
+import { endBrowserSession, browserAgentStep, setBrowserDriving } from "@/lib/browser.functions";
 import { useThreads } from "./chat";
 
 export const Route = createFileRoute("/_authenticated/chat/$threadId")({
@@ -53,19 +53,46 @@ function MessageBody({ content }: { content: string }) {
 function BrowserCard({ sessionRowId, task }: { sessionRowId: string; task: string }) {
   const qc = useQueryClient();
   const end = useServerFn(endBrowserSession);
+  const step = useServerFn(browserAgentStep);
+  const setDriving = useServerFn(setBrowserDriving);
   const [ending, setEnding] = useState(false);
+  const stepping = useRef(false);
 
   const session = useQuery({
     queryKey: ["browser_session", sessionRowId],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("browser_sessions").select("id, live_url, status").eq("id", sessionRowId).maybeSingle();
+        .from("browser_sessions").select("id, live_url, status, agent_status, steps, connect_url").eq("id", sessionRowId).maybeSingle();
       if (error) throw error;
       return data;
     },
   });
 
   const running = session.data?.status === "running" && session.data.live_url;
+  const agent = session.data?.agent_status ?? "idle";
+  const steps = (Array.isArray(session.data?.steps) ? session.data!.steps : []) as { action: string; note: string }[];
+
+  useEffect(() => {
+    if (!running || agent !== "driving" || stepping.current) return;
+    stepping.current = true;
+    step({ data: { sessionRowId } })
+      .catch((e) => toast.error(e instanceof Error ? e.message : "Civi lost the browser"))
+      .finally(async () => {
+        stepping.current = false;
+        await qc.invalidateQueries({ queryKey: ["browser_session", sessionRowId] });
+        qc.invalidateQueries({ queryKey: ["approvals"] });
+        qc.invalidateQueries({ queryKey: ["messages"] });
+      });
+  }, [running, agent, steps.length, sessionRowId]);
+
+  async function toggleDrive(driving: boolean) {
+    await setDriving({ data: { sessionRowId, driving } });
+    await qc.invalidateQueries({ queryKey: ["browser_session", sessionRowId] });
+  }
+  const AGENT_LABEL: Record<string, string> = {
+    driving: "Civi is driving", awaiting_approval: "Waiting for your approval", done: "Civi finished",
+    stopped: "You're in control", failed: "Civi lost the browser", idle: "You're in control",
+  };
 
   async function stop() {
     setEnding(true);
@@ -105,8 +132,13 @@ function BrowserCard({ sessionRowId, task }: { sessionRowId: string; task: strin
             allow="clipboard-read; clipboard-write"
           />
           <div className="flex items-center justify-between gap-2 border-t px-4 py-2.5">
-            <p className="text-xs text-muted-foreground">Watch Civi work — or click in and take over.</p>
+            <p className="text-xs text-muted-foreground">{AGENT_LABEL[agent] ?? "Watch Civi work"}{agent === "driving" ? "…" : ""}</p>
             <div className="flex shrink-0 gap-2">
+              {session.data?.connect_url && (agent === "driving" ? (
+                <button onClick={() => toggleDrive(false)} className="rounded-full border px-3 py-1 text-xs hover:bg-secondary">Take over</button>
+              ) : agent !== "awaiting_approval" ? (
+                <button onClick={() => toggleDrive(true)} className="rounded-full border px-3 py-1 text-xs hover:bg-secondary">Let Civi drive</button>
+              ) : null)}
               <a href={session.data!.live_url!} target="_blank" rel="noreferrer"
                 className="flex items-center gap-1 rounded-full border px-3 py-1 text-xs hover:bg-secondary">
                 <ExternalLink className="h-3 w-3" /> Full view
@@ -117,6 +149,13 @@ function BrowserCard({ sessionRowId, task }: { sessionRowId: string; task: strin
               </button>
             </div>
           </div>
+          {steps.length > 0 && (
+            <ol className="max-h-40 space-y-1 overflow-y-auto border-t px-4 py-2.5 text-xs text-muted-foreground">
+              {steps.map((st, i) => (
+                <li key={i}><span className="font-semibold text-foreground">{i + 1}.</span> {st.note}</li>
+              ))}
+            </ol>
+          )}
         </>
       ) : (
         <p className="border-t px-4 py-3 text-sm text-muted-foreground">This browser session has ended.</p>

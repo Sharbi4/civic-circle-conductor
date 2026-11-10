@@ -36,6 +36,13 @@
       "when": 1794332359502,
       "tag": "0004_create_community_scout",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1794334055171,
+      "tag": "0005_browser_agent",
+      "breakpoints": true
     }
   ]
 }

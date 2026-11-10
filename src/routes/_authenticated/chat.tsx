@@ -302,7 +302,7 @@ function ApprovalsPanel() {
   const pending = approvals.data?.filter((a) => a.status === "pending") ?? [];
   const resolved = approvals.data?.filter((a) => a.status !== "pending") ?? [];
 
-  async function respond(id: string, decision: "approved" | "declined", title: string) {
+  async function respond(id: string, decision: "approved" | "declined", title: string, browserSessionId?: string | null) {
     setBusyId(id);
     const { data: u } = await supabase.auth.getUser();
     const { error } = await supabase
@@ -310,6 +310,12 @@ function ApprovalsPanel() {
       .update({ status: decision, resolved_at: new Date().toISOString() })
       .eq("id", id);
     if (error) { toast.error(error.message); setBusyId(null); return; }
+    if (browserSessionId) {
+      await supabase.from("browser_sessions")
+        .update(decision === "approved" ? { agent_status: "driving", submit_approved: true } : { agent_status: "stopped" })
+        .eq("id", browserSessionId);
+      qc.invalidateQueries({ queryKey: ["browser_session", browserSessionId] });
+    }
     if (main && u.user) {
       await supabase.from("messages").insert({
         thread_id: main.id,
@@ -343,10 +349,10 @@ function ApprovalsPanel() {
         {a.details && <p className="mt-1 text-sm text-muted-foreground">{a.details}</p>}
         {a.status === "pending" && (
           <div className="mt-3 flex gap-2">
-            <Button size="sm" disabled={busyId === a.id} onClick={() => respond(a.id, "approved", a.title)} className="rounded-full">
+            <Button size="sm" disabled={busyId === a.id} onClick={() => respond(a.id, "approved", a.title, a.browser_session_id)} className="rounded-full">
               <Check className="h-4 w-4" /> Approve
             </Button>
-            <Button size="sm" variant="outline" disabled={busyId === a.id} onClick={() => respond(a.id, "declined", a.title)} className="rounded-full">
+            <Button size="sm" variant="outline" disabled={busyId === a.id} onClick={() => respond(a.id, "declined", a.title, a.browser_session_id)} className="rounded-full">
               <X className="h-4 w-4" /> Decline
             </Button>
           </div>
