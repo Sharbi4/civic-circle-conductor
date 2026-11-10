@@ -203,19 +203,29 @@ export async function closeOtherBrowsers(supabase: SupabaseLike, threadId: strin
 export const browserAgentStep = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) => z.object({ sessionRowId: z.string().uuid() }).parse(d))
-  .handler(async ({ data, context }) => {
-    const { supabase, userId } = context;
+  .handler(async ({ data, context }) => runAgentStep(context.supabase as unknown as SupabaseLike, context.userId, data.sessionRowId));
+
+/** One browser step; used by the open chat and by the background autopilot. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function runAgentStep(supabase: any, userId: string, sessionRowId: string): Promise<{ agentStatus: string | null }> {
     const { withPage, snapshot, perform, parseAction } = await import("@/lib/browserAgent.server");
     const { generateResponse } = await import("@lovable.dev/ai-gateway");
 
     const { data: row, error } = await supabase
       .from("browser_sessions")
       .select("id, thread_id, goal, task, status, agent_status, steps, submit_approved, connect_url")
-      .eq("id", data.sessionRowId).maybeSingle();
+      .eq("id", sessionRowId).maybeSingle();
     if (error || !row) throw new Error("Browser session not found");
     if (row.status !== "running" || row.agent_status !== "driving" || !row.connect_url) {
       return { agentStatus: row.agent_status };
     }
+    // Single driver: only one caller (open chat or background autopilot) runs a step at a time.
+    const nowIso = new Date().toISOString();
+    const { data: leased } = await supabase.from("browser_sessions")
+      .update({ driver_lease: new Date(Date.now() + 90_000).toISOString(), last_step_at: nowIso })
+      .eq("id", row.id).or(`driver_lease.is.null,driver_lease.lt.${nowIso}`).select("id").maybeSingle();
+    if (!leased) return { agentStatus: row.agent_status };
+    try {
     const steps = (Array.isArray(row.steps) ? row.steps : []) as Step[];
     const goal = row.goal ?? row.task;
     let taskStart = 0;
@@ -332,11 +342,11 @@ export const browserAgentStep = createServerFn({ method: "POST" })
         }
         if (goal.startsWith("APPROVED") && /Facebook group/.test(goal)) {
           const { data: aps } = await supabase.from("approvals").select("status, title, payload").eq("user_id", userId);
-          const fb = (aps ?? []).filter((x) => (x.payload as { kind?: string } | null)?.kind === "fb_join_group");
+          const fb = ((aps ?? []) as { status: string; title: string; payload: unknown }[]).filter((x) => (x.payload as { kind?: string } | null)?.kind === "fb_join_group");
           const joined = fb.filter((x: { status: string }) => x.status === "approved").length;
           const waiting = fb.filter((x: { status: string }) => x.status === "pending").map((x: { title: string }) => x.title.replace("Join Facebook group: ", ""));
           const milestone = joined >= 10 && joined % 10 === 0 ? `🎉 That's **${joined} groups** joined — a strong local footprint. ` : `📊 **${joined}** Facebook group${joined === 1 ? "" : "s"} joined so far. `;
-          await post(`${milestone}${waiting.length ? `Still waiting on your OK for ${waiting.length}: ${waiting.slice(0, 5).map((w) => `**${w}**`).join(", ")}${waiting.length > 5 ? "…" : ""} (most relevant first — see Approvals).` : "No group requests are waiting."} Want me to keep going?\n\n[[choices: Find more groups | Post in a joined group | Pause for now]]`);
+          await post(`${milestone}${waiting.length ? `Still waiting on your OK for ${waiting.length}: ${waiting.slice(0, 5).map((w: string) => `**${w}**`).join(", ")}${waiting.length > 5 ? "…" : ""} (most relevant first — see Approvals).` : "No group requests are waiting."} Want me to keep going?\n\n[[choices: Find more groups | Post in a joined group | Pause for now]]`);
         }
         return { agentStatus: "done" };
       }
@@ -351,7 +361,11 @@ export const browserAgentStep = createServerFn({ method: "POST" })
       await save({ agent_status: "failed" }, { action: "error", note: "Lost connection to the browser — the session may have expired." });
       return { agentStatus: "failed" };
     }
-  });
+    } finally {
+      await supabase.from("browser_sessions").update({ driver_lease: null }).eq("id", sessionRowId);
+    }
+}
+
 
 export const setBrowserDriving = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])

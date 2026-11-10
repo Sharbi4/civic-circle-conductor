@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
+import { getSuggestions, setAutonomy } from "@/lib/suggestions.functions";
 import { ArrowUp, ImagePlus, X, CalendarHeart, ExternalLink, Mail, Megaphone, MonitorUp, Phone, Square, Vote, HeartPulse, MessageSquareHeart } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -282,6 +283,56 @@ const LEAD_ACTIONS = [
   { Icon: Phone, title: "Phone Outreach", desc: "Calls, responses & follow-up", prompt: "I want to coordinate phone outreach. Ask me about the purpose, contacts, script and schedule." },
 ];
 
+const LEVELS = [
+  { id: "manual", label: "Manual", hint: "Civi only suggests next steps" },
+  { id: "assisted", label: "Assisted", hint: "Every 30 min Civi queues its next move in Approvals" },
+  { id: "auto", label: "Auto", hint: "Every 30 min Civi picks its next move and starts it; joins, posts and bookings still need your OK" },
+] as const;
+
+function NextSteps({ threadId, msgCount, busy, onPick }: { threadId: string; msgCount: number; busy: boolean; onPick: (prompt: string) => void }) {
+  const fetchSug = useServerFn(getSuggestions);
+  const saveLevel = useServerFn(setAutonomy);
+  const qc = useQueryClient();
+  const sug = useQuery({
+    queryKey: ["suggestions", threadId, msgCount],
+    queryFn: () => fetchSug({ data: { threadId } }),
+    enabled: msgCount > 0 && !busy,
+    staleTime: Infinity,
+  });
+  const org = useQuery({
+    queryKey: ["org-autonomy"],
+    queryFn: async () => {
+      const { data } = await supabase.from("organizations").select("autonomy").maybeSingle();
+      return (data?.autonomy ?? "manual") as "manual" | "assisted" | "auto";
+    },
+  });
+  async function pickLevel(level: "manual" | "assisted" | "auto") {
+    qc.setQueryData(["org-autonomy"], level);
+    try { await saveLevel({ data: { level } }); toast.success(LEVELS.find((l) => l.id === level)!.hint); }
+    catch (e) { toast.error(e instanceof Error ? e.message : "Couldn't change mode"); org.refetch(); }
+  }
+  const items = sug.data?.items ?? [];
+  return (
+    <div className="mx-auto mb-2 flex max-w-3xl flex-wrap items-center gap-1.5">
+      {!busy && items.map((it, i) => (
+        <button type="button" key={i} onClick={() => onPick(it.prompt)}
+          className="animate-in fade-in slide-in-from-bottom-1 rounded-full border bg-card/90 px-3 py-1.5 text-xs shadow-soft backdrop-blur hover:border-primary hover:bg-secondary">
+          {it.label}
+        </button>
+      ))}
+      {sug.isFetching && <span className="text-xs text-muted-foreground">Thinking of next steps…</span>}
+      <div className="ml-auto flex rounded-full border bg-card/90 p-0.5 text-[11px] shadow-soft backdrop-blur" role="radiogroup" aria-label="How much Civi does on its own">
+        {LEVELS.map((l) => (
+          <button type="button" key={l.id} title={l.hint} role="radio" aria-checked={org.data === l.id} onClick={() => pickLevel(l.id)}
+            className={`rounded-full px-2.5 py-1 ${org.data === l.id ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}>
+            {l.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function ChatWindow({ threadId }: { threadId: string }) {
   const qc = useQueryClient();
   const send = useServerFn(sendOrganizerMessage);
@@ -456,6 +507,7 @@ function ChatWindow({ threadId }: { threadId: string }) {
             </button>
           </div>
         )}
+        <NextSteps threadId={threadId} msgCount={msgs.data?.length ?? 0} busy={busy} onPick={(p) => submit(p)} />
         <div className="mx-auto flex max-w-3xl items-end gap-2 rounded-full border bg-card py-2 pl-2 pr-2 shadow-soft">
           <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={(e) => pickFile(e.target.files?.[0])} />
           <button

@@ -14,6 +14,7 @@ import { CONNECTORS } from "@/lib/connectors";
 import { startLinkedInConnect, completeLinkedInConnect, getLinkedInStatus, disconnectLinkedIn, runLinkedInApproval, setLinkedInOrgPage } from "@/lib/linkedin.functions";
 import { startEventbriteConnect, completeEventbriteConnect, getEventbriteStatus, disconnectEventbrite, runEventbriteApproval } from "@/lib/eventbrite.functions";
 import { saveSiteCredential } from "@/lib/credentials.functions";
+import { sendOrganizerMessage } from "@/lib/organizer.functions";
 import { runFacebookApproval } from "@/lib/browser.functions";
 import { startNextdoorConnect, completeNextdoorConnect, getNextdoorStatus, disconnectNextdoor } from "@/lib/nextdoor.functions";
 
@@ -538,6 +539,7 @@ function ApprovalsPanel() {
   const runEb = useServerFn(runEventbriteApproval);
   const runLi = useServerFn(runLinkedInApproval);
   const runFb = useServerFn(runFacebookApproval);
+  const runSend = useServerFn(sendOrganizerMessage);
   const main = threads.data?.find((t) => t.kind === "main");
   const pending = approvals.data?.filter((a) => a.status === "pending") ?? [];
   const resolved = approvals.data?.filter((a) => a.status !== "pending") ?? [];
@@ -570,6 +572,16 @@ function ApprovalsPanel() {
       } catch (e) {
         toast.error(e instanceof Error ? e.message : "LinkedIn couldn't complete that");
       }
+      await qc.invalidateQueries({ queryKey: ["approvals"] });
+      setBusyId(null);
+      return;
+    }
+    if (decision === "approved" && (payload as { kind?: string } | null)?.kind === "civi_suggestion") {
+      const p = payload as { thread: string; prompt: string };
+      navigate({ to: "/chat/$threadId", params: { threadId: p.thread } });
+      toast.success("Civi is on it.");
+      try { await runSend({ data: { threadId: p.thread, content: p.prompt } }); } catch (e) { toast.error(e instanceof Error ? e.message : "Civi couldn't start that"); }
+      qc.invalidateQueries({ queryKey: ["messages", p.thread] });
       await qc.invalidateQueries({ queryKey: ["approvals"] });
       setBusyId(null);
       return;

@@ -83,15 +83,38 @@ export type Database = {
         }
         Relationships: []
       }
+      autopilot_state: {
+        Row: {
+          last_review_at: string | null
+          lease_until: string | null
+          paused_reason: string | null
+          user_id: string
+        }
+        Insert: {
+          last_review_at?: string | null
+          lease_until?: string | null
+          paused_reason?: string | null
+          user_id: string
+        }
+        Update: {
+          last_review_at?: string | null
+          lease_until?: string | null
+          paused_reason?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       browser_sessions: {
         Row: {
           agent_status: string
           connect_url: string | null
           created_at: string
+          driver_lease: string | null
           ended_at: string | null
           goal: string | null
           handoff_reason: string | null
           id: string
+          last_step_at: string | null
           live_url: string
           queue: Json
           session_id: string
@@ -108,10 +131,12 @@ export type Database = {
           agent_status?: string
           connect_url?: string | null
           created_at?: string
+          driver_lease?: string | null
           ended_at?: string | null
           goal?: string | null
           handoff_reason?: string | null
           id?: string
+          last_step_at?: string | null
           live_url: string
           queue?: Json
           session_id: string
@@ -128,10 +153,12 @@ export type Database = {
           agent_status?: string
           connect_url?: string | null
           created_at?: string
+          driver_lease?: string | null
           ended_at?: string | null
           goal?: string | null
           handoff_reason?: string | null
           id?: string
+          last_step_at?: string | null
           live_url?: string
           queue?: Json
           session_id?: string
@@ -309,6 +336,7 @@ export type Database = {
       }
       organizations: {
         Row: {
+          autonomy: string
           created_at: string
           facebook_setup_location: string | null
           linkedin_org_id: string | null
@@ -318,6 +346,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          autonomy?: string
           created_at?: string
           facebook_setup_location?: string | null
           linkedin_org_id?: string | null
@@ -327,6 +356,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          autonomy?: string
           created_at?: string
           facebook_setup_location?: string | null
           linkedin_org_id?: string | null
@@ -456,6 +486,33 @@ export type Database = {
           updated_at?: string
           user_id?: string
           username?: string
+        }
+        Relationships: []
+      }
+      suggestions: {
+        Row: {
+          based_on_count: number
+          created_at: string
+          id: string
+          items: Json
+          thread_id: string
+          user_id: string
+        }
+        Insert: {
+          based_on_count?: number
+          created_at?: string
+          id?: string
+          items?: Json
+          thread_id: string
+          user_id: string
+        }
+        Update: {
+          based_on_count?: number
+          created_at?: string
+          id?: string
+          items?: Json
+          thread_id?: string
+          user_id?: string
         }
         Relationships: []
       }
