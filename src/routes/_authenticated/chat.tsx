@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import type React from "react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { MessageCircle, Plus, Plug, LogOut, Pin, Brain, Inbox, Megaphone, CalendarCheck, CreditCard, Sparkles, Check, X, Compass, Trash2, KeyRound, Mic, FileText, ImagePlus, BarChart3 } from "lucide-react";
+import { MessageCircle, Plus, Plug, LogOut, Pin, Brain, Inbox, Megaphone, CalendarCheck, CreditCard, Sparkles, Check, X, Compass, Trash2, KeyRound, Mic, FileText, ImagePlus, BarChart3, Menu } from "lucide-react";
 import { PollsPanel } from "@/components/polls/PollsPanel";
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
@@ -79,23 +79,29 @@ export function useThreads() {
 
 function ChatLayout() {
   const org = useOrg();
+  const [navOpen, setNavOpen] = useState(false);
   if (org.isLoading) return <div className="min-h-screen" />;
   if (!org.data?.onboarded) return <Onboarding existing={org.data} />;
   return (
-    <div className="flex h-screen overflow-hidden">
-      <Sidebar orgName={org.data.name ?? ""} />
+    <div className="flex h-dvh overflow-hidden">
+      <Sidebar orgName={org.data.name ?? ""} mobileOpen={navOpen} onClose={() => setNavOpen(false)} />
       <main className="relative flex min-w-0 flex-1 flex-col">
+        <button type="button" aria-label="Open menu" onClick={() => setNavOpen(true)}
+          className="absolute left-3 top-3 z-40 grid h-8 w-8 place-items-center rounded-full border bg-background/80 text-muted-foreground backdrop-blur md:hidden">
+          <Menu className="h-4 w-4" />
+        </button>
         <Outlet />
       </main>
     </div>
   );
 }
 
-function Sidebar({ orgName }: { orgName: string }) {
+function Sidebar({ orgName, mobileOpen, onClose }: { orgName: string; mobileOpen: boolean; onClose: () => void }) {
   const threads = useThreads();
   const qc = useQueryClient();
   const navigate = useNavigate();
   const params = useParams({ strict: false }) as { threadId?: string };
+  useEffect(() => { onClose(); }, [params.threadId]);
   const [tab, setTab] = useState<"chats" | "connectors" | "memory" | "approvals" | "scout" | "logins" | "documents" | "polls">("chats");
   const approvals = useApprovals();
   const pendingCount = approvals.data?.filter((a) => a.status === "pending").length ?? 0;
@@ -148,8 +154,9 @@ function Sidebar({ orgName }: { orgName: string }) {
     window.addEventListener("pointermove", move); window.addEventListener("pointerup", up);
   }
   return (
-    <>
-      <nav className="hidden w-[72px] flex-col items-center gap-3 border-r bg-rail py-5 md:flex">
+    <div className={mobileOpen ? "fixed inset-0 z-50 flex bg-background md:static md:z-auto md:contents" : "hidden md:contents"}>
+      {mobileOpen && <button type="button" aria-label="Close menu" onClick={onClose} className="absolute right-3 top-3 z-50 grid h-8 w-8 place-items-center rounded-full border bg-background md:hidden"><X className="h-4 w-4" /></button>}
+      <nav className="flex w-[64px] shrink-0 flex-col items-center gap-3 overflow-y-auto border-r bg-rail py-5 md:w-[72px]">
         <div className="font-display mb-3 text-xl font-bold text-primary">C</div>
         {railBtn("chats", MessageCircle, "Chats")}
         {railBtn("approvals", Inbox, "Approvals", pendingCount)}
@@ -164,7 +171,7 @@ function Sidebar({ orgName }: { orgName: string }) {
           <LogOut className="h-5 w-5" />
         </button>
       </nav>
-      <aside style={{ width: sbW }} className="relative hidden shrink-0 flex-col border-r bg-sidebar md:flex">
+      <aside style={{ width: mobileOpen && typeof window !== "undefined" && window.innerWidth < 768 ? undefined : sbW }} className="relative flex min-w-0 flex-1 flex-col border-r bg-sidebar md:flex-none md:shrink-0">
         <div role="separator" aria-orientation="vertical" aria-label="Resize sidebar" title="Drag to resize · double-click to reset" onPointerDown={startSbDrag} onDoubleClick={() => { setSbW(280); localStorage.setItem("civi-sidebar-w", "280"); }}
           className="absolute -right-1.5 top-0 z-20 h-full w-3 cursor-col-resize after:absolute after:left-1/2 after:top-0 after:h-full after:w-px after:bg-transparent hover:after:bg-accent" />
         <div className="px-5 pb-3 pt-5">
@@ -232,7 +239,7 @@ function Sidebar({ orgName }: { orgName: string }) {
         {tab === "documents" && <DocumentsPanel />}
         {tab === "polls" && <PollsPanel />}
       </aside>
-    </>
+    </div>
   );
 }
 
