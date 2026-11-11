@@ -12,6 +12,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { sendOrganizerMessage } from "@/lib/organizer.functions";
 import { endBrowserSession, browserAgentStep, setBrowserDriving, startFacebookSetup } from "@/lib/browser.functions";
 import { useThreads, useOrg } from "./chat";
+import { FormLibrary } from "@/components/polls/FormLibrary";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -359,7 +360,7 @@ function BrowserCard({ sessionRowId, task }: { sessionRowId: string; task: strin
 const LEAD_ACTIONS = [
   { Icon: CalendarHeart, title: "Plan an Event", desc: "Research, organize, promote & measure", prompt: "I want to plan an event. Walk me through it — start by asking what kind of event, where, when, how many people, budget, venue, vendors, audience and goal." },
   { Icon: Megaphone, title: "Social Outreach", desc: "Campaigns, posts & follow-up", prompt: "I want to run a social outreach campaign. Ask me about my goal, audience, location, channels and schedule, then build a content and engagement plan." },
-  { Icon: Vote, title: "Poll Your Community", desc: "Feedback & community priorities", prompt: "I want to poll my community. Ask me what I want to learn and who should respond, then draft the questions." },
+  { Icon: Vote, title: "Poll Your Community", desc: "Feedback & community priorities", prompt: "I want to poll my community — show me the ready-made forms." },
   { Icon: HeartPulse, title: "Analyze Sentiment", desc: "How communities respond to you", prompt: "I want to analyze community sentiment. Ask me which communities and date range to focus on, then identify recurring themes, concerns and support." },
   { Icon: Mail, title: "Email Campaign", desc: "Approved outreach, sent & tracked", prompt: "I want to run an email campaign. Ask me about the objective, audience and timing, then draft the content." },
   { Icon: Phone, title: "Phone Outreach", desc: "Calls, responses & follow-up", prompt: "I want to coordinate phone outreach. Ask me about the purpose, contacts, script and schedule." },
@@ -416,6 +417,7 @@ function NextSteps({ threadId, msgCount, busy, onPick }: { threadId: string; msg
 }
 
 function ChatWindow({ threadId }: { threadId: string }) {
+  const orgQ = useOrg();
   const qc = useQueryClient();
   const send = useServerFn(sendOrganizerMessage);
   const threads = useThreads();
@@ -596,7 +598,8 @@ function ChatWindow({ threadId }: { threadId: string }) {
               ) : (
                 <div key={m.id}>
                   <div className="max-w-[92%] rounded-3xl bg-bubble px-6 py-4">
-                    <MessageBody content={m.content.replace(CHOICES_MARKER, "").trim()} />
+                    <MessageBody content={m.content.replace(CHOICES_MARKER, "").replace(/\[\[form_library\]\]/g, "").trim()} />
+                    {m.content.includes("[[form_library]]") && m.id === all[all.length - 1]?.id && <FormLibrary logo={orgQ.data?.logo_url} orgName={orgQ.data?.name} onDone={(t) => submit(t)} />}
                   </div>
                   {m.id !== "p" && (
                     <button onClick={() => voice.play(m.id, m.content)} aria-label={voice.speakingId === m.id ? "Stop reading" : "Read aloud"} title={voice.speakingId === m.id ? "Stop" : "Read aloud"}

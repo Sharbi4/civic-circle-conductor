@@ -40,3 +40,4 @@
 - [x] ElevenLabs voice: read replies aloud + talk to Civi
 - [ ] Square vendor payments (approval-gated) — waiting on Square setup
 - [ ] Event promotion media: photos on X + LinkedIn done; remaining — AI video generation + upload, Facebook browser media upload
+- [ ] Tasks & Goals sidebar panel (table + Civi awareness done; UI pending)
