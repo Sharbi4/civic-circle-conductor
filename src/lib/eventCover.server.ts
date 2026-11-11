@@ -67,3 +67,22 @@ export function bannerCrop(width: number, height: number) {
   const h = Math.round(width / 2);
   return { top_left: { x: 0, y: Math.round((height - h) / 2) }, width, height: h };
 }
+
+/** Picture for a social post: the user's own upload if given, otherwise a fresh AI image from the prompt. */
+export async function buildPostImage(
+  supabase: SupabaseClient, userId: string,
+  opts: { image?: string | undefined; image_prompt?: string | undefined },
+): Promise<{ bytes: Uint8Array<ArrayBuffer>; type: string } | undefined> {
+  const own = await loadEventImage(supabase, userId, opts.image);
+  if (own) return own;
+  if (!opts.image_prompt) return undefined;
+  const { generateImage } = await import("@lovable.dev/ai-gateway");
+  const img = await generateImage({
+    model: "openai/gpt-image-2.5-sunburst",
+    prompt: `Eye-catching social media post image, bold and clean, no small text. ${opts.image_prompt}`,
+    size: "1024x1024", output_format: "jpeg", quality: "high",
+  });
+  const b64 = img.data?.[0]?.b64_json;
+  if (!b64) throw new Error("No image returned");
+  return { bytes: Uint8Array.from(atob(b64), (c) => c.charCodeAt(0)), type: "image/jpeg" };
+}

@@ -332,14 +332,42 @@ export const runLinkedInApproval = createServerFn({ method: "POST" })
       return { threadId, ok: true };
     }
 
-    const p = z.object({ kind: z.literal("linkedin_post"), text: z.string().min(1).max(3000) }).parse(ap.payload);
+    const p = z.object({ kind: z.literal("linkedin_post"), text: z.string().min(1).max(3000), image_prompt: z.string().max(1500).nullish(), image: z.string().max(300).nullish() }).parse(ap.payload);
+    const { buildPostImage } = await import("@/lib/eventCover.server");
+    const photo = p.image || p.image_prompt ? await buildPostImage(supabase, userId, { image: p.image ?? undefined, image_prompt: p.image_prompt ?? undefined }) : undefined;
     const { data: org } = await supabase.from("organizations").select("linkedin_org_id").eq("user_id", userId).maybeSingle();
     const asPage = !!org?.linkedin_org_id;
+    let imageUrn: string | undefined;
+    if (photo && asPage) {
+      const init = await rest("/rest/images?action=initializeUpload", "POST", { initializeUploadRequest: { owner: `urn:li:organization:${org!.linkedin_org_id}` } }, {}, ORG_ALL);
+      if (!init.ok) await fail(init, "prepare the photo");
+      const v = ((await init.json()) as { value?: { uploadUrl?: string; image?: string } }).value;
+      if (!v?.uploadUrl || !v.image) throw new Error("LinkedIn didn't return an upload URL for the photo.");
+      const u = new URL(v.uploadUrl);
+      const up = await call(u.pathname + u.search, { method: "PUT", headers: { "Content-Type": photo.type }, body: new Blob([photo.bytes], { type: photo.type }) }, ORG_ALL);
+      if (!up.ok) await fail(up, "upload the photo");
+      imageUrn = v.image;
+    } else if (photo) {
+      const reg = await call("/v2/assets?action=registerUpload", {
+        method: "POST", headers: { "Content-Type": "application/json", "X-Restli-Protocol-Version": "2.0.0" },
+        body: JSON.stringify({ registerUploadRequest: { owner: person, recipes: ["urn:li:digitalmediaRecipe:feedshare-image"],
+          serviceRelationships: [{ identifier: "urn:li:userGeneratedContent", relationshipType: "OWNER" }] } }),
+      });
+      if (!reg.ok) await fail(reg, "prepare the photo");
+      const v = ((await reg.json()) as { value?: { uploadMechanism?: Record<string, { uploadUrl?: string }>; asset?: string } }).value;
+      const uploadUrl = v?.uploadMechanism?.["com.linkedin.digitalmedia.uploading.MediaUploadHttpRequest"]?.uploadUrl;
+      if (!uploadUrl || !v?.asset) throw new Error("LinkedIn didn't return an upload URL for the photo.");
+      const u = new URL(uploadUrl);
+      const up = await call(u.pathname + u.search, { method: "POST", headers: { "Content-Type": photo.type }, body: new Blob([photo.bytes], { type: photo.type }) });
+      if (!up.ok) await fail(up, "upload the photo");
+      imageUrn = v.asset;
+    }
     const res = asPage
       ? await rest("/rest/posts", "POST", {
           author: `urn:li:organization:${org!.linkedin_org_id}`, commentary: p.text, visibility: "PUBLIC",
           distribution: { feedDistribution: "MAIN_FEED", targetEntities: [], thirdPartyDistributionChannels: [] },
           lifecycleState: "PUBLISHED", isReshareDisabledByAuthor: false,
+          ...(imageUrn ? { content: { media: { id: imageUrn } } } : {}),
         }, {}, ORG_ALL)
       : await call("/v2/ugcPosts", {
           method: "POST",
@@ -347,12 +375,14 @@ export const runLinkedInApproval = createServerFn({ method: "POST" })
           body: JSON.stringify({
             author: person,
             lifecycleState: "PUBLISHED",
-            specificContent: { "com.linkedin.ugc.ShareContent": { shareCommentary: { text: p.text }, shareMediaCategory: "NONE" } },
+            specificContent: { "com.linkedin.ugc.ShareContent": { shareCommentary: { text: p.text }, ...(imageUrn
+              ? { shareMediaCategory: "IMAGE", media: [{ status: "READY", media: imageUrn }] }
+              : { shareMediaCategory: "NONE" }) } },
             visibility: { "com.linkedin.ugc.MemberNetworkVisibility": "PUBLIC" },
           }),
         });
     if (!res.ok) await fail(res, "publish the post");
     const postId = res.headers.get("x-restli-id") ?? "";
-    await say(`✅ Posted to LinkedIn${asPage ? " from your company page" : ""}${postId ? ` — [view it](https://www.linkedin.com/feed/update/${postId})` : ""}.\n\n> ${p.text.slice(0, 280).replace(/\n/g, "\n> ")}`);
+    await say(`✅ Posted to LinkedIn${imageUrn ? " with photo" : ""}${asPage ? " from your company page" : ""}${postId ? ` — [view it](https://www.linkedin.com/feed/update/${postId})` : ""}.\n\n> ${p.text.slice(0, 280).replace(/\n/g, "\n> ")}`);
     return { threadId, ok: true };
   });

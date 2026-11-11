@@ -39,4 +39,4 @@
 - [x] Perplexity research during onboarding + event planning
 - [x] ElevenLabs voice: read replies aloud + talk to Civi
 - [ ] Square vendor payments (approval-gated) — waiting on Square setup
-- [ ] Event promotion media: generate photo/video (Lovable AI video) for event posts and attach to X, LinkedIn and Facebook (browser upload) posts
+- [ ] Event promotion media: photos on X + LinkedIn done; remaining — AI video generation + upload, Facebook browser media upload
