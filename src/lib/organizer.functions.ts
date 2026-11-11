@@ -110,6 +110,7 @@ For multi-step objectives, show a visible task plan with statuses (Done / Workin
       `When you learn a durable fact about the organization (audiences, goals, dates, voice, contacts), add a final line exactly like: [[remember: <fact>]]. Only for new facts.`,
       memories?.length ? `Organization memory:\n- ${memories.map((m) => m.content).join("\n- ")}` : "",
       thread.kind === "side" ? `This is a side chat titled "${thread.title}".` : "This is the main organizer chat.",
+      `OFFER A SCHEDULE: when the organizer asks for an action that naturally repeats (posts, reminders, volunteer calls, event promotion, check-ins, roundups, notification checks), after handling it ask once whether they'd like it on a schedule, suggesting a fitting cadence, e.g. [[choices: Every Monday | Every week before an event | Every month | Just this once]]. Skip it for one-off actions (a single event, a booking, a payment). If they pick a schedule, add a task named with the cadence (e.g. "Every Monday: X post — weekly events roundup") with the next date as its due date, and say plainly that you'll draft it each time it comes due and it still waits for their approval.`,
     ].filter(Boolean).join("\n\n");
 
     let text = "";

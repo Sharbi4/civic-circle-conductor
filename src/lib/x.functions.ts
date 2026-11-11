@@ -48,7 +48,7 @@ export const completeXConnect = createServerFn({ method: "POST" })
       threadId = t.id;
       await supabase.from("messages").insert({
         thread_id: threadId, user_id: userId, role: "assistant",
-        content: `I'm your **X agent**, connected to **${accountName}**. I can write short posts about your events, calls to action and wins — every post waits for your approval first. What should we post?`,
+        content: X_WELCOME(accountName),
       });
     }
     return { accountName, threadId };
@@ -121,3 +121,14 @@ export const runXApproval = createServerFn({ method: "POST" })
     await say(`✅ Posted on X${mediaId ? " with photo" : ""}${id ? ` — [view it](https://x.com/i/web/status/${id})` : ""}.`);
     return { ok: true, threadId };
   });
+
+export const X_WELCOME = (accountName: string) => `Hi! I'm your **X agent**, connected to **${accountName}**. Here's what I can do:
+
+- **Write posts** — short, punchy posts about your events, calls to action and wins
+- **Add a photo** — I can make an image for a post or use one you upload
+- **Promote events** — announce an event, then post reminders as it gets closer
+- **Recurring posts** — set up weekly roundups, volunteer calls or reminders on a schedule
+
+Every post waits for your OK in Approvals before it goes live. What should we start with?
+
+[[choices: Write a post | Promote an event | Set up a weekly post | Something else]]`;

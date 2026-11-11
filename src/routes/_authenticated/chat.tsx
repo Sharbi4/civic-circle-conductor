@@ -21,7 +21,7 @@ import { saveSiteCredential } from "@/lib/credentials.functions";
 import { sendOrganizerMessage } from "@/lib/organizer.functions";
 import { runOnboardingResearch, scanOrgProfile } from "@/lib/research.functions";
 import { transcribeSpeech } from "@/lib/voice.functions";
-import { startXConnect, completeXConnect, getXStatus, disconnectX, runXApproval } from "@/lib/x.functions";
+import { startXConnect, completeXConnect, getXStatus, disconnectX, runXApproval, X_WELCOME } from "@/lib/x.functions";
 import { runFacebookApproval, startBrowserSession } from "@/lib/browser.functions";
 import { SiFacebook, SiNextdoor, SiX } from "react-icons/si";
 import { FaLinkedin } from "react-icons/fa";
@@ -1334,10 +1334,10 @@ function NewChatMenu({ onBlank }: { onBlank: () => void }) {
       if (error) { toast.error(error.message); return; }
       threadId = data.id;
     }
-    if (it.id === "eb") {
+    if (it.id === "eb" || it.id === "x") {
       // A fresh (or empty) Eventbrite chat always opens with the welcome + suggested starting actions.
       const { count } = await supabase.from("messages").select("id", { count: "exact", head: true }).eq("thread_id", threadId);
-      if (!count) await supabase.from("messages").insert({ thread_id: threadId, user_id: u.user!.id, role: "assistant", content: EVENTBRITE_WELCOME(eb.data?.accountName ?? "your Eventbrite account") });
+      if (!count) await supabase.from("messages").insert({ thread_id: threadId, user_id: u.user!.id, role: "assistant", content: it.id === "x" ? X_WELCOME(x.data?.accountName ?? "your X account") : EVENTBRITE_WELCOME(eb.data?.accountName ?? "your Eventbrite account") });
       qc.invalidateQueries({ queryKey: ["messages"] });
     }
     await qc.invalidateQueries({ queryKey: ["threads"] });
