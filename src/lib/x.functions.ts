@@ -39,9 +39,9 @@ export const completeXConnect = createServerFn({ method: "POST" })
     const { saveConnectionKeyForUser } = await import("@/lib/appUserConnections.server");
     const { connectionAPIKey, connectorId } = await exchangeAppUserOAuthCode(GATEWAY, data.code);
     if (connectorId !== "x") throw new Error("X connect returned the wrong connector");
-    const me = await callAsAppUser({ gatewayBaseUrl: GATEWAY, connectionAPIKey, connectorId, path: "/users/me?user.fields=username,name", requiredScopes: X_SCOPES });
-    const u = me.ok ? ((await me.json()) as { data?: { username?: string } }).data : undefined;
-    const accountName = u?.username ? `@${u.username}` : "X account";
+    const { readXProfile } = await import('./xProfile.server');
+    const profile = await readXProfile(connectionAPIKey, callAsAppUser).catch(() => null);
+    const accountName = profile?.accountName ?? "X account";
     await saveConnectionKeyForUser(context.userId, connectorId, connectionAPIKey, accountName);
 
     const { supabase, userId } = context;
@@ -64,7 +64,11 @@ export const getXStatus = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     const { getConnectionForUser } = await import("@/lib/appUserConnections.server");
     const c = await getConnectionForUser(context.userId, "x");
-    return { connected: !!c, accountName: c?.accountName ?? null };
+    if (!c) return { connected: false, accountName: null, profilePhoto: null };
+    const { callAsAppUser } = await import('@/integrations/lovable/appUserConnector');
+    const { readXProfile } = await import('./xProfile.server');
+    const profile = await readXProfile(c.key, callAsAppUser).catch(() => null);
+    return { connected: true, accountName: profile?.accountName ?? c.accountName, profilePhoto: profile?.profilePhoto ?? null };
   });
 
 export const disconnectX = createServerFn({ method: "POST" })
