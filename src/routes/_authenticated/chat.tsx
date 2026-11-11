@@ -1,7 +1,8 @@
 import { createFileRoute, Link, Outlet, useNavigate, useParams } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useRef, useState, type ReactNode } from "react";
+import type React from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { MessageCircle, Plus, Plug, LogOut, Pin, Brain, Inbox, Megaphone, CalendarCheck, CreditCard, Sparkles, Check, X, Compass, Trash2, KeyRound, Mic, FileText, ImagePlus, BarChart3 } from "lucide-react";
 import { PollsPanel } from "@/components/polls/PollsPanel";
 import { toast } from "sonner";
@@ -137,6 +138,15 @@ function Sidebar({ orgName }: { orgName: string }) {
     </button>
   );
 
+  const [sbW, setSbW] = useState(280);
+  useEffect(() => { const v = Number(localStorage.getItem("civi-sidebar-w")); if (v >= 220 && v <= 560) setSbW(v); }, []);
+  function startSbDrag(e: React.PointerEvent) {
+    e.preventDefault(); const x0 = e.clientX, w0 = sbW; let w = w0;
+    const move = (ev: PointerEvent) => { w = Math.min(560, Math.max(220, w0 + ev.clientX - x0)); setSbW(w); };
+    const up = () => { window.removeEventListener("pointermove", move); window.removeEventListener("pointerup", up); document.body.style.cursor = ""; document.body.style.userSelect = ""; localStorage.setItem("civi-sidebar-w", String(w)); };
+    document.body.style.cursor = "col-resize"; document.body.style.userSelect = "none";
+    window.addEventListener("pointermove", move); window.addEventListener("pointerup", up);
+  }
   return (
     <>
       <nav className="hidden w-[72px] flex-col items-center gap-3 border-r bg-rail py-5 md:flex">
@@ -154,7 +164,9 @@ function Sidebar({ orgName }: { orgName: string }) {
           <LogOut className="h-5 w-5" />
         </button>
       </nav>
-      <aside className="hidden w-[280px] flex-col border-r bg-sidebar md:flex">
+      <aside style={{ width: sbW }} className="relative hidden shrink-0 flex-col border-r bg-sidebar md:flex">
+        <div role="separator" aria-orientation="vertical" aria-label="Resize sidebar" title="Drag to resize · double-click to reset" onPointerDown={startSbDrag} onDoubleClick={() => { setSbW(280); localStorage.setItem("civi-sidebar-w", "280"); }}
+          className="absolute -right-1.5 top-0 z-20 h-full w-3 cursor-col-resize after:absolute after:left-1/2 after:top-0 after:h-full after:w-px after:bg-transparent hover:after:bg-accent" />
         <div className="px-5 pb-3 pt-5">
           <div className="truncate text-xs font-semibold uppercase tracking-wider text-muted-foreground">{orgName}</div>
         </div>
