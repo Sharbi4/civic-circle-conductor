@@ -1010,8 +1010,8 @@ function Onboarding({ existing }: { existing: { name: string | null; mission: st
   const [step, setStep] = useState(existing?.name ? 1 : 0);
   const [name, setName] = useState(existing?.name ?? "");
   const [address, setAddress] = useState("");
-  const [cEmail, setCEmail] = useState(existing?.contact_email ?? "");
-  const [cPhone, setCPhone] = useState(existing?.contact_phone ?? "");
+  const [cEmail, setCEmail] = useState("");
+  const [cPhone, setCPhone] = useState("");
   const [heard, setHeard] = useState("");
   const [mission, setMission] = useState(existing?.mission ?? "");
   const [pages, setPages] = useState<Record<string, string>>({});
