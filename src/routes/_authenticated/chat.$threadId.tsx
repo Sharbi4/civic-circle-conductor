@@ -18,8 +18,15 @@ import { LetterheadCheck } from "@/components/LetterheadCheck";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { useActivities } from "@/components/activities/ActivitiesWorkspace";
+import { automationScope } from "@/lib/activities.shared";
 
 export const Route = createFileRoute("/_authenticated/chat/$threadId")({
+  head: () => ({ meta: [
+    { title: "Activity conversation — Civi Meet" }, { name: "description", content: "Coordinate your community activity with Civi and connected channel agents." },
+    { property: "og:title", content: "Activity conversation — Civi Meet" }, { property: "og:description", content: "Conversations connected to shared organizing plans." },
+    { property: "og:type", content: "website" }, { name: "twitter:card", content: "summary" },
+  ] }),
   component: ThreadPage,
 });
 
@@ -27,7 +34,21 @@ type Msg = { id: string; role: string; content: string };
 
 function ThreadPage() {
   const { threadId } = Route.useParams();
-  return <ChatWindow key={threadId} threadId={threadId} />;
+  return <><ActivityChatContext threadId={threadId} /><ChatWindow key={threadId} threadId={threadId} /></>;
+}
+
+function ActivityChatContext({ threadId }: { threadId: string }) {
+  const threads = useThreads(), activities = useActivities(), qc = useQueryClient();
+  const thread = threads.data?.find((t) => t.id === threadId);
+  const activity = activities.data?.find((a) => a.id === thread?.activity_id);
+  return <div className="flex shrink-0 flex-wrap items-center gap-2 border-b px-4 py-3 pl-14 text-xs md:pl-6">
+    <Link to="/chat" className="text-primary">Activities</Link><span className="text-muted-foreground">Shared plan</span>
+    <select aria-label="Shared activity for this chat" value={thread?.activity_id ?? ""} className="max-w-60 rounded-md border bg-background px-2 py-1" onChange={async (e) => {
+      const { error } = await supabase.from("threads").update({ activity_id: e.target.value || null }).eq("id", threadId);
+      if (error) toast.error("Couldn't link activity"); else qc.invalidateQueries({ queryKey: ["threads"] });
+    }}><option value="">No activity linked</option>{activities.data?.map((a) => <option key={a.id} value={a.id}>{a.title}</option>)}</select>
+    {activity && <span className="text-muted-foreground">{activity.plan_approved_at ? "Approved plan" : "Draft plan"} · {activity.proposed_date || "Date to decide"} · {activity.location || "Location to decide"}</span>}
+  </div>;
 }
 
 const BROWSER_MARKER = /\[\[browser:\s*([0-9a-f-]{36})\s*\|(.+?)\]\]|\[\[image:(cover|inspiration|post)\|([^\]]+)\]\]|\[\[doc:\s*([0-9a-f-]{36})\s*\|([^|\]]+)(?:\|\s*([a-z]+)\s*)?\]\]/g;
@@ -369,9 +390,9 @@ const LEAD_ACTIONS = [
 ];
 
 const LEVELS = [
-  { id: "manual", label: "Manual", hint: "Civi only suggests next steps" },
-  { id: "assisted", label: "Assisted", hint: "Every 30 min Civi queues its next move in Approvals" },
-  { id: "auto", label: "Auto", hint: "Every 30 min Civi picks its next move and starts it; joins, posts and bookings still need your OK" },
+  { id: "manual", label: "On request", hint: automationScope("manual") },
+  { id: "assisted", label: "Suggest", hint: automationScope("assisted") },
+  { id: "auto", label: "Research & prepare", hint: automationScope("auto") },
 ] as const;
 
 function NextSteps({ threadId, msgCount, busy, onPick }: { threadId: string; msgCount: number; busy: boolean; onPick: (prompt: string) => void }) {
@@ -393,7 +414,7 @@ function NextSteps({ threadId, msgCount, busy, onPick }: { threadId: string; msg
   });
   async function pickLevel(level: "manual" | "assisted" | "auto") {
     qc.setQueryData(["org-autonomy"], level);
-    try { await saveLevel({ data: { level } }); toast.success(LEVELS.find((l) => l.id === level)!.hint); }
+    try { await saveLevel({ data: { level } }); qc.invalidateQueries({ queryKey: ["automation-state"] }); toast.success(automationScope(level)); }
     catch (e) { toast.error(e instanceof Error ? e.message : "Couldn't change mode"); org.refetch(); }
   }
   const items = sug.data?.items ?? [];
@@ -408,10 +429,10 @@ function NextSteps({ threadId, msgCount, busy, onPick }: { threadId: string; msg
       {sug.isFetching && <span className="text-xs text-muted-foreground">Thinking of next steps…</span>}
       <div className="ml-auto flex rounded-full border bg-card/90 p-0.5 text-[11px] shadow-soft backdrop-blur" role="radiogroup" aria-label="How much Civi does on its own">
         {LEVELS.map((l) => (
-          <button type="button" key={l.id} title={l.hint} role="radio" aria-checked={org.data === l.id} onClick={() => pickLevel(l.id)}
+          <Button variant="ghost" size="sm" type="button" key={l.id} title={l.hint} role="radio" aria-checked={org.data === l.id} onClick={() => pickLevel(l.id)}
             className={`rounded-full px-2.5 py-1 ${org.data === l.id ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}>
             {l.label}
-          </button>
+          </Button>
         ))}
       </div>
     </div>

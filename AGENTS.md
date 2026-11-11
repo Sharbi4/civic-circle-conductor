@@ -34,3 +34,4 @@ use the editor.
 - Formal outputs (checklists, plans, letters) are saved as documents via a [[document: ...]] marker and rendered on one shared letterhead template; why: every org gets consistent, official, downloadable documents.
 - Polls/feedback/sign-ups are built in: Civi emits a [[poll: {...}]] marker, saved to owner-only polls; public /p/$id page reads and writes only through validated server functions (no anon table access); why: shareable links without exposing responses.
 - LinkedIn photo and event-cover transfers share a server-only authenticated PUT helper; stop publication if an approved photo fails so the published content matches the approval.
+- Activities are the owner-scoped shared plan for linked chats, tasks and approvals; plan changes invalidate approval, and provider success handlers write read-only receipts so approval is never confused with execution.

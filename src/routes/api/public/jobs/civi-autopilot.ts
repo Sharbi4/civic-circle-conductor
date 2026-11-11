@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { authenticateCronRequest } from "@/integrations/supabase/cron-auth";
+import { automationPermissions } from "@/lib/activities.shared";
 
 const MAX_DRIVE = 3; // browser sessions stepped per run
 const MAX_REVIEW = 3; // orgs reviewed per run
@@ -125,9 +126,11 @@ export const Route = createFileRoute("/api/public/jobs/civi-autopilot")({
         }
         // 4) Scheduled (repeating) tasks: when due, queue an approval that runs the task's instruction, then roll the due date forward.
         const today = new Date().toISOString().slice(0, 10);
-        const { data: dueTasks } = await db.from("tasks").select("id, user_id, title, repeat, run_prompt, thread_id, due_date, last_run_at")
+        const { data: dueTasks } = await db.from("tasks").select("id, user_id, title, repeat, run_prompt, thread_id, due_date, last_run_at, activity_id")
           .not("repeat", "is", null).eq("done", false).lte("due_date", today).limit(5);
         for (const t of dueTasks ?? []) {
+          const { data: pause } = await db.from("autopilot_state").select("paused_reason").eq("user_id", t.user_id).maybeSingle();
+          if (!automationPermissions("auto", !!pause?.paused_reason).scheduledDrafts) continue;
           if (t.last_run_at && t.last_run_at.slice(0, 10) === today) continue;
           let thread = t.thread_id;
           if (thread) { const { data: th } = await db.from("threads").select("id").eq("id", thread).maybeSingle(); thread = th?.id ?? null; }
@@ -137,6 +140,7 @@ export const Route = createFileRoute("/api/public/jobs/civi-autopilot")({
           const { data: claimed } = await db.from("tasks").update({ last_run_at: new Date().toISOString(), due_date: next })
             .eq("id", t.id).eq("due_date", t.due_date!).select("id");
           if (!claimed?.length || !thread) continue;
+          if (t.activity_id) await db.from("threads").update({ activity_id: t.activity_id }).eq("id", thread).eq("user_id", t.user_id);
           // Run it now: Civi does the work in the chat as this org only. Posts/payments it drafts still queue their own approval.
           try {
             const { runOrganizer } = await import("@/lib/organizer.server");

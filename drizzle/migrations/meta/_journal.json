@@ -183,6 +183,13 @@
       "when": 1794358034517,
       "tag": "0025_autopilot_learning",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1794370138787,
+      "tag": "0026_shared_activities_and_action_receipts",
+      "breakpoints": true
     }
   ]
 }

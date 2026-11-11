@@ -1,4 +1,6 @@
 # Civi Meet roadmap
+- [x] Activity-centered workspace: persistent initiatives, shared channel context, explicit automation/approval states, provider action receipts, and retained lessons. Signed-in create/save/readback/approve/tasks/lessons/mobile flow verified.
+- [ ] Verify newly recorded provider receipts with a real approved Eventbrite/LinkedIn/X action; requires explicit approval of a new external action, not replaying an earlier one.
 - [x] Sign-in, onboarding (org name + mission), main organizer chat, side chats, per-org memory
 - [x] Eventbrite connector: per-org OAuth connect flow (popup → encrypted token storage → "Eventbrite Agent" side chat); Connect/Disconnect in connectors panel. Civi creates real Eventbrite events (draft) after approval; attendee management still to build
 - [x] Live browser view — Civi opens real Browserbase sessions ([[browse:]] marker), live iframe card in chat with End session; Civi drives it itself (navigate, search, fill, submit after approval) via a step loop. Browserbase connection re-keyed to the upgraded account and verified live (session opened, Eventbrite navigated and driven). Sessions created with keepAlive so the browser survives between agent steps; End uses POST REQUEST_RELEASE (verified COMPLETED)

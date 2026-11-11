@@ -14,6 +14,138 @@ export type Database = {
   }
   public: {
     Tables: {
+      action_receipts: {
+        Row: {
+          account_name: string
+          action: string
+          activity_id: string | null
+          approval_id: string | null
+          approval_required: boolean
+          approved_at: string | null
+          completed_at: string
+          details: string
+          id: string
+          object_url: string | null
+          platform: string
+          user_id: string
+        }
+        Insert: {
+          account_name: string
+          action: string
+          activity_id?: string | null
+          approval_id?: string | null
+          approval_required?: boolean
+          approved_at?: string | null
+          completed_at?: string
+          details?: string
+          id?: string
+          object_url?: string | null
+          platform: string
+          user_id: string
+        }
+        Update: {
+          account_name?: string
+          action?: string
+          activity_id?: string | null
+          approval_id?: string | null
+          approval_required?: boolean
+          approved_at?: string | null
+          completed_at?: string
+          details?: string
+          id?: string
+          object_url?: string | null
+          platform?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "action_receipts_activity_id_fkey"
+            columns: ["activity_id"]
+            isOneToOne: false
+            referencedRelation: "activities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "action_receipts_approval_id_fkey"
+            columns: ["approval_id"]
+            isOneToOne: true
+            referencedRelation: "approvals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      activities: {
+        Row: {
+          approved_plan: Json | null
+          attendance: number
+          audience: string
+          budget: number
+          community_input: string
+          constraints: string
+          created_at: string
+          currency: string
+          description: string
+          follow_up: string
+          goal: string
+          id: string
+          lessons: Json
+          location: string
+          plan_approved_at: string | null
+          proposed_date: string
+          registration_url: string
+          status: string
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          approved_plan?: Json | null
+          attendance?: number
+          audience?: string
+          budget?: number
+          community_input?: string
+          constraints?: string
+          created_at?: string
+          currency?: string
+          description?: string
+          follow_up?: string
+          goal?: string
+          id?: string
+          lessons?: Json
+          location?: string
+          plan_approved_at?: string | null
+          proposed_date?: string
+          registration_url?: string
+          status?: string
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          approved_plan?: Json | null
+          attendance?: number
+          audience?: string
+          budget?: number
+          community_input?: string
+          constraints?: string
+          created_at?: string
+          currency?: string
+          description?: string
+          follow_up?: string
+          goal?: string
+          id?: string
+          lessons?: Json
+          location?: string
+          plan_approved_at?: string | null
+          proposed_date?: string
+          registration_url?: string
+          status?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       app_user_connections: {
         Row: {
           account_name: string | null
@@ -47,9 +179,11 @@ export type Database = {
       approvals: {
         Row: {
           action_type: string
+          activity_id: string | null
           browser_session_id: string | null
           created_at: string
           details: string
+          execution_status: string
           id: string
           payload: Json | null
           resolved_at: string | null
@@ -59,9 +193,11 @@ export type Database = {
         }
         Insert: {
           action_type: string
+          activity_id?: string | null
           browser_session_id?: string | null
           created_at?: string
           details?: string
+          execution_status?: string
           id?: string
           payload?: Json | null
           resolved_at?: string | null
@@ -71,9 +207,11 @@ export type Database = {
         }
         Update: {
           action_type?: string
+          activity_id?: string | null
           browser_session_id?: string | null
           created_at?: string
           details?: string
+          execution_status?: string
           id?: string
           payload?: Json | null
           resolved_at?: string | null
@@ -81,7 +219,15 @@ export type Database = {
           title?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "approvals_activity_id_fkey"
+            columns: ["activity_id"]
+            isOneToOne: false
+            referencedRelation: "activities"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       autopilot_state: {
         Row: {
@@ -688,6 +834,8 @@ export type Database = {
       }
       tasks: {
         Row: {
+          activity_id: string | null
+          assignee: string
           created_at: string
           created_by: string
           done: boolean
@@ -704,6 +852,8 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          activity_id?: string | null
+          assignee?: string
           created_at?: string
           created_by?: string
           done?: boolean
@@ -720,6 +870,8 @@ export type Database = {
           user_id: string
         }
         Update: {
+          activity_id?: string | null
+          assignee?: string
           created_at?: string
           created_by?: string
           done?: boolean
@@ -737,6 +889,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "tasks_activity_id_fkey"
+            columns: ["activity_id"]
+            isOneToOne: false
+            referencedRelation: "activities"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "tasks_goal_id_fkey"
             columns: ["goal_id"]
             isOneToOne: false
@@ -747,6 +906,7 @@ export type Database = {
       }
       threads: {
         Row: {
+          activity_id: string | null
           created_at: string
           id: string
           kind: string
@@ -756,6 +916,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          activity_id?: string | null
           created_at?: string
           id?: string
           kind?: string
@@ -765,6 +926,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          activity_id?: string | null
           created_at?: string
           id?: string
           kind?: string
@@ -773,7 +935,15 @@ export type Database = {
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "threads_activity_id_fkey"
+            columns: ["activity_id"]
+            isOneToOne: false
+            referencedRelation: "activities"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {

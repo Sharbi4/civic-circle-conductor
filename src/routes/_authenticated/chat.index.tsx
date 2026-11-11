@@ -1,13 +1,11 @@
-import { createFileRoute, Navigate } from "@tanstack/react-router";
-import { useThreads } from "./chat";
+import { createFileRoute } from "@tanstack/react-router";
+import { ActivitiesWorkspace } from "@/components/activities/ActivitiesWorkspace";
 
 export const Route = createFileRoute("/_authenticated/chat/")({
-  component: ChatIndex,
+  head: () => ({ meta: [
+    { title: "Activities — Civi Meet" }, { name: "description", content: "Shared community activity plans, responsibilities, approvals and completed-work receipts." },
+    { property: "og:title", content: "Activities — Civi Meet" }, { property: "og:description", content: "One shared organizing record across all your channels." },
+    { property: "og:type", content: "website" }, { name: "twitter:card", content: "summary" },
+  ] }),
+  component: ActivitiesWorkspace,
 });
-
-function ChatIndex() {
-  const threads = useThreads();
-  const main = threads.data?.find((t) => t.kind === "main");
-  if (!main) return null;
-  return <Navigate to="/chat/$threadId" params={{ threadId: main.id }} replace />;
-}

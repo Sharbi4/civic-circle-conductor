@@ -20,6 +20,10 @@ export const Route = createFileRoute("/p/$id")({
       { title: t }, { name: "description", content: d },
       { property: "og:title", content: t }, { property: "og:description", content: d },
       { property: "og:type", content: "website" }, { name: "twitter:card", content: "summary" },
+      ...(loaderData?.event?.image && /^https:\/\//.test(loaderData.event.image) ? [
+        { property: "og:image", content: loaderData.event.image },
+        { name: "twitter:image", content: loaderData.event.image },
+      ] : []),
     ] };
   },
   notFoundComponent: () => <main className="grid min-h-screen place-items-center p-6 text-muted-foreground">This poll doesn't exist.</main>,
