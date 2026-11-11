@@ -15,6 +15,12 @@ export async function runSharedJob(kind: 'scheduler' | 'recovery' | 'reports') {
   if (error) throw new Error('Could not acquire job lock');
   if (!acquired) return { ok: true, locked: true };
   try {
+    const { data: callOwners } = await db.from('approvals').select('user_id').eq('status', 'approved').eq('payload->>kind', 'venue_call').eq('payload->>call_state', 'initiated').order('created_at').limit(50);
+    const { syncVenueCalls } = await import('./calling.server');
+    for (const owner of new Set((callOwners ?? []).map((r) => r.user_id))) {
+      try { await syncVenueCalls(scopedDb(db, owner), owner); }
+      catch (e) { await noteJobFailure(owner, e); }
+    }
     if (kind === 'recovery') return await recoverRuns(db);
     await ensureSystemTasks(db, kind === 'reports');
     const { error: enqueueError } = await db.rpc('enqueue_due_agent_tasks');

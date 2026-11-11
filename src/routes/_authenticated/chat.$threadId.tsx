@@ -21,6 +21,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { EventbriteDraftControls } from '@/components/EventbriteDraftControls';
 import { AgentPreparing } from '@/components/AgentPreparing';
+import { refreshVenueCalls } from '@/lib/calling.functions';
 
 export const Route = createFileRoute("/_authenticated/chat/$threadId")({
   head: () => ({ meta: [
@@ -444,6 +445,16 @@ function ChatWindow({ threadId }: { threadId: string }) {
   const orgQ = useOrg();
   const qc = useQueryClient();
   const send = useServerFn(sendOrganizerMessage);
+  const refreshCalls = useServerFn(refreshVenueCalls);
+  const callStatus = useQuery({
+    queryKey: ["venue-calls", threadId],
+    queryFn: async () => {
+      const result = await refreshCalls({ data: { threadId } });
+      if (result.completed) await qc.invalidateQueries({ queryKey: ["messages", threadId] });
+      return result;
+    },
+    refetchInterval: 20000,
+  });
   const threads = useThreads();
   const thread = threads.data?.find((t) => t.id === threadId);
   const preparing = useQuery({ queryKey: ["agent-preparing", threadId], queryFn: () => false, enabled: false });
@@ -605,6 +616,7 @@ function ChatWindow({ threadId }: { threadId: string }) {
     <>
       <PinnedBrowser.Provider value={pinned.data?.id ?? null}>
       <ChatSearch threadId={threadId} leadActions={LEAD_ACTIONS} />
+      {(callStatus.data?.active || callStatus.data?.unavailable) ? <div role="status" className="border-b px-5 py-2 text-center text-sm text-muted-foreground">{callStatus.data.unavailable ? "Call report unavailable — checking again shortly. No automatic redial." : "Availability call in progress — the report will appear here when it ends."}</div> : null}
       <div className="flex-1 overflow-y-auto">
         {pinned.data && (
           <div className="sticky top-0 z-20 border-b bg-background/85 px-5 py-2 backdrop-blur">

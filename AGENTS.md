@@ -40,6 +40,7 @@ use the editor.
 - LinkedIn authorization failures expose safe actionable messages to the initiating window and log only stage, status and allowlisted error codes; why: diagnose failures without leaking OAuth codes, tokens or provider response details.
 - Shared scheduler/recovery/report callbacks process owner-scoped durable task runs with database claims, atomic completion and a provider-start boundary; unknown outcomes require review rather than replay to avoid duplicated work.
 - Availability calls reuse one-time owner-scoped approvals and a dedicated safety-scoped ElevenLabs agent per call; persist the initiation boundary and never redial unknown outcomes, because shared voice-agent configuration and call initiation must not grant booking or payment authority.
+- Call reports verify stored owner, thread, conversation and agent IDs; chat and shared jobs refresh results using approval-ID message deduplication, because concurrent completion checks must never duplicate reports or redial.
 - Retired activity and usage schema remains preserved but unused by the chat-centered app; keep applied migration history intact so rollback never destroys organization data.
 - Thread read timestamps and assistant-message timestamps persist unread state per owner; ignored approvals are retained without executing actions, so dismissing is not approval or deletion.
 
