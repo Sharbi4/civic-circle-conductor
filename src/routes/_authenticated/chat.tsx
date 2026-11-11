@@ -274,8 +274,11 @@ function EventbriteConnectorRow() {
   function waitForOAuth(popup: Window) {
     return new Promise<string>((resolve, reject) => {
       let poll: number | undefined;
+      let channel: BroadcastChannel | undefined;
+      let closedAt = 0;
       const cleanup = () => {
         window.removeEventListener("message", onMessage);
+        channel?.close();
         if (poll !== undefined) window.clearInterval(poll);
       };
       const onMessage = (event: MessageEvent) => {
@@ -291,8 +294,17 @@ function EventbriteConnectorRow() {
         else { popup.close(); reject(new Error("Eventbrite connection failed.")); }
       };
       window.addEventListener("message", onMessage);
+      // Some providers cut the popup's link back to this window, so the return page
+      // also announces the result on a same-origin channel.
+      if (typeof BroadcastChannel !== "undefined") {
+        channel = new BroadcastChannel("civi-oauth");
+        channel.onmessage = (e) => onMessage(new MessageEvent("message", { data: e.data, origin: window.location.origin, source: popup }));
+      }
       poll = window.setInterval(() => {
         if (!popup.closed) return;
+        // A severed popup can look closed while the provider page is still open.
+        if (!closedAt) closedAt = Date.now();
+        if (Date.now() - closedAt < 90_000) return;
         cleanup();
         reject(new Error("Eventbrite window closed before finishing."));
       }, 500);
@@ -372,8 +384,11 @@ function NextdoorConnectorRow() {
   function waitForOAuth(popup: Window) {
     return new Promise<string>((resolve, reject) => {
       let poll: number | undefined;
+      let channel: BroadcastChannel | undefined;
+      let closedAt = 0;
       const cleanup = () => {
         window.removeEventListener("message", onMessage);
+        channel?.close();
         if (poll !== undefined) window.clearInterval(poll);
       };
       const onMessage = (event: MessageEvent) => {
@@ -389,8 +404,17 @@ function NextdoorConnectorRow() {
         else { popup.close(); reject(new Error("Nextdoor connection failed.")); }
       };
       window.addEventListener("message", onMessage);
+      // Some providers cut the popup's link back to this window, so the return page
+      // also announces the result on a same-origin channel.
+      if (typeof BroadcastChannel !== "undefined") {
+        channel = new BroadcastChannel("civi-oauth");
+        channel.onmessage = (e) => onMessage(new MessageEvent("message", { data: e.data, origin: window.location.origin, source: popup }));
+      }
       poll = window.setInterval(() => {
         if (!popup.closed) return;
+        // A severed popup can look closed while the provider page is still open.
+        if (!closedAt) closedAt = Date.now();
+        if (Date.now() - closedAt < 90_000) return;
         cleanup();
         reject(new Error("Nextdoor window closed before finishing."));
       }, 500);
@@ -470,8 +494,11 @@ function LinkedInConnectorRow() {
   function waitForOAuth(popup: Window) {
     return new Promise<string>((resolve, reject) => {
       let poll: number | undefined;
+      let channel: BroadcastChannel | undefined;
+      let closedAt = 0;
       const cleanup = () => {
         window.removeEventListener("message", onMessage);
+        channel?.close();
         if (poll !== undefined) window.clearInterval(poll);
       };
       const onMessage = (event: MessageEvent) => {
@@ -489,8 +516,17 @@ function LinkedInConnectorRow() {
         }
       };
       window.addEventListener("message", onMessage);
+      // Some providers cut the popup's link back to this window, so the return page
+      // also announces the result on a same-origin channel.
+      if (typeof BroadcastChannel !== "undefined") {
+        channel = new BroadcastChannel("civi-oauth");
+        channel.onmessage = (e) => onMessage(new MessageEvent("message", { data: e.data, origin: window.location.origin, source: popup }));
+      }
       poll = window.setInterval(() => {
         if (!popup.closed) return;
+        // A severed popup can look closed while the provider page is still open.
+        if (!closedAt) closedAt = Date.now();
+        if (Date.now() - closedAt < 90_000) return;
         cleanup();
         reject(new Error("LinkedIn window closed before finishing."));
       }, 500);
@@ -573,8 +609,11 @@ function XConnectorRow() {
   function waitForOAuth(popup: Window) {
     return new Promise<string>((resolve, reject) => {
       let poll: number | undefined;
+      let channel: BroadcastChannel | undefined;
+      let closedAt = 0;
       const cleanup = () => {
         window.removeEventListener("message", onMessage);
+        channel?.close();
         if (poll !== undefined) window.clearInterval(poll);
       };
       const onMessage = (event: MessageEvent) => {
@@ -590,8 +629,17 @@ function XConnectorRow() {
         else { popup.close(); reject(new Error("X connection failed.")); }
       };
       window.addEventListener("message", onMessage);
+      // Some providers cut the popup's link back to this window, so the return page
+      // also announces the result on a same-origin channel.
+      if (typeof BroadcastChannel !== "undefined") {
+        channel = new BroadcastChannel("civi-oauth");
+        channel.onmessage = (e) => onMessage(new MessageEvent("message", { data: e.data, origin: window.location.origin, source: popup }));
+      }
       poll = window.setInterval(() => {
         if (!popup.closed) return;
+        // A severed popup can look closed while the provider page is still open.
+        if (!closedAt) closedAt = Date.now();
+        if (Date.now() - closedAt < 90_000) return;
         cleanup();
         reject(new Error("X window closed before finishing."));
       }, 500);
@@ -603,7 +651,7 @@ function XConnectorRow() {
     const popup = window.open("", "civi-x-oauth", "width=600,height=720");
     if (!popup) { setBusy(false); toast.error("Popup blocked — allow popups and try again."); return; }
     try {
-      const { authorizationUrl } = await startXConnect();
+      const { authorizationUrl } = await startXConnect({ data: { origin: window.location.origin } });
       const completion = waitForOAuth(popup);
       popup.location.href = authorizationUrl;
       const code = await completion;

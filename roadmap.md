@@ -1,4 +1,5 @@
 # Civi Meet roadmap
+- [x] Fix X / Eventbrite / LinkedIn connect windows losing their link back to Civi Meet ("window closed before finishing").
 - [x] Preserve useful LinkedIn connection failure messages and add credential-safe authorization diagnostics; rejected-credential regression verified.
 - [ ] Complete live LinkedIn consent: root cause found — the live server rejected the no-redirect request setting used for LinkedIn's token exchange, so every Allow failed. Fixed and tested; waiting on publish + one reconnect.
 - [x] Build the explicitly selected separate LinkedIn authorization: owner-bound single-use consent, encrypted per-organization tokens, direct API calls and exact signed photo PUTs, reconnect UI, and confirmed posting status. App credentials saved; signed-in authorization start, phone/desktop reconnect UI, invalid-state rejection and 20 focused tests verified.

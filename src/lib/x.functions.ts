@@ -10,14 +10,19 @@ const X_MEDIA_SCOPES = [...X_SCOPES, "media.write"];
 
 export const startXConnect = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
+  .inputValidator((d: { origin?: string } | undefined) => z.object({ origin: z.string().optional() }).parse(d ?? {}))
+  .handler(async ({ data, context }) => {
     const clientKey = process.env["X_APP_USER_CONNECTOR_CLIENT_API_KEY"];
     if (!clientKey) throw new Error("X isn't set up yet.");
     const request = getRequest();
     if (!request) throw new Error("X connect must start from an app request.");
     const url = new URL(request.url);
     const sandboxHost = url.hostname === "localhost" ? request.headers.get("x-forwarded-host") : null;
-    const returnUrl = new URL("/api/oauth/x/return", sandboxHost ? `https://${sandboxHost}` : url.origin).toString();
+    // Custom domains can reach the server under a different host than the browser shows,
+    // so return to the opener's own (allowlisted) origin when it tells us.
+    const { LINKEDIN_APP_ORIGINS } = await import("@/lib/linkedinDirect.shared");
+    const opener = data.origin && (LINKEDIN_APP_ORIGINS.includes(data.origin) || /^https:\/\/[a-z0-9-]+\.lovable\.app$/.test(data.origin)) ? data.origin : null;
+    const returnUrl = new URL("/api/oauth/x/return", opener ?? (sandboxHost ? `https://${sandboxHost}` : url.origin)).toString();
     const { authorizeAppUserOAuth } = await import("@/integrations/lovable/appUserConnector");
     const { authorizationUrl } = await authorizeAppUserOAuth({
       gatewayBaseUrl: GATEWAY, connectorId: "x", appUserId: context.userId,

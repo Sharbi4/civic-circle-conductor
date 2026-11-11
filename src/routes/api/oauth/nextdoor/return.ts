@@ -37,6 +37,8 @@ export const Route = createFileRoute("/api/oauth/nextdoor/return")({
   <p>${result.success ? "Nextdoor connected — you can close this window." : "Connection failed."}</p>
   <script>
     const result = ${safeJson};
+    const msg = { type: result.success ? "civiOauthComplete" : "civiOauthFailed", connectorId: result.connectorId, code: result.code ?? null, error: result.error ?? null };
+    try{const c=new BroadcastChannel("civi-oauth");c.postMessage(msg);c.close();}catch(e){}
     if (window.opener && window.opener !== window) {
       window.opener.postMessage({
         type: result.success ? "civiOauthComplete" : "civiOauthFailed",

@@ -19,6 +19,7 @@ export const Route = createFileRoute("/api/oauth/linkedin/return")({
 <script>
   const result = ${safeJson};
   const message = { type: result.success ? "appUserConnectorOAuthComplete" : "appUserConnectorOAuthFailed", connectorId: result.connectorId, code: result.code ?? null };
+  try{const c=new BroadcastChannel("civi-oauth");c.postMessage(message);c.close();}catch(e){}
   if (window.opener && window.opener !== window) window.opener.postMessage(message, window.location.origin);
   window.close();
 </script></body></html>`;
