@@ -21,6 +21,7 @@ import { saveSiteCredential } from "@/lib/credentials.functions";
 import { sendOrganizerMessage } from "@/lib/organizer.functions";
 import { runOnboardingResearch, scanOrgProfile } from "@/lib/research.functions";
 import { transcribeSpeech } from "@/lib/voice.functions";
+import { writeAgentWelcome } from "@/lib/suggestions.functions";
 import { startXConnect, completeXConnect, getXStatus, disconnectX, runXApproval, X_WELCOME } from "@/lib/x.functions";
 import { runFacebookApproval, startBrowserSession } from "@/lib/browser.functions";
 import { SiFacebook, SiNextdoor, SiX } from "react-icons/si";
@@ -1334,14 +1335,24 @@ function NewChatMenu({ onBlank }: { onBlank: () => void }) {
       if (error) { toast.error(error.message); return; }
       threadId = data.id;
     }
-    if (it.id === "eb" || it.id === "x" || it.id === "li") {
-      // A fresh (or empty) Eventbrite chat always opens with the welcome + suggested starting actions.
-      const { count } = await supabase.from("messages").select("id", { count: "exact", head: true }).eq("thread_id", threadId);
-      if (!count) await supabase.from("messages").insert({ thread_id: threadId, user_id: u.user!.id, role: "assistant", content: it.id === "li" ? LINKEDIN_WELCOME(li.data?.accountName ?? "your LinkedIn account") : it.id === "x" ? X_WELCOME(x.data?.accountName ?? "your X account") : EVENTBRITE_WELCOME(eb.data?.accountName ?? "your Eventbrite account") });
-      qc.invalidateQueries({ queryKey: ["messages"] });
-    }
     await qc.invalidateQueries({ queryKey: ["threads"] });
     navigate({ to: "/chat/$threadId", params: { threadId } });
+    if (it.id === "eb" || it.id === "x" || it.id === "li") {
+      // A fresh (or empty) agent chat opens with org-specific ideas for each thing the agent can do.
+      const { count } = await supabase.from("messages").select("id", { count: "exact", head: true }).eq("thread_id", threadId);
+      if (!count) {
+        const accountName = it.id === "li" ? li.data?.accountName ?? "your LinkedIn account" : it.id === "x" ? x.data?.accountName ?? "your X account" : eb.data?.accountName ?? "your Eventbrite account";
+        const fallback = it.id === "li" ? LINKEDIN_WELCOME(accountName) : it.id === "x" ? X_WELCOME(accountName) : EVENTBRITE_WELCOME(accountName);
+        const tid = toast.loading("Civi is thinking up ideas for you…");
+        try {
+          await writeAgentWelcome({ data: { threadId, agent: it.id === "li" ? "linkedin" : it.id === "x" ? "x" : "eventbrite", accountName, fallback } });
+        } catch {
+          await supabase.from("messages").insert({ thread_id: threadId, user_id: u.user!.id, role: "assistant", content: fallback });
+        }
+        toast.dismiss(tid);
+        qc.invalidateQueries({ queryKey: ["messages"] });
+      }
+    }
     if (it.id === "fb") {
       try {
         await startBrowser({ data: { threadId, task: "Open https://www.facebook.com/ and sign in with the saved Facebook login, then wait for the organizer's next task" } });
