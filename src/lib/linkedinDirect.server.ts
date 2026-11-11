@@ -89,11 +89,26 @@ export async function handleDirectLinkedInCallback(request: Request): Promise<Re
       method: 'POST', redirect: 'error', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({ grant_type: 'authorization_code', code, redirect_uri: row.redirect_uri, client_id: id, client_secret: secret }),
     });
-    if (!response.ok) throw new Error(`LinkedIn authorization failed [${response.status}]. Reconnect and try again.`);
+    if (!response.ok) {
+      const body: unknown = await response.json().catch(() => null);
+      const providerCode = z.object({ error: z.string() }).safeParse(body);
+      const knownCodes = ['invalid_client', 'invalid_client_id', 'invalid_client_secret', 'invalid_grant', 'invalid_redirect_uri', 'unauthorized_client'];
+      const reason = providerCode.success && knownCodes.includes(providerCode.data.error) ? providerCode.data.error : 'unclassified';
+      console.error(`LinkedIn OAuth token exchange failed [${response.status}] reason=${reason}`);
+      if (['invalid_client', 'invalid_client_id', 'invalid_client_secret', 'unauthorized_client'].includes(reason)) {
+        throw new Error(`LinkedIn rejected the app credentials [${response.status}]. The saved client ID and client secret must match the Civimeet LinkedIn app; publish after updating them.`);
+      }
+      if (reason === 'invalid_redirect_uri') throw new Error(`LinkedIn rejected the callback address [${response.status}]. Its authorized redirect URL must exactly match ${LINKEDIN_REDIRECT_URI}.`);
+      if (reason === 'invalid_grant') throw new Error(`LinkedIn authorization expired or was already used [${response.status}]. Start a new connection attempt.`);
+      throw new Error(`LinkedIn authorization failed [${response.status}]. Please try a new connection attempt.`);
+    }
     const received = z.object({ access_token: z.string().min(1), expires_in: z.number().positive(), scope: z.string().optional() }).parse(await response.json());
     const token: DirectToken = { accessToken: received.access_token, expiresAt: new Date(Date.now() + received.expires_in * 1000).toISOString(), scopes: received.scope?.split(' ') ?? LINKEDIN_SCOPES };
     const profile = await createDirectLinkedInTransport(token).call('/v2/userinfo');
-    if (!profile.ok) throw new Error(`LinkedIn profile confirmation failed [${profile.status}]. Reconnect and try again.`);
+    if (!profile.ok) {
+      console.error(`LinkedIn OAuth profile confirmation failed [${profile.status}]`);
+      throw new Error(`LinkedIn profile confirmation failed [${profile.status}]. Check that OpenID Connect is enabled with openid and profile permissions, then reconnect.`);
+    }
     const identity = z.object({ sub: z.string().min(1), name: z.string().optional() }).parse(await profile.json());
     const { error: saved } = await supabaseAdmin.from('linkedin_oauth_states').update({ status: 'complete', token_ciphertext: encryptConnectionKey(JSON.stringify(token)), account_name: identity.name ?? 'LinkedIn account' }).eq('id', row.id).eq('status', 'exchanging');
     if (saved) throw new Error('Could not save LinkedIn authorization. Please reconnect.');
@@ -101,6 +116,7 @@ export async function handleDirectLinkedInCallback(request: Request): Promise<Re
     message = 'LinkedIn authorized. Return to Civi Meet to finish connecting.';
   } catch (error) {
     // Never log OAuth responses or callback URLs: they can contain credentials.
+    console.error('LinkedIn OAuth callback did not complete.');
     if (error instanceof Error && !error.message.includes('[') && !error.message.startsWith('Could not') && !error.message.startsWith('LinkedIn authorization was')) {
       message = 'LinkedIn connection could not be completed. Please reconnect.';
     } else if (error instanceof Error) message = error.message;

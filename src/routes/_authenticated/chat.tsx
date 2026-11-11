@@ -480,7 +480,12 @@ function LinkedInConnectorRow() {
         if (type !== "civiLinkedInOAuthComplete" && type !== "civiLinkedInOAuthFailed") return;
         cleanup();
         if (type === "civiLinkedInOAuthComplete" && typeof event.data?.state === "string") resolve(event.data.state);
-        else { popup.close(); reject(new Error("LinkedIn connection failed.")); }
+        else {
+          popup.close();
+          const message = typeof event.data?.message === "string" && event.data.message.length <= 600
+            ? event.data.message : "LinkedIn connection failed.";
+          reject(new Error(message));
+        }
       };
       window.addEventListener("message", onMessage);
       poll = window.setInterval(() => {

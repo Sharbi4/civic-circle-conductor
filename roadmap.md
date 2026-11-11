@@ -1,4 +1,6 @@
 # Civi Meet roadmap
+- [x] Preserve useful LinkedIn connection failure messages and add credential-safe authorization diagnostics; rejected-credential regression verified.
+- [ ] Identify the current live LinkedIn authorization rejection and complete consent; existing logs record callback delivery but not its failure reason, and a signed-in preview test session is unavailable. A new attempt after publishing the diagnostic fix is required.
 - [x] Build the explicitly selected separate LinkedIn authorization: owner-bound single-use consent, encrypted per-organization tokens, direct API calls and exact signed photo PUTs, reconnect UI, and confirmed posting status. App credentials saved; signed-in authorization start, phone/desktop reconnect UI, invalid-state rejection and 20 focused tests verified.
 - [x] Keep Scout briefings only in Discovery; add blog/event/post ideas with Take action and missing-connection prompts. Verified existing findings, phone/desktop layout, missing-X prompt and real blog request reaching Civi; document creation correctly waits for missing organization details.
 - [x] Add scoped always-approve choices and persistent provider-confirmed execution status. Signed-in one-time failure, internal success, saved permissions and revocation verified; external publication not retried.
