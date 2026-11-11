@@ -402,7 +402,7 @@ const LEVELS = [
   { id: "auto", label: "Auto", hint: "Every 30 min Civi picks its next move and starts it; joins, posts and bookings still need your OK" },
 ] as const;
 
-function NextSteps({ threadId, msgCount, busy, onPick }: { threadId: string; msgCount: number; busy: boolean; onPick: (prompt: string) => void }) {
+function NextSteps({ threadId, msgCount, busy, hasChoices, onPick }: { threadId: string; msgCount: number; busy: boolean; hasChoices?: boolean; onPick: (prompt: string) => void }) {
   const fetchSug = useServerFn(getSuggestions);
   const saveLevel = useServerFn(setAutonomy);
   const qc = useQueryClient();
@@ -424,7 +424,7 @@ function NextSteps({ threadId, msgCount, busy, onPick }: { threadId: string; msg
     try { await saveLevel({ data: { level } }); toast.success(LEVELS.find((l) => l.id === level)!.hint); }
     catch (e) { toast.error(e instanceof Error ? e.message : "Couldn't change mode"); org.refetch(); }
   }
-  const items = sug.data?.items ?? [];
+  const items = hasChoices ? [] : (sug.data?.items ?? []);
   return (
     <div className="mx-auto mb-2 flex max-w-3xl flex-wrap items-center gap-1.5">
       {!busy && items.map((it, i) => (
@@ -748,7 +748,7 @@ function ChatWindow({ threadId }: { threadId: string }) {
             </button>
           </div>
         )}
-        <NextSteps threadId={threadId} msgCount={msgs.data?.length ?? 0} busy={busy} onPick={(p) => submit(p)} />
+        <NextSteps threadId={threadId} msgCount={msgs.data?.length ?? 0} busy={busy} hasChoices={(() => { const l = all[all.length - 1]; return !!l && l.role !== "user" && CHOICES_MARKER.test(l.content); })()} onPick={(p) => submit(p)} />
         <div className="mx-auto flex max-w-3xl items-end gap-2 rounded-full border bg-card py-2 pl-2 pr-2 shadow-soft">
           <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={(e) => pickFile(e.target.files?.[0])} />
           <button

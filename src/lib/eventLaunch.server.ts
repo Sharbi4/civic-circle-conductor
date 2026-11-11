@@ -107,7 +107,7 @@ export async function startEventLaunchChain(db: Db, userId: string, ev: LaunchEv
         done: s.status === "done", done_at: s.status === "done" ? new Date().toISOString() : null,
         schedule_key: `launch:${goalId}:${s.key}`,
         last_error: s.status === "needs_connect" ? s.note ?? "Not connected" : null,
-        job_kind: s.status === "done" ? null : "launch_step",
+        ...(s.status === "done" ? {} : { job_kind: "launch_step" }),
         scheduled_for: s.status === "done" ? null : s.key === "feedback" ? feedbackAt : new Date(Date.now() + (i + 1) * 5 * 60000).toISOString(),
         run_prompt: s.status === "done" ? null : JSON.stringify({ step: s.key, ev: evCtx, attempts: 0 }),
       }));
