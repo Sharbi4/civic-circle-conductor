@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { logoToDataUrl } from "@/lib/logo";
 import { LETTERHEAD_FIELDS, useLetterhead } from "@/components/LetterheadCheck";
+import { UsageControls } from "./UsageControls";
 
 export function AccountPanel() {
   const qc = useQueryClient();
@@ -59,6 +60,7 @@ export function AccountPanel() {
       </div>
       <Button className="mt-4 w-full rounded-full" onClick={save} disabled={saving || !dirty}>{saving ? "Saving…" : dirty ? "Save changes" : "Saved"}</Button>
       {email && <p className="mt-4 px-1 text-xs text-muted-foreground">Signed in as {email}</p>}
+      <UsageControls />
     </div>
   );
 }

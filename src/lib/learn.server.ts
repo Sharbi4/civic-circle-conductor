@@ -17,6 +17,8 @@ export async function learnAboutOrg(db: Db, userId: string, since: string | null
     db.from("tasks").select("title, done, due_date").eq("user_id", userId).gt("created_at", after).limit(15),
   ]);
   if (!msgs?.length && !aps?.length && !tasks?.length) return 0;
+  const { reserveUsage } = await import("@/lib/usage.server");
+  await reserveUsage(userId, "ai");
   const instructions = [
     "You are Civi's memory keeper for one community organization. From the new activity, extract NEW durable facts worth remembering long-term to serve them better:",
     "people & roles, partners/vendors/venues, neighborhoods and audiences, recurring events and dates, preferences (tone, platforms, times, budget), what they approved or rejected and why, goals, lessons learned.",

@@ -13,7 +13,9 @@ function key() {
 export const speakText = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) => z.object({ text: z.string().min(1).max(4500) }).parse(d))
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
+    const { reserveUsage } = await import("@/lib/usage.server");
+    await reserveUsage(context.userId, "ai");
     const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${VOICE_ID}?output_format=mp3_44100_128`, {
       method: "POST",
       headers: { "xi-api-key": key(), "Content-Type": "application/json" },
@@ -26,7 +28,9 @@ export const speakText = createServerFn({ method: "POST" })
 export const transcribeSpeech = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) => z.object({ audio: z.string().min(10).max(15_000_000), mime: z.string().max(80) }).parse(d))
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
+    const { reserveUsage } = await import("@/lib/usage.server");
+    await reserveUsage(context.userId, "ai");
     const fd = new FormData();
     fd.append("file", new Blob([Buffer.from(data.audio, "base64")], { type: data.mime }), "speech.webm");
     fd.append("model_id", "scribe_v2");

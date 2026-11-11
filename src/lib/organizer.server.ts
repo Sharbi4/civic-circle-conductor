@@ -11,12 +11,15 @@ const MODEL = "openai/gpt-6.1-terra";
  * Runs one organizer turn: saves the user message, generates Civi's reply, and applies its markers.
  * Used by the chat (as the signed-in user) and by the scheduler (with a client scoped to one org's user id).
  */
-export async function runOrganizer(supabase: SupabaseClient<Database>, userId: string, data: { threadId: string; content: string }) {
+export async function runOrganizer(supabase: SupabaseClient<Database>, userId: string, data: { threadId: string; content: string; activityId?: string | null }) {
   {
+    const { reserveUsage, noteUsageFailure } = await import("@/lib/usage.server");
+    await reserveUsage(userId, "ai");
 
     const { data: thread, error: tErr } = await supabase
       .from("threads").select("id, title, kind, activity_id").eq("id", data.threadId).maybeSingle();
     if (tErr || !thread) throw new Error("Chat not found");
+    if (data.activityId !== undefined) thread.activity_id = data.activityId;
     const { data: sharedActivity } = thread.activity_id ? await supabase.from("activities").select("*").eq("id", thread.activity_id).eq("user_id", userId).maybeSingle() : { data: null };
     const { data: activityTasks } = thread.activity_id ? await supabase.from("tasks").select("title, done, assignee").eq("activity_id", thread.activity_id) : { data: null };
     const { data: recentPolls } = await supabase.from("polls").select("id, title, questions").order("created_at", { ascending: false }).limit(8);
@@ -148,12 +151,13 @@ For multi-step objectives, show a visible task plan with statuses (Done / Workin
         }
       }
     } catch (e) {
+      await noteUsageFailure(userId, e);
       if (e instanceof GatewayError) {
         console.error("AI error", e.code, e.httpStatus);
         if (e.httpStatus === 402) throw new Error("AI credits are used up. Add credits to keep chatting.");
         if (e.httpStatus === 429) throw new Error("The organizer is busy. Try again in a moment.");
       }
-      throw new Error("The organizer couldn't reply. Please try again.");
+      throw e;
     }
 
     let activityId = thread.activity_id;

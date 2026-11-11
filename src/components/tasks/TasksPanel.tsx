@@ -4,7 +4,7 @@ import { CalendarDays, Check, ChevronDown, ChevronRight, Plus, Sparkles, Target,
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
-type Task = { id: string; goal_id: string | null; kind: string; title: string; due_date: string | null; done: boolean; created_by: string; created_at: string; repeat?: string | null };
+type Task = { id: string; goal_id: string | null; kind: string; title: string; due_date: string | null; done: boolean; created_by: string; created_at: string; repeat?: string | null; scheduled_for?: string | null; last_error?: string | null };
 
 const today = () => new Date().toISOString().slice(0, 10);
 function dueLabel(d: string) {
@@ -38,7 +38,7 @@ export function TasksPanel() {
   }
   async function update(id: string, patch: Partial<Task>) {
     qc.setQueryData<Task[]>(["tasks"], (old) => old?.map((t) => (t.id === id ? { ...t, ...patch } : t)));
-    const full = "done" in patch ? { ...patch, done_at: patch.done ? new Date().toISOString() : null } : patch;
+    const full = { ...patch, ...("done" in patch ? { done_at: patch.done ? new Date().toISOString() : null } : {}), ...("due_date" in patch ? { scheduled_for: patch.due_date ? `${patch.due_date}T07:00:00Z` : null } : {}) };
     const { error } = await supabase.from("tasks").update(full).eq("id", id);
     if (error) toast.error("Couldn't save"); refresh();
   }
@@ -127,6 +127,7 @@ function Row({ t, onUpdate, onRemove, bold }: { t: Task; onUpdate: (id: string, 
           <button onClick={() => setEditing(true)} title="Click to edit" className={`block w-full text-left text-sm leading-snug ${bold ? "font-medium" : ""} ${t.done ? "text-muted-foreground line-through" : ""}`}>{t.title}</button>
         )}
         <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+          {t.last_error && <span className="text-destructive">{t.last_error}</span>}
           {t.repeat && (
             <select aria-label="Repeat" value={t.repeat} onChange={(e) => onUpdate(t.id, { repeat: e.target.value === "off" ? null : e.target.value })}
               className="inline-flex rounded bg-transparent text-[11px] text-primary outline-none">

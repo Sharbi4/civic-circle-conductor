@@ -12,6 +12,8 @@ export async function generateSuggestions(supabase: Db, userId: string, threadId
   const { data: cached } = await supabase.from("suggestions").select("items, based_on_count, created_at").eq("thread_id", threadId).maybeSingle();
   const { count: total } = await supabase.from("messages").select("id", { count: "exact", head: true }).eq("thread_id", threadId);
   if (!force && cached && cached.based_on_count === (total ?? count)) return cached.items as Suggestion[];
+  const { reserveUsage } = await import("@/lib/usage.server");
+  await reserveUsage(userId, "ai");
 
   const [{ data: org }, { data: aps }, { data: browsers }] = await Promise.all([
     supabase.from("organizations").select("name, mission, facebook_setup_location").eq("user_id", userId).maybeSingle(),

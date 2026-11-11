@@ -23,8 +23,11 @@ import { Route as ApiOauthEventbriteReturnRouteImport } from './routes/api/oauth
 import { Route as ApiOauthLinkedinReturnRouteImport } from './routes/api/oauth/linkedin/return'
 import { Route as ApiOauthNextdoorReturnRouteImport } from './routes/api/oauth/nextdoor/return'
 import { Route as ApiOauthXReturnRouteImport } from './routes/api/oauth/x/return'
+import { Route as ApiPublicJobsAgentRecoveryRouteImport } from './routes/api/public/jobs/agent-recovery'
+import { Route as ApiPublicJobsAgentSchedulerRouteImport } from './routes/api/public/jobs/agent-scheduler'
 import { Route as ApiPublicJobsCiviAutopilotRouteImport } from './routes/api/public/jobs/civi-autopilot'
 import { Route as ApiPublicJobsCommunityScoutRouteImport } from './routes/api/public/jobs/community-scout'
+import { Route as ApiPublicJobsDailyReportsRouteImport } from './routes/api/public/jobs/daily-reports'
 import { Route as ApiPublicMetaDataDeletionRouteImport } from './routes/api/public/meta/data-deletion'
 
 const IndexRoute = IndexRouteImport.update({
@@ -99,6 +102,18 @@ const ApiOauthXReturnRoute = ApiOauthXReturnRouteImport.update({
   path: '/api/oauth/x/return',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicJobsAgentRecoveryRoute =
+  ApiPublicJobsAgentRecoveryRouteImport.update({
+    id: '/api/public/jobs/agent-recovery',
+    path: '/api/public/jobs/agent-recovery',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicJobsAgentSchedulerRoute =
+  ApiPublicJobsAgentSchedulerRouteImport.update({
+    id: '/api/public/jobs/agent-scheduler',
+    path: '/api/public/jobs/agent-scheduler',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicJobsCiviAutopilotRoute =
   ApiPublicJobsCiviAutopilotRouteImport.update({
     id: '/api/public/jobs/civi-autopilot',
@@ -109,6 +124,12 @@ const ApiPublicJobsCommunityScoutRoute =
   ApiPublicJobsCommunityScoutRouteImport.update({
     id: '/api/public/jobs/community-scout',
     path: '/api/public/jobs/community-scout',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicJobsDailyReportsRoute =
+  ApiPublicJobsDailyReportsRouteImport.update({
+    id: '/api/public/jobs/daily-reports',
+    path: '/api/public/jobs/daily-reports',
     getParentRoute: () => rootRouteImport,
   } as any)
 const ApiPublicMetaDataDeletionRoute =
@@ -132,8 +153,11 @@ export interface FileRoutesByFullPath {
   '/api/oauth/linkedin/return': typeof ApiOauthLinkedinReturnRoute
   '/api/oauth/nextdoor/return': typeof ApiOauthNextdoorReturnRoute
   '/api/oauth/x/return': typeof ApiOauthXReturnRoute
+  '/api/public/jobs/agent-recovery': typeof ApiPublicJobsAgentRecoveryRoute
+  '/api/public/jobs/agent-scheduler': typeof ApiPublicJobsAgentSchedulerRoute
   '/api/public/jobs/civi-autopilot': typeof ApiPublicJobsCiviAutopilotRoute
   '/api/public/jobs/community-scout': typeof ApiPublicJobsCommunityScoutRoute
+  '/api/public/jobs/daily-reports': typeof ApiPublicJobsDailyReportsRoute
   '/api/public/meta/data-deletion': typeof ApiPublicMetaDataDeletionRoute
 }
 export interface FileRoutesByTo {
@@ -149,8 +173,11 @@ export interface FileRoutesByTo {
   '/api/oauth/linkedin/return': typeof ApiOauthLinkedinReturnRoute
   '/api/oauth/nextdoor/return': typeof ApiOauthNextdoorReturnRoute
   '/api/oauth/x/return': typeof ApiOauthXReturnRoute
+  '/api/public/jobs/agent-recovery': typeof ApiPublicJobsAgentRecoveryRoute
+  '/api/public/jobs/agent-scheduler': typeof ApiPublicJobsAgentSchedulerRoute
   '/api/public/jobs/civi-autopilot': typeof ApiPublicJobsCiviAutopilotRoute
   '/api/public/jobs/community-scout': typeof ApiPublicJobsCommunityScoutRoute
+  '/api/public/jobs/daily-reports': typeof ApiPublicJobsDailyReportsRoute
   '/api/public/meta/data-deletion': typeof ApiPublicMetaDataDeletionRoute
 }
 export interface FileRoutesById {
@@ -169,8 +196,11 @@ export interface FileRoutesById {
   '/api/oauth/linkedin/return': typeof ApiOauthLinkedinReturnRoute
   '/api/oauth/nextdoor/return': typeof ApiOauthNextdoorReturnRoute
   '/api/oauth/x/return': typeof ApiOauthXReturnRoute
+  '/api/public/jobs/agent-recovery': typeof ApiPublicJobsAgentRecoveryRoute
+  '/api/public/jobs/agent-scheduler': typeof ApiPublicJobsAgentSchedulerRoute
   '/api/public/jobs/civi-autopilot': typeof ApiPublicJobsCiviAutopilotRoute
   '/api/public/jobs/community-scout': typeof ApiPublicJobsCommunityScoutRoute
+  '/api/public/jobs/daily-reports': typeof ApiPublicJobsDailyReportsRoute
   '/api/public/meta/data-deletion': typeof ApiPublicMetaDataDeletionRoute
 }
 export interface FileRouteTypes {
@@ -189,8 +219,11 @@ export interface FileRouteTypes {
     | '/api/oauth/linkedin/return'
     | '/api/oauth/nextdoor/return'
     | '/api/oauth/x/return'
+    | '/api/public/jobs/agent-recovery'
+    | '/api/public/jobs/agent-scheduler'
     | '/api/public/jobs/civi-autopilot'
     | '/api/public/jobs/community-scout'
+    | '/api/public/jobs/daily-reports'
     | '/api/public/meta/data-deletion'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -206,8 +239,11 @@ export interface FileRouteTypes {
     | '/api/oauth/linkedin/return'
     | '/api/oauth/nextdoor/return'
     | '/api/oauth/x/return'
+    | '/api/public/jobs/agent-recovery'
+    | '/api/public/jobs/agent-scheduler'
     | '/api/public/jobs/civi-autopilot'
     | '/api/public/jobs/community-scout'
+    | '/api/public/jobs/daily-reports'
     | '/api/public/meta/data-deletion'
   id:
     | '__root__'
@@ -225,8 +261,11 @@ export interface FileRouteTypes {
     | '/api/oauth/linkedin/return'
     | '/api/oauth/nextdoor/return'
     | '/api/oauth/x/return'
+    | '/api/public/jobs/agent-recovery'
+    | '/api/public/jobs/agent-scheduler'
     | '/api/public/jobs/civi-autopilot'
     | '/api/public/jobs/community-scout'
+    | '/api/public/jobs/daily-reports'
     | '/api/public/meta/data-deletion'
   fileRoutesById: FileRoutesById
 }
@@ -241,8 +280,11 @@ export interface RootRouteChildren {
   ApiOauthLinkedinReturnRoute: typeof ApiOauthLinkedinReturnRoute
   ApiOauthNextdoorReturnRoute: typeof ApiOauthNextdoorReturnRoute
   ApiOauthXReturnRoute: typeof ApiOauthXReturnRoute
+  ApiPublicJobsAgentRecoveryRoute: typeof ApiPublicJobsAgentRecoveryRoute
+  ApiPublicJobsAgentSchedulerRoute: typeof ApiPublicJobsAgentSchedulerRoute
   ApiPublicJobsCiviAutopilotRoute: typeof ApiPublicJobsCiviAutopilotRoute
   ApiPublicJobsCommunityScoutRoute: typeof ApiPublicJobsCommunityScoutRoute
+  ApiPublicJobsDailyReportsRoute: typeof ApiPublicJobsDailyReportsRoute
   ApiPublicMetaDataDeletionRoute: typeof ApiPublicMetaDataDeletionRoute
 }
 
@@ -346,6 +388,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiOauthXReturnRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/jobs/agent-recovery': {
+      id: '/api/public/jobs/agent-recovery'
+      path: '/api/public/jobs/agent-recovery'
+      fullPath: '/api/public/jobs/agent-recovery'
+      preLoaderRoute: typeof ApiPublicJobsAgentRecoveryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/jobs/agent-scheduler': {
+      id: '/api/public/jobs/agent-scheduler'
+      path: '/api/public/jobs/agent-scheduler'
+      fullPath: '/api/public/jobs/agent-scheduler'
+      preLoaderRoute: typeof ApiPublicJobsAgentSchedulerRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/jobs/civi-autopilot': {
       id: '/api/public/jobs/civi-autopilot'
       path: '/api/public/jobs/civi-autopilot'
@@ -358,6 +414,13 @@ declare module '@tanstack/react-router' {
       path: '/api/public/jobs/community-scout'
       fullPath: '/api/public/jobs/community-scout'
       preLoaderRoute: typeof ApiPublicJobsCommunityScoutRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/jobs/daily-reports': {
+      id: '/api/public/jobs/daily-reports'
+      path: '/api/public/jobs/daily-reports'
+      fullPath: '/api/public/jobs/daily-reports'
+      preLoaderRoute: typeof ApiPublicJobsDailyReportsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/meta/data-deletion': {
@@ -407,8 +470,11 @@ const rootRouteChildren: RootRouteChildren = {
   ApiOauthLinkedinReturnRoute: ApiOauthLinkedinReturnRoute,
   ApiOauthNextdoorReturnRoute: ApiOauthNextdoorReturnRoute,
   ApiOauthXReturnRoute: ApiOauthXReturnRoute,
+  ApiPublicJobsAgentRecoveryRoute: ApiPublicJobsAgentRecoveryRoute,
+  ApiPublicJobsAgentSchedulerRoute: ApiPublicJobsAgentSchedulerRoute,
   ApiPublicJobsCiviAutopilotRoute: ApiPublicJobsCiviAutopilotRoute,
   ApiPublicJobsCommunityScoutRoute: ApiPublicJobsCommunityScoutRoute,
+  ApiPublicJobsDailyReportsRoute: ApiPublicJobsDailyReportsRoute,
   ApiPublicMetaDataDeletionRoute: ApiPublicMetaDataDeletionRoute,
 }
 export const routeTree = rootRouteImport

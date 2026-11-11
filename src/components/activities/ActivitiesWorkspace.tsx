@@ -47,8 +47,8 @@ export function ActivitiesWorkspace() {
 
 export function AutomationState() {
   const q = useQuery({ queryKey: ["automation-state"], queryFn: async () => {
-    const [o, s] = await Promise.all([supabase.from("organizations").select("autonomy").maybeSingle(), supabase.from("autopilot_state").select("paused_reason, last_review_at").maybeSingle()]);
-    return { level: o.data?.autonomy ?? "manual", reason: s.data?.paused_reason, last: s.data?.last_review_at };
+    const [o, s] = await Promise.all([supabase.from("organizations").select("autonomy, automation_paused, usage_pause_reason").maybeSingle(), supabase.from("autopilot_state").select("paused_reason, last_review_at").maybeSingle()]);
+    return { level: o.data?.autonomy ?? "manual", reason: o.data?.automation_paused ? "Paid work paused by organization" : o.data?.usage_pause_reason ?? s.data?.paused_reason, last: s.data?.last_review_at };
   }, refetchInterval: 15000 });
   return <section className="border-y py-4"><div className="flex flex-wrap items-center gap-2 text-sm font-medium"><ShieldCheck className="h-4 w-4 text-primary" />{q.data?.reason ? "Background planning automation paused" : q.data?.level === "auto" ? "Research & preparation enabled" : q.data?.level === "assisted" ? "Suggested work waits for approval" : "Proactive reviews off"}</div><p className="mt-2 max-w-3xl text-xs leading-relaxed text-muted-foreground">{automationScope(q.data?.level ?? "manual", q.data?.reason)}</p>{q.data?.last && <p className="mt-1 text-xs text-muted-foreground">Last review: {new Date(q.data.last).toLocaleString()}</p>}</section>;
 }

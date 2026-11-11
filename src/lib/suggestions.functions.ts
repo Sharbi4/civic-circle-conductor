@@ -10,6 +10,8 @@ export const getSuggestions = createServerFn({ method: "POST" })
     try {
       return { items: await generateSuggestions(context.supabase, context.userId, data.threadId) };
     } catch (e) {
+      const { noteUsageFailure } = await import("@/lib/usage.server");
+      await noteUsageFailure(context.userId, e);
       console.error("suggestions failed", e);
       return { items: [] };
     }

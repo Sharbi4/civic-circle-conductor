@@ -1,4 +1,5 @@
 # Civi Meet roadmap
+- [x] Consolidate background work into 15-minute scheduling, 30-minute safe recovery, and daily organization reports; organizing work stays in database tasks with atomic claims/completion and per-organization AI/browser limits. Verified authenticated callbacks, report readback, zero AI cap, paid-work pause and mobile settings.
 - [x] Activity-centered workspace: persistent initiatives, shared channel context, explicit automation/approval states, provider action receipts, and retained lessons. Signed-in create/save/readback/approve/tasks/lessons/mobile flow verified.
 - [ ] Verify newly recorded provider receipts with a real approved Eventbrite/LinkedIn/X action; requires explicit approval of a new external action, not replaying an earlier one.
 - [x] Sign-in, onboarding (org name + mission), main organizer chat, side chats, per-org memory

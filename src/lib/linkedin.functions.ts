@@ -206,6 +206,7 @@ export const runLinkedInApproval = createServerFn({ method: "POST" })
       const own = await loadEventImage(supabase, userId, p.cover_image);
       const insp = own ? undefined : await loadEventImage(supabase, userId, p.inspiration_image);
       return own ?? await buildCoverBytes("LinkedIn", {
+        userId,
         prompt: p.image_prompt || `${p.title}. ${(p.description ?? "").replace(/<[^>]+>/g, " ").slice(0, 400)}`,
         inspiration: insp,
       });

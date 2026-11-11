@@ -226,6 +226,7 @@ export const runEventbriteApproval = createServerFn({ method: "POST" })
       const own = await load(p.cover_image);
       const insp = own ? undefined : await load(p.inspiration_image);
       const built = own ?? await buildCoverBytes({
+        userId,
         prompt: p.image_prompt || `${p.title}. ${p.description.replace(/<[^>]+>/g, " ")}`, inspiration: insp,
       });
       cover = await createEventCover(built, eb);

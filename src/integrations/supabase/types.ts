@@ -146,6 +146,80 @@ export type Database = {
         }
         Relationships: []
       }
+      agent_job_locks: {
+        Row: {
+          last_completed_at: string | null
+          lease_until: string | null
+          name: string
+          token: string | null
+        }
+        Insert: {
+          last_completed_at?: string | null
+          lease_until?: string | null
+          name: string
+          token?: string | null
+        }
+        Update: {
+          last_completed_at?: string | null
+          lease_until?: string | null
+          name?: string
+          token?: string | null
+        }
+        Relationships: []
+      }
+      agent_task_runs: {
+        Row: {
+          attempt: number
+          completed_at: string | null
+          created_at: string
+          error: string | null
+          id: string
+          lease_until: string | null
+          occurrence_key: string
+          phase: string
+          started_at: string | null
+          status: string
+          task_id: string | null
+          user_id: string
+        }
+        Insert: {
+          attempt?: number
+          completed_at?: string | null
+          created_at?: string
+          error?: string | null
+          id?: string
+          lease_until?: string | null
+          occurrence_key: string
+          phase?: string
+          started_at?: string | null
+          status?: string
+          task_id?: string | null
+          user_id: string
+        }
+        Update: {
+          attempt?: number
+          completed_at?: string | null
+          created_at?: string
+          error?: string | null
+          id?: string
+          lease_until?: string | null
+          occurrence_key?: string
+          phase?: string
+          started_at?: string | null
+          status?: string
+          task_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_task_runs_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       app_user_connections: {
         Row: {
           account_name: string | null
@@ -266,6 +340,7 @@ export type Database = {
           created_at: string
           driver_lease: string | null
           ended_at: string | null
+          expires_at: string | null
           goal: string | null
           handoff_reason: string | null
           id: string
@@ -288,6 +363,7 @@ export type Database = {
           created_at?: string
           driver_lease?: string | null
           ended_at?: string | null
+          expires_at?: string | null
           goal?: string | null
           handoff_reason?: string | null
           id?: string
@@ -310,6 +386,7 @@ export type Database = {
           created_at?: string
           driver_lease?: string | null
           ended_at?: string | null
+          expires_at?: string | null
           goal?: string | null
           handoff_reason?: string | null
           id?: string
@@ -549,15 +626,45 @@ export type Database = {
           },
         ]
       }
+      org_usage_daily: {
+        Row: {
+          ai_calls: number
+          browser_minutes: number
+          browser_sessions: number
+          usage_date: string
+          user_id: string
+        }
+        Insert: {
+          ai_calls?: number
+          browser_minutes?: number
+          browser_sessions?: number
+          usage_date?: string
+          user_id: string
+        }
+        Update: {
+          ai_calls?: number
+          browser_minutes?: number
+          browser_sessions?: number
+          usage_date?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       organizations: {
         Row: {
           address: string | null
           apps_used: string[]
+          automation_paused: boolean
           autonomy: string
+          browser_reservation_until: string | null
+          browser_session_minutes: number
           contact_email: string | null
           contact_name: string | null
           contact_phone: string | null
           created_at: string
+          daily_ai_limit: number
+          daily_browser_minutes: number
+          daily_browser_sessions: number
           facebook_setup_location: string | null
           letterhead_skipped: string[]
           linkedin_org_id: string | null
@@ -569,17 +676,24 @@ export type Database = {
           profile: string | null
           public_pages: Json
           referral_source: string | null
+          usage_pause_reason: string | null
           user_id: string
           website: string | null
         }
         Insert: {
           address?: string | null
           apps_used?: string[]
+          automation_paused?: boolean
           autonomy?: string
+          browser_reservation_until?: string | null
+          browser_session_minutes?: number
           contact_email?: string | null
           contact_name?: string | null
           contact_phone?: string | null
           created_at?: string
+          daily_ai_limit?: number
+          daily_browser_minutes?: number
+          daily_browser_sessions?: number
           facebook_setup_location?: string | null
           letterhead_skipped?: string[]
           linkedin_org_id?: string | null
@@ -591,17 +705,24 @@ export type Database = {
           profile?: string | null
           public_pages?: Json
           referral_source?: string | null
+          usage_pause_reason?: string | null
           user_id: string
           website?: string | null
         }
         Update: {
           address?: string | null
           apps_used?: string[]
+          automation_paused?: boolean
           autonomy?: string
+          browser_reservation_until?: string | null
+          browser_session_minutes?: number
           contact_email?: string | null
           contact_name?: string | null
           contact_phone?: string | null
           created_at?: string
+          daily_ai_limit?: number
+          daily_browser_minutes?: number
+          daily_browser_sessions?: number
           facebook_setup_location?: string | null
           letterhead_skipped?: string[]
           linkedin_org_id?: string | null
@@ -613,6 +734,7 @@ export type Database = {
           profile?: string | null
           public_pages?: Json
           referral_source?: string | null
+          usage_pause_reason?: string | null
           user_id?: string
           website?: string | null
         }
@@ -843,10 +965,14 @@ export type Database = {
           due_date: string | null
           goal_id: string | null
           id: string
+          job_kind: string
           kind: string
+          last_error: string | null
           last_run_at: string | null
           repeat: string | null
           run_prompt: string | null
+          schedule_key: string | null
+          scheduled_for: string | null
           thread_id: string | null
           title: string
           user_id: string
@@ -861,10 +987,14 @@ export type Database = {
           due_date?: string | null
           goal_id?: string | null
           id?: string
+          job_kind?: string
           kind?: string
+          last_error?: string | null
           last_run_at?: string | null
           repeat?: string | null
           run_prompt?: string | null
+          schedule_key?: string | null
+          scheduled_for?: string | null
           thread_id?: string | null
           title: string
           user_id: string
@@ -879,10 +1009,14 @@ export type Database = {
           due_date?: string | null
           goal_id?: string | null
           id?: string
+          job_kind?: string
           kind?: string
+          last_error?: string | null
           last_run_at?: string | null
           repeat?: string | null
           run_prompt?: string | null
+          schedule_key?: string | null
+          scheduled_for?: string | null
           thread_id?: string | null
           title?: string
           user_id?: string
@@ -950,7 +1084,42 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      claim_agent_job: {
+        Args: { p_name: string; p_token: string }
+        Returns: boolean
+      }
+      claim_agent_task: {
+        Args: { p_id: string }
+        Returns: {
+          attempt: number
+          completed_at: string | null
+          created_at: string
+          error: string | null
+          id: string
+          lease_until: string | null
+          occurrence_key: string
+          phase: string
+          started_at: string | null
+          status: string
+          task_id: string | null
+          user_id: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "agent_task_runs"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      enqueue_due_agent_tasks: { Args: never; Returns: number }
+      finish_agent_task: {
+        Args: { p_next: string; p_run: string }
+        Returns: undefined
+      }
+      reserve_org_usage: {
+        Args: { p_kind: string; p_units?: number; p_user: string }
+        Returns: boolean
+      }
     }
     Enums: {
       [_ in never]: never

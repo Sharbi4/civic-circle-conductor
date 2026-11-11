@@ -16,8 +16,8 @@ export function planSnapshot(a: Pick<ActivityInput, "goal" | "audience" | "propo
 export function automationScope(level: string, reason?: string | null) {
   if (reason) return "Automation paused — background reviews and scheduled drafts are on hold. Manual chat and approved actions remain available.";
   if (level === "manual") return "On request — no proactive reviews. Previously scheduled tasks still prepare drafts; public actions require approval.";
-  if (level === "assisted") return "Suggest next steps — reviews every five minutes; proposed work waits for approval. Scheduled tasks prepare drafts only.";
-  return "Research & prepare — reviews every five minutes; Civi may research and prepare work. Posts, submissions, bookings and payments still require approval.";
+  if (level === "assisted") return "Suggest next steps — scheduler checks every 15 minutes; proposed work waits for approval. Scheduled tasks prepare drafts only.";
+  return "Research & prepare — scheduler checks every 15 minutes; Civi may prepare work. Posts, submissions, bookings and payments still require approval.";
 }
 export function automationPermissions(level: string, paused: boolean) {
   return { review: !paused && level !== "manual", research: !paused && level === "auto", scheduledDrafts: !paused, publishWithoutApproval: false };

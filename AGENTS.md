@@ -35,3 +35,4 @@ use the editor.
 - Polls/feedback/sign-ups are built in: Civi emits a [[poll: {...}]] marker, saved to owner-only polls; public /p/$id page reads and writes only through validated server functions (no anon table access); why: shareable links without exposing responses.
 - LinkedIn photo and event-cover transfers share a server-only authenticated PUT helper; stop publication if an approved photo fails so the published content matches the approval.
 - Activities are the owner-scoped shared plan for linked chats, tasks and approvals; plan changes invalidate approval, and provider success handlers write read-only receipts so approval is never confused with execution.
+- Shared scheduler/recovery/report callbacks process durable task runs with database claims, atomic completion and a provider-start boundary; unknown outcomes require review rather than replay, and organization usage is reserved atomically before paid AI/browser work.

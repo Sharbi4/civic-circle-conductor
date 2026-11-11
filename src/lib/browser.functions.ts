@@ -46,13 +46,18 @@ export async function openBrowserSession(opts: {
   connKey: string;
 }) {
   const { supabase, userId, threadId, task, lovableKey, connKey } = opts;
+  const { reserveUsage, noteUsageFailure } = await import("@/lib/usage.server");
+  const { supabaseAdmin: usageDb } = await import("@/integrations/supabase/client.server");
+  const { data: limits } = await usageDb.from("organizations").select("browser_session_minutes").eq("user_id", userId).single();
+  const minutes = limits?.browser_session_minutes ?? 5;
+  await reserveUsage(userId, "browser", minutes);
 
   const session = await bbRequest(
     "/v1/sessions",
-    { method: "POST", body: JSON.stringify({ timeout: 3600, keepAlive: true, browserSettings: { viewport: { width: 640, height: 480 } } }) },
+    { method: "POST", body: JSON.stringify({ timeout: minutes * 60, keepAlive: false, browserSettings: { viewport: { width: 640, height: 480 } } }) },
     lovableKey,
     connKey,
-  );
+  ).catch(async (e) => { await noteUsageFailure(userId, e); throw e; });
   const debug = await bbRequest(
     `/v1/sessions/${session.id}/debug`,
     { method: "GET" },
@@ -72,6 +77,7 @@ export async function openBrowserSession(opts: {
       goal: task,
       agent_status: session.connectUrl ? "driving" : "idle",
       status: "running",
+      expires_at: new Date(Date.now() + minutes * 60000).toISOString(),
     })
     .select("id")
     .single();
@@ -227,6 +233,8 @@ export async function runAgentStep(supabase: any, userId: string, sessionRowId: 
       .eq("id", row.id).or(`driver_lease.is.null,driver_lease.lt.${nowIso}`).select("id").maybeSingle();
     if (!leased) return { agentStatus: row.agent_status };
     try {
+    const { reserveUsage } = await import("@/lib/usage.server");
+    await reserveUsage(userId, "ai");
     const steps = (Array.isArray(row.steps) ? row.steps : []) as Step[];
     const goal = row.goal ?? row.task;
     let taskStart = 0;
@@ -376,6 +384,8 @@ export async function runAgentStep(supabase: any, userId: string, sessionRowId: 
       return { agentStatus: "driving" };
     } catch (e) {
       console.error("Browser agent step failed", e);
+      const { noteUsageFailure } = await import("@/lib/usage.server");
+      await noteUsageFailure(userId, e);
       await save({ agent_status: "failed" }, { action: "error", note: "Lost connection to the browser — the session may have expired." });
       return { agentStatus: "failed" };
     }

@@ -190,6 +190,34 @@
       "when": 1794370138787,
       "tag": "0026_shared_activities_and_action_receipts",
       "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1794370618425,
+      "tag": "0027_durable_agent_jobs_and_org_usage_limits",
+      "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1794370752158,
+      "tag": "0028_atomic_job_completion_and_full_task_schedule_keys",
+      "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1794370819217,
+      "tag": "0029_safe_one_off_job_completion",
+      "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1794371087633,
+      "tag": "0030_serialize_org_task_and_browser_reservations",
+      "breakpoints": true
     }
   ]
 }
