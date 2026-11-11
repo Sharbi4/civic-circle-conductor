@@ -6,6 +6,13 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { logoToDataUrl } from "@/lib/logo";
+import { claimLetterheadReminder, hasSeenLetterheadReminder } from "@/lib/letterheadSession";
+
+export async function shouldShowLetterheadReminder() {
+  const { data } = await supabase.auth.getSession();
+  if (!data.session?.user.id) return false;
+  return !hasSeenLetterheadReminder(window.sessionStorage, data.session.user.id);
+}
 
 export const LETTERHEAD_FIELDS = [
   { k: "name", label: "Organization name", ph: "Civimeet Tucson" },
@@ -29,7 +36,7 @@ export function missingLetterhead(o: Record<string, unknown> | null | undefined)
   return ([...LETTERHEAD_FIELDS.map((f) => f.k), "logo_url"] as Key[]).filter((k) => !skipped.includes(k) && !String(o[k] ?? "").trim());
 }
 
-export function LetterheadCheck({ open, onOpenChange, onSaved }: { open: boolean; onOpenChange: (v: boolean) => void; onSaved?: () => void }) {
+export function LetterheadCheck({ open, onOpenChange, onSaved, onSkipped }: { open: boolean; onOpenChange: (v: boolean) => void; onSaved?: () => void; onSkipped?: () => void }) {
   const qc = useQueryClient();
   const o = useLetterhead();
   const [vals, setVals] = useState<Record<string, string>>({});
@@ -37,6 +44,12 @@ export function LetterheadCheck({ open, onOpenChange, onSaved }: { open: boolean
   const [logo, setLogo] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    supabase.auth.getSession().then(({ data }) => {
+      if (data.session?.user.id) claimLetterheadReminder(window.sessionStorage, data.session.user.id);
+    });
+  }, [open]);
   useEffect(() => {
     if (!open || !o.data) return;
     const d = o.data as Record<string, unknown>;
@@ -48,13 +61,17 @@ export function LetterheadCheck({ open, onOpenChange, onSaved }: { open: boolean
 
   async function save() {
     setSaving(true);
+    try {
     const { data: u } = await supabase.auth.getUser();
+    if (!u.user) { toast.error("Please sign in to save details"); return; }
     const upd = Object.fromEntries(LETTERHEAD_FIELDS.map((f) => [f.k, vals[f.k]?.trim().slice(0, 200) || null]));
-    const { error } = await supabase.from("organizations").update({ ...upd, logo_url: logo, letterhead_skipped: skip }).eq("user_id", u.user!.id);
+    const { error } = await supabase.from("organizations").update({ ...upd, logo_url: logo, letterhead_skipped: skip }).eq("user_id", u.user.id);
     setSaving(false);
     if (error) { toast.error("Couldn't save those details"); return; }
     qc.invalidateQueries({ queryKey: ["org-letterhead"] }); qc.invalidateQueries({ queryKey: ["org-letterhead-full"] }); qc.invalidateQueries({ queryKey: ["org"] });
     toast.success("Letterhead details saved"); onOpenChange(false); onSaved?.();
+    } catch { toast.error("Couldn't save those details"); }
+    finally { setSaving(false); }
   }
   const left = [...LETTERHEAD_FIELDS.map((f) => f.k), "logo_url"].filter(empty).length;
 
@@ -83,12 +100,15 @@ export function LetterheadCheck({ open, onOpenChange, onSaved }: { open: boolean
         </div>
         <DialogFooter className="items-center gap-2 sm:justify-between">
           <span className="text-xs text-muted-foreground">{left ? `${left} still empty` : "All set ✓"}</span>
-          <Button onClick={save} disabled={saving || left > 0}>{saving ? "Saving…" : "Save details"}</Button>
+          <div className="flex gap-2">
+            <Button variant="ghost" disabled={saving} onClick={() => { onOpenChange(false); onSkipped?.(); }}>Skip for now</Button>
+            <Button onClick={save} disabled={saving || left > 0}>{saving ? "Saving…" : "Save details"}</Button>
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>
   );
 }
 function SkipBtn({ on, onClick }: { on: boolean; onClick: () => void }) {
-  return <button type="button" onClick={onClick} className={`shrink-0 rounded-full border px-2.5 py-1 text-[11px] ${on ? "bg-secondary text-foreground" : "text-muted-foreground hover:bg-secondary"}`}>{on ? "Skipped" : "Skip"}</button>;
+  return <Button type="button" size="sm" variant={on ? "secondary" : "outline"} aria-pressed={on} onClick={onClick} className="h-7 shrink-0 px-2.5 text-[11px]">{on ? "Skipped" : "Skip"}</Button>;
 }

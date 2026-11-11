@@ -1,4 +1,4 @@
-import { LetterheadCheck, missingLetterhead } from "@/components/LetterheadCheck";
+import { LetterheadCheck, missingLetterhead, shouldShowLetterheadReminder } from "@/components/LetterheadCheck";
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRef, useState } from "react";
@@ -67,10 +67,10 @@ function DocumentPage() {
         <Button variant="ghost" size="sm" onClick={() => (window.history.length > 1 ? router.history.back() : router.navigate({ to: "/chat" }))}><ArrowLeft className="h-4 w-4" /> Back</Button>
         <div className="flex gap-2">
           <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={(e) => uploadLogo(e.target.files?.[0])} />
-          <LetterheadCheck open={check} onOpenChange={setCheck} onSaved={download} />
+          <LetterheadCheck open={check} onOpenChange={setCheck} onSaved={download} onSkipped={download} />
           {missingLetterhead(o as never).length > 0 && <Button variant="outline" size="sm" onClick={() => setCheck(true)}>Complete details ({missingLetterhead(o as never).length})</Button>}
           <Button variant="outline" size="sm" onClick={() => fileRef.current?.click()}><ImagePlus className="h-4 w-4" /> {o?.logo_url ? "Change logo" : "Add logo"}</Button>
-          <Button size="sm" onClick={() => (missingLetterhead(o as never).length ? setCheck(true) : download())} disabled={!d}><Download className="h-4 w-4" /> Download PDF</Button>
+          <Button size="sm" onClick={async () => { if (missingLetterhead(o as never).length && await shouldShowLetterheadReminder()) setCheck(true); else download(); }} disabled={!d}><Download className="h-4 w-4" /> Download PDF</Button>
         </div>
       </div>
 
