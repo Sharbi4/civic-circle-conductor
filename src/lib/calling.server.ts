@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
-import { CALL_SAFETY, callRequestSchema, completedCallReport, safeCallText } from "./calling.shared";
+import { CALL_SAFETY, callRequestSchema, completedCallReport, safeCallText, CALL_DISCLOSURE, speakableNumber } from "./calling.shared";
 
 async function voice(path: string, body?: unknown) {
   const key = process.env["ELEVENLABS_API_KEY"];
@@ -46,11 +46,11 @@ export async function executeVenueCall(db: SupabaseClient<Database>, userId: str
   const request = callRequestSchema.parse(approval?.payload);
   const { data: thread } = await db.from("threads").select("id").eq("id", request.thread).eq("user_id", userId).maybeSingle();
   if (!thread) throw new Error("Call chat not found.");
-  const { data: org } = await db.from("organizations").select("name").eq("user_id", userId).maybeSingle();
+  const { data: org } = await db.from("organizations").select("name, contact_phone, contact_email").eq("user_id", userId).maybeSingle();
   const numbers = await voice("/phone-numbers") as unknown;
   const phone = (Array.isArray(numbers) ? numbers : []).find((n: { supports_outbound?: boolean; provider?: string }) => n.supports_outbound && n.provider === "twilio") as { phone_number_id?: string } | undefined;
   if (!phone?.phone_number_id) throw new Error("Import an outbound Twilio number into ElevenLabs before placing calls.");
-  const agent = await voice("/agents/create", { name: `Civi availability — ${approvalId}`, conversation_config: { agent: { first_message: `Hello, I'm Civi, an AI assistant calling for ${safeCallText(org?.name) || "a community organization"} about room availability. Is now a suitable time?`, prompt: { prompt: `${CALL_SAFETY}\nOrganization: ${safeCallText(org?.name) || "Community organization"}\nApproved recipient: ${safeCallText(request.recipient)}\nApproved brief: ${safeCallText(request.brief)}`, built_in_tools: { end_call: { name: "end_call", description: "Hang up the call. Use it right after leaving a voicemail message, after a brief goodbye when the conversation is finished, or when the recipient declines to talk." } } } }, conversation: { max_duration_seconds: 300 } } });
+  const agent = await voice("/agents/create", { name: `Civi availability — ${approvalId}`, conversation_config: { agent: { first_message: `Hello, I'm Civi, an AI assistant calling for ${safeCallText(org?.name) || "a community organization"} about room availability. ${CALL_DISCLOSURE} Is now a suitable time?`, prompt: { prompt: `${CALL_SAFETY}\nOrganization: ${safeCallText(org?.name) || "Community organization"}\nApproved recipient: ${safeCallText(request.recipient)}\nApproved brief: ${safeCallText(request.brief)}\nCallback number to give (the only number you may say aloud): ${request.callback ? speakableNumber(request.callback) : "none provided — ask them to email instead"}${org?.contact_email ? `\nOrganization email: ${safeCallText(org.contact_email)}` : ""}`, built_in_tools: { end_call: { name: "end_call", description: "Hang up the call. Use it right after leaving a voicemail message, after a brief goodbye when the conversation is finished, or when the recipient declines to talk." } } } }, conversation: { max_duration_seconds: 300 } } });
   if (typeof agent["agent_id"] !== "string") throw new Error("Calling agent could not be prepared.");
   // Persist the provider boundary before placing the non-idempotent call.
   const { error: boundaryError } = await db.from("approvals").update({ payload: { ...request, agent_id: agent["agent_id"], call_state: "starting" } }).eq("id", approvalId).eq("user_id", userId);

@@ -10,4 +10,4 @@ export function needsCallFollowUp(goal: string, summary: string): boolean {
 }
 
 export const CALL_FOLLOW_UP_NOTE =
-  "Do not restart browser research. Do not place a call without approval; the venue_call marker only queues an approval card.";
+  "Do not restart browser research. Do not place a call without approval; the venue_call marker only queues an approval card. If the findings show an application or rental form, open and fill it next. Before proposing a call, ask whether to call now or put it in Approvals and confirm the callback number.";
