@@ -53,13 +53,15 @@ export function TasksPanel() {
   const all = q.data ?? [];
   const goals = all.filter((t) => t.kind === "goal");
   const loose = all.filter((t) => t.kind !== "goal" && !t.goal_id);
+  const scheduled = loose.filter((t) => t.repeat || t.scheduled_for);
+  const other = loose.filter((t) => !t.repeat && !t.scheduled_for);
   const open = all.filter((t) => t.kind !== "goal" && !t.done).length;
   const overdue = all.filter((t) => !t.done && t.due_date && t.due_date < today()).length;
 
   return (
     <div className="flex-1 overflow-y-auto px-2 pb-4">
-      <h2 className="px-3 pb-1 font-medium">Goals & tasks</h2>
-      <p className="px-3 pb-3 text-xs text-muted-foreground">Civi works from this list. Add your own, or ask Civi to plan goals for you.</p>
+      <h2 className="px-3 pb-1 font-medium">Event goals</h2>
+      <p className="px-3 pb-3 text-xs text-muted-foreground">Each event is a goal. Under it are the scheduled tasks Civi is working — tap the chat icon on any item for live progress.</p>
       <div className="mx-1 mb-3 flex gap-2 text-xs">
         <span className="rounded-full bg-secondary px-2.5 py-1">{open} open</span>
         {overdue > 0 && <span className="rounded-full bg-destructive/15 px-2.5 py-1 text-destructive">{overdue} overdue</span>}
@@ -68,7 +70,7 @@ export function TasksPanel() {
 
       <form className="mx-1 mb-3 flex items-center gap-2 rounded-2xl border bg-background/40 px-3 py-2" onSubmit={(e) => { e.preventDefault(); add(newGoal, "goal", null); setNewGoal(""); }}>
         <Target className="h-4 w-4 shrink-0 text-muted-foreground" />
-        <input value={newGoal} onChange={(e) => setNewGoal(e.target.value)} placeholder="Add a goal…" className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground" />
+        <input value={newGoal} onChange={(e) => setNewGoal(e.target.value)} placeholder="Add an event goal…" className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground" />
         {newGoal && <button type="submit" aria-label="Add goal" className="rounded-full p-1 hover:bg-secondary"><Plus className="h-4 w-4" /></button>}
       </form>
 
@@ -98,9 +100,15 @@ export function TasksPanel() {
         );
       })}
 
+      {scheduled.filter((t) => showDone || !t.done).length > 0 && (
+        <div className="mx-1 mt-3">
+          <div className="px-2 pb-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Scheduled tasks</div>
+          {scheduled.filter((t) => showDone || !t.done).map((t) => <Row key={t.id} t={t} onUpdate={update} onRemove={remove} />)}
+        </div>
+      )}
       <div className="mx-1 mt-3">
         <div className="px-2 pb-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Other tasks</div>
-        {loose.filter((t) => showDone || !t.done).map((t) => <Row key={t.id} t={t} onUpdate={update} onRemove={remove} />)}
+        {other.filter((t) => showDone || !t.done).map((t) => <Row key={t.id} t={t} onUpdate={update} onRemove={remove} />)}
         <AddInline placeholder="Add a task…" onAdd={(v) => add(v, "task", null)} />
       </div>
       {all.length === 0 && !q.isLoading && <p className="px-3 py-3 text-sm text-muted-foreground">Nothing yet — try asking Civi "Set goals for our spring cleanup."</p>}
@@ -129,6 +137,12 @@ function Row({ t, onUpdate, onRemove, bold }: { t: Task; onUpdate: (id: string, 
         )}
         <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
           {t.last_error && <span className="text-destructive">{t.last_error}</span>}
+          {t.scheduled_for && !t.done && (
+            <span className="inline-flex items-center gap-0.5 text-primary" title="Scheduled run time">
+              <CalendarDays className="h-3 w-3" />
+              {new Date(t.scheduled_for).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
+            </span>
+          )}
           {t.repeat && (
             <select aria-label="Repeat" value={t.repeat} onChange={(e) => onUpdate(t.id, { repeat: e.target.value === "off" ? null : e.target.value })}
               className="inline-flex rounded bg-transparent text-[11px] text-primary outline-none">
