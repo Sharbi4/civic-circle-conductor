@@ -49,8 +49,18 @@ export const sendOrganizerMessage = createServerFn({ method: "POST" })
       supabase.from("memories").select("content").order("created_at", { ascending: false }).limit(40),
     ]);
 
+    const { data: openTasks } = await supabase.from("tasks").select("id, goal_id, kind, title, due_date, done").order("due_date", { ascending: true, nullsFirst: false }).limit(80);
+    const today = new Date().toLocaleDateString("en-CA", { timeZone: "America/Phoenix" });
+    const goals = (openTasks ?? []).filter((t) => t.kind === "goal");
+    const taskLine = (t: { id: string; title: string; due_date: string | null; done: boolean }) => `- [${t.done ? "x" : " "}] ${t.title}${t.due_date ? ` (due ${t.due_date}${!t.done && t.due_date < today ? ", OVERDUE" : ""})` : ""} {id:${t.id}}`;
+    const goalsBlock = goals.length || openTasks?.length
+      ? [...goals.map((g) => `GOAL: ${g.title}${g.due_date ? ` (by ${g.due_date})` : ""} {id:${g.id}}${g.done ? " — achieved" : ""}\n${(openTasks ?? []).filter((t) => t.goal_id === g.id).map(taskLine).join("\n") || "  (no tasks yet)"}`),
+         ...((openTasks ?? []).filter((t) => t.kind === "task" && !t.goal_id).map(taskLine))].join("\n")
+      : "None yet.";
     const liOrg = org?.linkedin_org_id ?? null;
     const instructions = [
+      `Today is ${today} (Arizona time).`,
+      `GOALS & TASKS — this is your guide. The organization's goals and to-dos (from the Tasks panel) are below. Steer your suggestions and work toward them: prioritize overdue and soon-due items, mention progress ("2 of 5 done toward 'Recruit 50 volunteers'"), and when a request clearly finishes a task, mark it done. If they have no goals, offer to set 1-3 with due dates. Markers (add at the end of your message; the app saves them): [[task: {"title":"...","due":"YYYY-MM-DD optional","goal_id":"optional goal id"}]] to add a task; [[goal: {"title":"...","due":"YYYY-MM-DD optional"}]] to add a goal; [[task_done: <id>]] to check one off. Only add tasks the organizer asked for or agreed to; mention what you added in one line.\n${goalsBlock}`,
       `You are Civi Meet's main AI organizer for "${org?.name ?? "the organization"}", a nonprofit or political organization.`,
       `Mission: ${org?.mission ?? "not provided"}. Understand the organization's goals, audience and communication style, and stay mission-driven.`,
       `Personality: natural and conversational — talk like a real community organizer, not a robotic chatbot. Warm, friendly and approachable. Proactive: spot opportunities and suggest helpful actions without waiting to be asked. Resourceful and creative. Context-aware: draw on past conversations, relationships and activities. Authentic and transparent: communicate naturally while being clear you are an AI.`,
@@ -206,6 +216,20 @@ For multi-step objectives, show a visible task plan with statuses (Done / Workin
       } catch (e) { console.error("Failed to create poll", e); card = "\n⚠️ I couldn't create that poll — try asking again.\n"; }
       text = text.replace(m[0], card);
     }
+    const uuidRe = /^[0-9a-f-]{36}$/i;
+    const taskRows = [...text.matchAll(/\[\[(task|goal):\s*(\{.+?\})\s*\]\]/gs)].slice(0, 10).flatMap((m) => {
+      try {
+        const p = JSON.parse(m[2] ?? "") as { title?: string; due?: string; goal_id?: string };
+        if (!p.title) return [];
+        return [{ user_id: userId, kind: m[1] === "goal" ? "goal" : "task", title: p.title.slice(0, 200), created_by: "civi",
+          due_date: p.due && /^\d{4}-\d{2}-\d{2}$/.test(p.due) ? p.due : null,
+          goal_id: m[1] === "task" && p.goal_id && uuidRe.test(p.goal_id) && goals.some((g) => g.id === p.goal_id) ? p.goal_id : null }];
+      } catch { return []; }
+    });
+    if (taskRows.length) { const { error: tErr } = await supabase.from("tasks").insert(taskRows); if (tErr) console.error("Failed to save tasks", tErr.message); }
+    const doneIds = [...text.matchAll(/\[\[task_done:\s*([0-9a-f-]{36})\s*\]\]/gi)].map((m) => m[1]!).slice(0, 10);
+    if (doneIds.length) await supabase.from("tasks").update({ done: true, done_at: new Date().toISOString() }).in("id", doneIds);
+    text = text.replace(/\n?\[\[(?:task|goal|task_done):.+?\]\]/gs, "");
     const docMatches = [...text.matchAll(/\[\[document:\s*([^\]|]+?)(?:\|\s*([a-z]+)\s*)?\]\]([\s\S]*?)\[\[\/document\]\]/g)].slice(0, 2);
     const docLinks: string[] = [];
     for (const m of docMatches) {

@@ -659,6 +659,53 @@ export type Database = {
         }
         Relationships: []
       }
+      tasks: {
+        Row: {
+          created_at: string
+          created_by: string
+          done: boolean
+          done_at: string | null
+          due_date: string | null
+          goal_id: string | null
+          id: string
+          kind: string
+          title: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string
+          done?: boolean
+          done_at?: string | null
+          due_date?: string | null
+          goal_id?: string | null
+          id?: string
+          kind?: string
+          title: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          done?: boolean
+          done_at?: string | null
+          due_date?: string | null
+          goal_id?: string | null
+          id?: string
+          kind?: string
+          title?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tasks_goal_id_fkey"
+            columns: ["goal_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       threads: {
         Row: {
           created_at: string
