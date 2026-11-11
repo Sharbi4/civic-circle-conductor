@@ -18,7 +18,7 @@ export type LaunchEvent = {
 export type LaunchConnections = { linkedin: boolean; x: boolean; facebook: boolean; browserAvailable: boolean };
 
 export type LaunchStep = {
-  key: "eventbrite" | "linkedin_event" | "facebook_event" | "share_x" | "share_linkedin" | "calendar" | "group_outreach";
+  key: "eventbrite" | "linkedin_event" | "facebook_event" | "share_x" | "share_linkedin" | "calendar" | "group_outreach" | "feedback";
   title: string;
   status: "done" | "queued" | "needs_connect" | "pending";
   note?: string;
@@ -59,6 +59,7 @@ export function buildLaunchPlan(ev: LaunchEvent, conns: LaunchConnections): Laun
     conns.facebook
       ? { key: "group_outreach", title: "Group outreach (Facebook/Instagram/Threads)", status: "pending", note: "Starts after the share posts are approved" }
       : { key: "group_outreach", title: "Group outreach (Facebook/Instagram/Threads)", status: "needs_connect", note: "Save a Facebook/Instagram login under Saved logins to run this step" },
+    { key: "feedback", title: "Collect feedback & follow up", status: "pending", note: "Runs automatically the day after the event" },
   ];
 }
 
@@ -99,11 +100,16 @@ export async function startEventLaunchChain(db: Db, userId: string, ev: LaunchEv
 
     const taskIdByKey = new Map<string, string>();
     if (goalId) {
-      const rows = plan.map((s) => ({
+      const evCtx = { title: ev.title, start: ev.start, end: ev.end, timezone: ev.timezone, location: ev.location, description: stripHtml(ev.description).slice(0, 800), url: ev.url, rsvpId: ev.rsvpId };
+      const feedbackAt = new Date(new Date(ev.end).getTime() + 24 * 3600e3).toISOString();
+      const rows = plan.map((s, i) => ({
         user_id: userId, kind: "task", goal_id: goalId, title: s.title, due_date: dueDate, created_by: "civi", thread_id: ev.threadId,
         done: s.status === "done", done_at: s.status === "done" ? new Date().toISOString() : null,
         schedule_key: `launch:${goalId}:${s.key}`,
         last_error: s.status === "needs_connect" ? s.note ?? "Not connected" : null,
+        job_kind: s.status === "done" ? null : "launch_step",
+        scheduled_for: s.status === "done" ? null : s.key === "feedback" ? feedbackAt : new Date(Date.now() + (i + 1) * 5 * 60000).toISOString(),
+        run_prompt: s.status === "done" ? null : JSON.stringify({ step: s.key, ev: evCtx, attempts: 0 }),
       }));
       const { data: saved } = await db.from("tasks").insert(rows).select("id, schedule_key");
       for (const t of saved ?? []) {
