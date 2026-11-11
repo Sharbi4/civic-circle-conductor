@@ -11,6 +11,7 @@ import { LinkedInAvatar } from '@/components/account/LinkedInAvatar';
 import { XAvatar } from '@/components/account/XAvatar';
 import { EventbriteAvatar } from '@/components/account/EventbriteAvatar';
 import { EventbriteDraftControls } from '@/components/EventbriteDraftControls';
+import { CiviChatMark } from '@/components/CiviChatMark';
 import { SwipeToIgnore } from '@/components/SwipeToIgnore';
 import { takeDiscoveryAction } from "@/lib/discovery.functions";
 import { discoveryIdeas } from "@/lib/discovery.shared";
@@ -95,6 +96,12 @@ export function useThreads() {
 
 function ChatLayout() {
   const org = useOrg();
+  const threads = useThreads();
+  const approvals = useApprovals();
+  const alertKeys = threads.data && approvals.data ? [
+    ...approvals.data.filter((a) => a.status === "pending").map((a) => `approval:${a.id}`),
+    ...threads.data.filter((t) => isChatUnread(t.latest_assistant_at, t.last_read_at)).map((t) => `chat:${t.id}:${t.latest_assistant_at}`),
+  ] : undefined;
   const [navOpen, setNavOpen] = useState(false);
   if (org.isLoading) return <div className="min-h-screen" />;
   if (!org.data?.onboarded) return <Onboarding existing={org.data} />;
@@ -102,10 +109,7 @@ function ChatLayout() {
     <div className="flex h-dvh overflow-hidden">
       <Sidebar orgName={org.data.name ?? ""} mobileOpen={navOpen} onClose={() => setNavOpen(false)} />
       <main className="relative flex min-w-0 flex-1 flex-col">
-        <button type="button" aria-label="Open menu" onClick={() => setNavOpen(true)}
-          className="absolute left-3 top-3 z-40 grid h-8 w-8 place-items-center rounded-full border bg-background/80 text-muted-foreground backdrop-blur md:hidden">
-          <Menu className="h-4 w-4" />
-        </button>
+        <CiviChatMark mobile alertKeys={alertKeys} onClick={() => setNavOpen(true)} />
         <Outlet />
       </main>
     </div>
@@ -121,6 +125,10 @@ function Sidebar({ orgName, mobileOpen, onClose }: { orgName: string; mobileOpen
   const [tab, setTab] = useState<"chats" | "connectors" | "memory" | "approvals" | "scout" | "logins" | "documents" | "polls" | "tasks" | "account">("chats");
   const approvals = useApprovals();
   const pendingCount = approvals.data?.filter((a) => a.status === "pending").length ?? 0;
+  const alertKeys = threads.data && approvals.data ? [
+    ...approvals.data.filter((a) => a.status === "pending").map((a) => `approval:${a.id}`),
+    ...threads.data.filter((t) => isChatUnread(t.latest_assistant_at, t.last_read_at)).map((t) => `chat:${t.id}:${t.latest_assistant_at}`),
+  ] : undefined;
   const main = threads.data?.find((t) => t.kind === "main");
   const side = threads.data?.filter((t) => t.kind !== "main") ?? [];
   const activeThread = threads.data?.find((t) => t.id === params.threadId);
@@ -178,7 +186,7 @@ function Sidebar({ orgName, mobileOpen, onClose }: { orgName: string; mobileOpen
     <div className={mobileOpen ? "fixed inset-0 z-50 flex bg-background md:static md:z-auto md:contents" : "hidden md:contents"}>
       {mobileOpen && <button type="button" aria-label="Close menu" onClick={onClose} className="absolute right-3 top-3 z-50 grid h-8 w-8 place-items-center rounded-full border bg-background md:hidden"><X className="h-4 w-4" /></button>}
       <nav className="flex w-[64px] shrink-0 flex-col items-center gap-3 overflow-y-auto border-r bg-rail py-5 md:w-[72px]">
-        <div className="font-display mb-3 text-xl font-bold text-primary">C</div>
+        <CiviChatMark alertKeys={alertKeys} onClick={() => setTab("chats")} />
         {railBtn("chats", MessageCircle, "Chats")}
         {railBtn("approvals", Inbox, "Approvals", pendingCount)}
         {railBtn("tasks", ListChecks, "Goals & tasks")}

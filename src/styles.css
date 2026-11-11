@@ -125,6 +125,16 @@
   0% { opacity: 0; transform: translateY(0.5em); filter: blur(6px); }
   100% { opacity: 1; transform: translateY(0); filter: blur(0); }
 }
+@keyframes civi-mark-arrive {
+  0% { transform: scale(0.8) rotate(-10deg); }
+  40% { transform: scale(1.12) rotate(7deg); }
+  65% { transform: scale(0.97) rotate(-4deg); }
+  100% { transform: scale(1) rotate(0); }
+}
+.civi-mark-arrive { animation: civi-mark-arrive 850ms ease-out; }
+@media (prefers-reduced-motion: reduce) {
+  .civi-mark-arrive { animation: none; }
+}
 @utility animate-phrase {
   animation: phrase-in 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
