@@ -1,5 +1,6 @@
 import type { AgentAction } from "@/lib/browserAgent.server";
 import { VENDOR_SCOUT_BROWSER } from "@/lib/eventPlaybook";
+import { browserNeedsProgressReport, BROWSER_PROGRESS_INSTRUCTIONS } from "./browserProgress.shared";
 const GATEWAY = "https://connector-gateway.lovable.dev/udc_browserbase";
 
 type SupabaseLike = {
@@ -75,7 +76,6 @@ export async function openBrowserSession(opts: {
   return { id: row.id as string, sessionId: session.id as string };
 }
 
-const MAX_STEPS = 25;
 
 type Step = { action: string; note: string };
 
@@ -163,12 +163,8 @@ export async function runAgentStep(supabase: any, userId: string, sessionRowId: 
       await supabase.from('approvals').update({ run_state: state, run_error: error, run_finished_at: new Date().toISOString() }).eq('id', row.active_approval_id).eq('user_id', userId);
       await supabase.from('browser_sessions').update({ active_approval_id: null }).eq('id', row.id);
     };
-    if (current.length >= MAX_STEPS) {
-      await finishApproval('needs_review', 'The browser paused before completion could be confirmed.');
-      await save({ agent_status: "done" }, { action: "done", note: "Reached the step limit — paused so you can take over." });
-      await post(`⏸️ I paused the browser task **${goal}** after ${MAX_STEPS} steps. Take over in the browser, or tell me how to continue.`);
-      return { agentStatus: "done" };
-    }
+    const progressReport = browserNeedsProgressReport(steps);
+    if (progressReport) await finishApproval('needs_review', 'Research checkpoint reached; completion is not confirmed.');
 
     try {
       const result = await withPage(row.connect_url, async (page) => {
@@ -199,6 +195,8 @@ export async function runAgentStep(supabase: any, userId: string, sessionRowId: 
             "For an approved action, use done only after the page confirms completion. Include a visible confirmation or resulting object link in summary. If success cannot be verified, use handoff instead. Never claim success from merely clicking Submit.",
             "For venue booking, verify the selected date/time, capacity, accessibility, price, deposit and cancellation terms on the official website. Prepare the actual enquiry or reservation rather than stopping after reading a venue page. Pause for explicit approval before an enquiry or booking submission. Booking approval never authorizes spending: obtain a separate approval specifying payee, exact amount and what is purchased before payment. Use handoff for entering card number, CVV, banking credentials or payment verification; never type, request, repeat or include these secrets in summaries. Report booked or paid only after visible confirmation with a reference or receipt; an availability enquiry alone is not a reservation.",
             "Never invent contact details. Never ask the organizer to paste passwords or codes in chat.",
+            "Be proactive when research is exhausted or going in circles: finish with verified findings, remaining unknowns and a concrete next recommendation. Missing online venue availability calls for a sourced booking-contact lookup and an offer of an approved phone inquiry, not asking the organizer to drive the browser. Only hand off for genuine human-only obstacles.",
+            ...(progressReport ? [BROWSER_PROGRESS_INSTRUCTIONS] : []),
           ].join("\n"),
           input: [{
             role: "user" as const,
@@ -208,6 +206,7 @@ export async function runAgentStep(supabase: any, userId: string, sessionRowId: 
         let text = "";
         for (const item of res.output ?? []) if (item.type === "message") for (const c of item.content ?? []) if (c.type === "output_text") text += c.text;
         const action = parseAction(text);
+        if (progressReport && action?.action !== "done") return { action: { action: "done", summary: "Online research has not confirmed the booking details yet. My next recommendation is to find the venue's official booking contact and prepare an availability call for your approval. No enquiry, reservation or payment has been made.\n\n[[choices: Find booking contact | Compare alternatives | Pause research]]" } as AgentAction, note: "Research checkpoint" };
         if (!action) return { action: null, note: "" };
         if (action.action === "submit" && !row.submit_approved) {
           return { action: { action: "request_approval", title: "Submit form", details: action.reason ?? goal } satisfies AgentAction as AgentAction, note: "" };
@@ -246,7 +245,7 @@ export async function runAgentStep(supabase: any, userId: string, sessionRowId: 
         return { agentStatus: "needs_user" };
       }
       if (a.action === "done") {
-        await finishApproval("succeeded");
+        if (!progressReport) await finishApproval("succeeded");
         const summary = String(a.summary ?? "");
         const groups = parseMarker<{ name: string; url: string }[]>(summary, "fb_groups") ?? [];
         const page = parseMarker<{ url: string; post_text: string }>(summary, "fb_page");
@@ -285,7 +284,7 @@ export async function runAgentStep(supabase: any, userId: string, sessionRowId: 
           }
         }
         await save({ agent_status: "done" }, { action: "done", note: `Finished: ${cleanSummary.replace(/\s+/g, " ").slice(0, 400)}` });
-        await post(`${goal.startsWith("NOTIFICATION CHECK") ? "🔔 **New on Facebook**" : `✅ Browser task finished: **${goal}**`}\n\n${cleanSummary}${fbRows.length ? `\n\n📥 I put ${fbRows.length} request${fbRows.length > 1 ? "s" : ""} in your **Approvals** inbox — ${groups.length ? `one per group to join` : ""}${groups.length && page ? " and " : ""}${page ? "the Page update post" : ""}. Approve the ones you want and I'll do them one by one in this browser.` : ""}`);
+        await post(`${progressReport ? "🔎 **Research checkpoint — next steps**" : goal.startsWith("NOTIFICATION CHECK") ? "🔔 **New on Facebook**" : `✅ Browser task finished: **${goal}**`}\n\n${cleanSummary}${fbRows.length ? `\n\n📥 I put ${fbRows.length} request${fbRows.length > 1 ? "s" : ""} in your **Approvals** inbox — ${groups.length ? `one per group to join` : ""}${groups.length && page ? " and " : ""}${page ? "the Page update post" : ""}. Approve the ones you want and I'll do them one by one in this browser.` : ""}`);
         if (await startNextQueued(supabase, row.id)) {
           if (goal.startsWith("APPROVED")) await post(`▶️ On to the next approved task in the browser…`);
           return { agentStatus: "driving" };
