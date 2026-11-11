@@ -1,6 +1,7 @@
 import type { AgentAction } from "@/lib/browserAgent.server";
 import { VENDOR_SCOUT_BROWSER } from "@/lib/eventPlaybook";
 import { browserNeedsProgressReport, BROWSER_PROGRESS_INSTRUCTIONS } from "./browserProgress.shared";
+import { isLinkedInBrowserTask, isLinkedInUrl, LINKEDIN_API_ONLY } from "./linkedinRouting.shared";
 const GATEWAY = "https://connector-gateway.lovable.dev/udc_browserbase";
 
 type SupabaseLike = {
@@ -43,6 +44,7 @@ export async function openBrowserSession(opts: {
   connKey: string;
 }) {
   const { supabase, userId, threadId, task, lovableKey, connKey } = opts;
+  if (isLinkedInBrowserTask(task)) throw new Error(LINKEDIN_API_ONLY);
 
   const session = await bbRequest(
     "/v1/sessions",
@@ -81,6 +83,7 @@ type Step = { action: string; note: string };
 
 /** Give the open browser a new goal while keeping what it already did (its memory). */
 export async function retargetSession(supabase: SupabaseLike, id: string, goal: string) {
+  if (isLinkedInBrowserTask(goal)) throw new Error(LINKEDIN_API_ONLY);
   const { data: r } = await supabase.from("browser_sessions").select("steps").eq("id", id).maybeSingle();
   const old = (Array.isArray(r?.steps) ? r.steps : []) as Step[];
   const steps = [...old.slice(-40), { action: "task", note: `New task: ${goal.slice(0, 300)}` }];
@@ -163,12 +166,19 @@ export async function runAgentStep(supabase: any, userId: string, sessionRowId: 
       await supabase.from('approvals').update({ run_state: state, run_error: error, run_finished_at: new Date().toISOString() }).eq('id', row.active_approval_id).eq('user_id', userId);
       await supabase.from('browser_sessions').update({ active_approval_id: null }).eq('id', row.id);
     };
+    if (isLinkedInBrowserTask(goal)) {
+      await finishApproval("needs_review", "LinkedIn actions must use the connected account, not the browser.");
+      await save({ agent_status: "done" }, { action: "done", note: "LinkedIn action routed back to connected account" });
+      await post(LINKEDIN_API_ONLY);
+      return { agentStatus: "done" };
+    }
     const progressReport = browserNeedsProgressReport(steps);
     if (progressReport) await finishApproval('needs_review', 'Research checkpoint reached; completion is not confirmed.');
 
     try {
       const result = await withPage(row.connect_url, async (page) => {
         const state = await snapshot(page);
+        if (isLinkedInUrl(state.url)) return { action: { action: "done", summary: LINKEDIN_API_ONLY } as AgentAction, note: "LinkedIn browser disabled" };
         try {
           const host = new URL(state.url).hostname.replace(/^www\./, "");
           await supabase.from("browser_sessions").update({ site: host, signed_in: !state.hasPassword && !/login|checkpoint|two_step/.test(state.url) }).eq("id", row.id);
@@ -195,6 +205,7 @@ export async function runAgentStep(supabase: any, userId: string, sessionRowId: 
             "For an approved action, use done only after the page confirms completion. Include a visible confirmation or resulting object link in summary. If success cannot be verified, use handoff instead. Never claim success from merely clicking Submit.",
             "For venue booking, verify the selected date/time, capacity, accessibility, price, deposit and cancellation terms on the official website. Prepare the actual enquiry or reservation rather than stopping after reading a venue page. Pause for explicit approval before an enquiry or booking submission. Booking approval never authorizes spending: obtain a separate approval specifying payee, exact amount and what is purchased before payment. Use handoff for entering card number, CVV, banking credentials or payment verification; never type, request, repeat or include these secrets in summaries. Report booked or paid only after visible confirmation with a reference or receipt; an availability enquiry alone is not a reservation.",
             "Never invent contact details. Never ask the organizer to paste passwords or codes in chat.",
+            "Never navigate to LinkedIn or perform LinkedIn actions through this browser. LinkedIn runs only through its connected API; explain unsupported actions rather than attempting browser login.",
             "Be proactive when research is exhausted or going in circles: finish with verified findings, remaining unknowns and a concrete next recommendation. Missing online venue availability calls for a sourced booking-contact lookup and an offer of an approved phone inquiry, not asking the organizer to drive the browser. Only hand off for genuine human-only obstacles.",
             ...(progressReport ? [BROWSER_PROGRESS_INSTRUCTIONS] : []),
           ].join("\n"),
@@ -206,6 +217,7 @@ export async function runAgentStep(supabase: any, userId: string, sessionRowId: 
         let text = "";
         for (const item of res.output ?? []) if (item.type === "message") for (const c of item.content ?? []) if (c.type === "output_text") text += c.text;
         const action = parseAction(text);
+        if (action?.action === "navigate" && isLinkedInUrl(action.url)) return { action: { action: "done", summary: LINKEDIN_API_ONLY } as AgentAction, note: "LinkedIn browser disabled" };
         if (progressReport && action?.action !== "done") return { action: { action: "done", summary: "Online research has not confirmed the booking details yet. My next recommendation is to find the venue's official booking contact and prepare an availability call for your approval. No enquiry, reservation or payment has been made.\n\n[[choices: Find booking contact | Compare alternatives | Pause research]]" } as AgentAction, note: "Research checkpoint" };
         if (!action) return { action: null, note: "" };
         if (action.action === "submit" && !row.submit_approved) {

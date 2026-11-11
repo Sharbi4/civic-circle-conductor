@@ -57,3 +57,4 @@ use the editor.
 - Eventbrite draft controls bind publication approval to an exact event and connection revision; reminders and scheduled publication are task rows consumed by the existing shared scheduler. Publication uses an atomic approval claim and a live-status readback; interrupted work requires review, not replay.
 - New channel welcome preparation is tracked per thread in the shared query cache and rendered by AgentPreparing; why: navigation shows the pending welcome inline rather than as a corner notification.
 - Browser research limits trigger a read-only progress summary and actionable recommendation instead of a generic takeover request; why: bounded automation must still hand useful evidence back to the organizer.
+- LinkedIn browser tasks, session starts, retargets and direct navigation are blocked through shared routing guards; why: LinkedIn work uses the existing owner-bound API connection rather than browser authentication.

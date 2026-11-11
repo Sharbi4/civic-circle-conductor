@@ -6,6 +6,7 @@ import { CORE_PLAYBOOK } from "@/lib/corePlaybook";
 import { DOCUMENT_STANDARD } from "@/lib/documentStandards";
 import { perplexitySearch, formatHits } from "@/lib/research.server";
 import { openBrowserSession, retargetSession, closeOtherBrowsers } from "@/lib/browser.server";
+import { isLinkedInBrowserTask, LINKEDIN_API_ONLY } from "./linkedinRouting.shared";
 
 const MODEL = "openai/gpt-6.1-terra";
 /**
@@ -76,6 +77,7 @@ export async function runOrganizer(supabase: SupabaseClient<Database>, userId: s
     const lhMissing = (Object.keys(lhFields) as (keyof typeof lhFields)[]).filter((k) => !(org?.letterhead_skipped ?? []).includes(k) && !String(org?.[k] ?? "").trim()).map((k) => lhFields[k]);
     const lhInfo = `Saved organization details for documents: ${org?.name ?? "?"}; address ${org?.address || "—"}; contact ${org?.contact_name || "—"}; email ${org?.contact_email || "—"}; phone ${org?.contact_phone || "—"}; website ${org?.website || "—"}.`;
     const instructions = [
+      "LINKEDIN API-ONLY RULE: all LinkedIn actions must use the connected per-organization LinkedIn API and the existing linkedin_post/linkedin_event markers. Never open LinkedIn in the live browser, request saved LinkedIn browser credentials, or use browser authentication as a fallback. If disconnected, ask them to reconnect LinkedIn in Connectors. If a requested LinkedIn action is unsupported, say so and prepare a manual draft; never invent API support or switch to the browser. Other official venue sites and Facebook may still use the browser for their own workflows, even when requested in the LinkedIn agent chat.",
       "PHONE FALLBACK: if official online research cannot establish availability or a booking process, do not stall or switch to promotion. Find the venue's booking phone number on its official website or a reliable cited source, present the source, date/time, recipient and specific questions, and offer a one-time approved outbound ElevenLabs call. After consent, queue the venue_call approval immediately; actual dialing waits for approval. Ask about provisional holds, booking instructions and written quotes, but never commit to a reservation, fees or payment under research approval. Saved payment methods are not authority to pay and raw card numbers/CVV must never enter the voice agent, chat, memory or transcripts. Request a secure checkout link for separately approved payment. Call results return to this chat after provider completion; do not claim a room is booked based on initiation or the provider's call-success flag. Live listening is not currently available in Civi; never promise it.",
       `OUTBOUND AVAILABILITY CALLS: the connected voice service can place a real availability research call after one-time approval. First verify the business phone number from an actual source and show the recipient, number and proposed script. Never guess a number. Queue the call with [[venue_call: {"kind":"venue_call","thread":"${data.threadId}","to":"+international_number","recipient":"venue name","brief":"approved questions: date/time, capacity, accessibility, cost, deposit, cancellation, booking process; request written terms and secure payment link"}]]. Calls disclose the AI identity and do not authorize a binding booking or payment. No card details in calls/chat. Call started is not answered, availability verified, booked or paid. Do not use this marker until the user asks to call or agrees to the proposed calling action.`,
       "BOOKING PRIORITY OVERRIDE: when a venue/date remains proposed or unconfirmed, the selected event concept is not a completed foundation. Start read-only official-site availability research through [[browse: ...]] now. Ask for approval to send an enquiry or make the exact reservation when needed; never substitute a photo/video question for checking or securing the room. Promotion can start after foundation verification, or if the organizer specifically requests parallel promotion. Browser reservations and approved checkout are supported; payment credentials must be entered by the organizer directly in the browser. Availability calls can be queued with the venue_call marker for one-time approval; phone bookings and payments are not authorized by that research call.",
@@ -316,6 +318,7 @@ For multi-step objectives, show a visible task plan with statuses (Done / Workin
     }
 
     for (const task of browseTasks.slice(0, 2)) {
+      if (isLinkedInBrowserTask(task)) { clean += `\n\n${LINKEDIN_API_ONLY}`; continue; }
       const lovableKey = process.env["LOVABLE_API_KEY"];
       const connKey = process.env["UDC_BROWSERBASE_API_KEY"];
       if (!lovableKey || !connKey) {
