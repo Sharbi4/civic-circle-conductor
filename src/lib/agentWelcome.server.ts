@@ -18,8 +18,6 @@ const CAPS: Record<AgentKind, { label: string; caps: string[] }> = {
  */
 export async function buildAgentWelcome(db: Db, userId: string, agent: AgentKind, accountName: string, fallback: string, extra = ""): Promise<string> {
   try {
-    const { reserveUsage } = await import("@/lib/usage.server");
-    await reserveUsage(userId, "ai");
     const [{ data: org }, { data: tasks }, { data: res }, { data: polls }] = await Promise.all([
       db.from("organizations").select("name, mission, profile, address, facebook_setup_location").eq("user_id", userId).maybeSingle(),
       db.from("tasks").select("title, due_date, kind").eq("user_id", userId).eq("done", false).limit(12),

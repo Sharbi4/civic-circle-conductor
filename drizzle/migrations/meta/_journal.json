@@ -218,6 +218,20 @@
       "when": 1794371087633,
       "tag": "0030_serialize_org_task_and_browser_reservations",
       "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1794371261355,
+      "tag": "0031_retire_activity_workspace_and_usage_controls",
+      "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1794371308717,
+      "tag": "0032_keep_task_scheduler_without_retired_usage_limits",
+      "breakpoints": true
     }
   ]
 }

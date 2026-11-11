@@ -8,8 +8,6 @@ export const runOnboardingResearch = createServerFn({ method: "POST" })
     const { supabase, userId } = context;
     const { data: org } = await supabase.from("organizations").select("name, mission, facebook_setup_location").eq("user_id", userId).maybeSingle();
     if (!org?.name) return { memories: 0, resources: 0 };
-    const { reserveUsage } = await import("@/lib/usage.server");
-    await reserveUsage(userId, "ai");
     const r = await researchOrganization(org.name, org.mission ?? "", org.facebook_setup_location ?? undefined);
     if (r.memories.length) await supabase.from("memories").insert(r.memories.map((content) => ({ user_id: userId, content: `🔎 ${content}` })));
     if (r.resources.length) {
@@ -32,8 +30,6 @@ export const scanOrgProfile = createServerFn({ method: "POST" })
     const { supabase, userId } = context;
     const { data: org } = await supabase.from("organizations").select("name, mission, address").eq("user_id", userId).maybeSingle();
     const name = org?.name ?? "the organization";
-    const { reserveUsage } = await import("@/lib/usage.server");
-    await reserveUsage(userId, "ai");
     const fk = process.env["FIRECRAWL_API_KEY"];
     const scraped = await Promise.all(Object.entries(data.pages).map(async ([k, url]) => {
       if (!fk) return "";

@@ -188,15 +188,14 @@ export const runEventbriteApproval = createServerFn({ method: "POST" })
   .inputValidator((d) => z.object({ approvalId: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
-    const { data: ap } = await supabase.from("approvals").select("id, status, payload, activity_id, execution_status").eq("id", data.approvalId).maybeSingle();
+    const { data: ap } = await supabase.from("approvals").select("id, status, payload").eq("id", data.approvalId).maybeSingle();
     if (!ap || ap.status !== "approved") throw new Error("This action isn't approved.");
-    if (ap.execution_status === "completed") throw new Error("This action already completed — see its receipt.");
     const p = EventPayload.parse(ap.payload);
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { decryptToken } = await import("@/lib/tokenCrypto.server");
     const { data: conn } = await supabaseAdmin.from("connector_connections")
-      .select("access_token_ciphertext, account_name").eq("user_id", userId).eq("connector", "eventbrite").maybeSingle();
+      .select("access_token_ciphertext").eq("user_id", userId).eq("connector", "eventbrite").maybeSingle();
     if (!conn) throw new Error("Eventbrite isn't connected — connect it in the Connectors tab.");
     const token = decryptToken(conn.access_token_ciphertext);
 
@@ -226,7 +225,6 @@ export const runEventbriteApproval = createServerFn({ method: "POST" })
       const own = await load(p.cover_image);
       const insp = own ? undefined : await load(p.inspiration_image);
       const built = own ?? await buildCoverBytes({
-        userId,
         prompt: p.image_prompt || `${p.title}. ${p.description.replace(/<[^>]+>/g, " ")}`, inspiration: insp,
       });
       cover = await createEventCover(built, eb);
@@ -281,9 +279,6 @@ export const runEventbriteApproval = createServerFn({ method: "POST" })
     const { data: thread } = await supabase.from("threads").select("id").eq("kind", "side").eq("title", "Eventbrite Agent").maybeSingle();
     const { data: main } = await supabase.from("threads").select("id").eq("kind", "main").maybeSingle();
     const threadId = thread?.id ?? main?.id;
-    const { recordActionReceipt } = await import("@/lib/activityReceipts.server");
-    await recordActionReceipt(supabase, userId, data.approvalId, { action: `Created registration draft: ${p.title}`, platform: "Eventbrite", account: `${conn.account_name ?? "Connected account"} · organization ${orgId}`, url: `https://www.eventbrite.com/myevent?eid=${ev.id}`, details: `Draft only — not published. Public page after publication: ${ev.url}` });
-    if (ap.activity_id && rsvpId) await supabase.from("activities").update({ registration_url: `https://civimeet.com/p/${rsvpId}` }).eq("id", ap.activity_id);
     if (threadId) {
       await supabase.from("messages").insert({
         thread_id: threadId, user_id: userId, role: "assistant",

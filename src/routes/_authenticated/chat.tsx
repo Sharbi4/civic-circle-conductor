@@ -161,7 +161,6 @@ function Sidebar({ orgName, mobileOpen, onClose }: { orgName: string; mobileOpen
       {mobileOpen && <button type="button" aria-label="Close menu" onClick={onClose} className="absolute right-3 top-3 z-50 grid h-8 w-8 place-items-center rounded-full border bg-background md:hidden"><X className="h-4 w-4" /></button>}
       <nav className="flex w-[64px] shrink-0 flex-col items-center gap-3 overflow-y-auto border-r bg-rail py-5 md:w-[72px]">
         <div className="font-display mb-3 text-xl font-bold text-primary">C</div>
-        <Button asChild variant="ghost" size="icon" aria-label="Activities" title="Activities"><Link to="/chat"><CalendarCheck className="h-5 w-5" /></Link></Button>
         {railBtn("chats", MessageCircle, "Chats")}
         {railBtn("approvals", Inbox, "Approvals", pendingCount)}
         {railBtn("tasks", ListChecks, "Goals & tasks")}
@@ -218,7 +217,7 @@ function Sidebar({ orgName, mobileOpen, onClose }: { orgName: string; mobileOpen
         {tab === "connectors" && (
           <div className="flex-1 overflow-y-auto px-3 pb-4">
             <p className="px-3 pb-3 text-sm text-muted-foreground">
-              Channel agents coordinate from the activity plan linked to their chat.
+              Connect a channel and a dedicated agent opens as its own side chat.
             </p>
             {CONNECTORS.map((c) =>
               c.id === "eventbrite" ? (
@@ -794,12 +793,11 @@ function ApprovalsPanel() {
           )}
         </div>
         <div className="mt-2 font-medium">{a.title}</div>
-        <p className="mt-1 text-xs text-primary">{a.status === "pending" ? "Draft ready for approval" : a.execution_status === "completed" ? "Completed — receipt saved in Activities" : a.status === "approved" ? "Approval received — not a completion receipt" : "Action declined"}</p>
         {a.details && <p className="mt-1 text-sm text-muted-foreground">{a.details}</p>}
         {a.status === "pending" && (
           <div className="mt-3 flex gap-2">
             <Button size="sm" disabled={busyId === a.id} onClick={() => respond(a.id, "approved", a.title, a.browser_session_id, a.payload)} className="rounded-full">
-              <Check className="h-4 w-4" /> {(a.payload as { kind?: string } | null)?.kind === "eventbrite_create" ? "Create Eventbrite draft" : (a.payload as { kind?: string } | null)?.kind?.startsWith("linkedin_") ? "Approve LinkedIn action" : (a.payload as { kind?: string } | null)?.kind === "x_post" ? "Approve X post" : "Approve action"}
+              <Check className="h-4 w-4" /> Approve
             </Button>
             <Button size="sm" variant="outline" disabled={busyId === a.id} onClick={() => respond(a.id, "declined", a.title, a.browser_session_id, a.payload)} className="rounded-full">
               <X className="h-4 w-4" /> Decline

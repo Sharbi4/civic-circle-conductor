@@ -1,0 +1,16 @@
+COMMENT ON TABLE public.activities IS 'DEPRECATED: activity-centered workspace reversed; preserved existing data, chat and tasks remain the organizing experience.';
+COMMENT ON TABLE public.action_receipts IS 'DEPRECATED: activity receipt workspace reversed; preserved existing records.';
+COMMENT ON TABLE public.org_usage_daily IS 'DEPRECATED: organization usage-control feature reversed; no longer used for reservations.';
+COMMENT ON COLUMN public.threads.activity_id IS 'DEPRECATED: activity linking reversed; preserved existing links, unused by chat.';
+COMMENT ON COLUMN public.tasks.activity_id IS 'DEPRECATED: activity linking reversed; scheduled jobs operate on tasks directly.';
+COMMENT ON COLUMN public.tasks.assignee IS 'DEPRECATED: activity workspace responsible-person field reversed; preserved existing values.';
+COMMENT ON COLUMN public.approvals.activity_id IS 'DEPRECATED: activity linking reversed; existing action approval requirements remain.';
+COMMENT ON COLUMN public.approvals.execution_status IS 'DEPRECATED: activity receipt completion tracking reversed; preserved existing values.';
+COMMENT ON COLUMN public.organizations.automation_paused IS 'DEPRECATED: usage-control pause reversed; background jobs use autopilot_state.paused_reason.';
+COMMENT ON COLUMN public.organizations.usage_pause_reason IS 'DEPRECATED: usage controls reversed; background failure pauses use autopilot_state.';
+COMMENT ON COLUMN public.organizations.daily_ai_limit IS 'DEPRECATED: organization usage limits reversed, not enforced by app.';
+COMMENT ON COLUMN public.organizations.daily_browser_minutes IS 'DEPRECATED: organization usage limits reversed, not enforced by app.';
+COMMENT ON COLUMN public.organizations.daily_browser_sessions IS 'DEPRECATED: organization usage limits reversed, not enforced by app.';
+COMMENT ON COLUMN public.organizations.browser_session_minutes IS 'DEPRECATED: usage controls reversed; browser uses previous session settings.';
+COMMENT ON COLUMN public.organizations.browser_reservation_until IS 'DEPRECATED: usage reservations reversed, unused by app.';
+COMMENT ON COLUMN public.browser_sessions.expires_at IS 'DEPRECATED: usage-control expiration reversed; browser provider manages session timeout.';

@@ -56,8 +56,6 @@ function buildQueries(area: FocusArea): { query: string; tbs?: string }[] {
 
 export async function runCommunityScout(onlyUserId: string) {
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-        const {checkOrgWork,reserveUsage}=await import("@/lib/usage.server");
-        await checkOrgWork(onlyUserId);
         const firecrawlKey = process.env["FIRECRAWL_API_KEY"];
 
         // Paused-state guard: nothing runs while the job is paused.
@@ -133,7 +131,6 @@ export async function runCommunityScout(onlyUserId: string) {
                   `Output a short markdown briefing, then one line per new discovery exactly like: [[resource: <group|vendor|venue|nonprofit|event|professional|other> | <name> | <one line of details>]]. Max 6 resources. Also flag any listed directory entries that are likely duplicates or outdated.`,
                 ].join("\n");
 
-            await reserveUsage(userId,"ai");
             const res = await generateResponse({
               model: MODEL,
               instructions,
@@ -184,7 +181,7 @@ export async function runCommunityScout(onlyUserId: string) {
             }, { onConflict: "user_id" });
             results.push({ userId, outcome: `ok: ${resourceRows.length} resources${liveMode ? " (live web)" : " (fallback)"}` });
           } catch (e) {
-            const {noteUsageFailure}=await import("@/lib/usage.server"); await noteUsageFailure(userId,e);
+            const {noteJobFailure}=await import("@/lib/jobSafety.server"); await noteJobFailure(userId,e);
             // Circuit breaker: credit/policy failures pause the job until the owner resumes.
             const isAiCredit = e instanceof GatewayError && (e.httpStatus === 402 || e.httpStatus === 403);
             if (isAiCredit || e instanceof WebSearchBillingError) {

@@ -82,9 +82,8 @@ export const runXApproval = createServerFn({ method: "POST" })
   .inputValidator((d) => z.object({ approvalId: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
-    const { data: ap } = await supabase.from("approvals").select("status, payload, execution_status").eq("id", data.approvalId).maybeSingle();
+    const { data: ap } = await supabase.from("approvals").select("status, payload").eq("id", data.approvalId).maybeSingle();
     if (!ap || ap.status !== "approved") throw new Error("This action isn't approved.");
-    if (ap.execution_status === "completed") throw new Error("This action already completed — see its receipt.");
     const p = z.object({ kind: z.literal("x_post"), text: z.string().min(1).max(280), image_prompt: z.string().max(1500).nullish(), image: z.string().max(300).nullish() }).parse(ap.payload);
     const { getConnectionForUser } = await import("@/lib/appUserConnections.server");
     const { callAsAppUser, appUserReconnectRequired } = await import("@/integrations/lovable/appUserConnector");
@@ -119,8 +118,6 @@ export const runXApproval = createServerFn({ method: "POST" })
     if (await appUserReconnectRequired(res)) { await say("⚠️ Your X access needs to be renewed — press Disconnect then Connect next to X in Connectors."); return { ok: false, threadId }; }
     if (!res.ok) { const body = await res.text(); console.error(`X post failed [${res.status}]: ${body}`); await say(`⚠️ X didn't accept the post (${res.status}): ${body.slice(0, 300)}`); return { ok: false, threadId }; }
     const id = ((await res.json()) as { data?: { id?: string } }).data?.id;
-    const { recordActionReceipt } = await import("@/lib/activityReceipts.server");
-    await recordActionReceipt(supabase, userId, data.approvalId, { action: mediaId ? "Published post with photo" : "Published post", platform: "X", account: c.accountName ?? "Connected X account", ...(id ? { url: `https://x.com/i/web/status/${id}` } : {}) });
     await say(`✅ Posted on X${mediaId ? " with photo" : ""}${id ? ` — [view it](https://x.com/i/web/status/${id})` : ""}.`);
     return { ok: true, threadId };
   });

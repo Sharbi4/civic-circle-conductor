@@ -17,11 +17,9 @@ export async function loadEventImage(
 /** Builds cover bytes: the user's own upload as-is, an AI remix of their inspiration picture, or a fresh AI image. */
 export async function buildCoverBytes(
   platform: string,
-  opts: { prompt: string; userId: string; cover?: Uint8Array<ArrayBuffer> | undefined; inspiration?: { bytes: Uint8Array<ArrayBuffer>; type: string } | undefined },
+  opts: { prompt: string; cover?: Uint8Array<ArrayBuffer> | undefined; inspiration?: { bytes: Uint8Array<ArrayBuffer>; type: string } | undefined },
 ): Promise<{ bytes: Uint8Array<ArrayBuffer>; type: string }> {
   if (opts.cover) return { bytes: opts.cover, type: "image/jpeg" };
-  const { reserveUsage } = await import("@/lib/usage.server");
-  await reserveUsage(opts.userId, "ai");
   const fullPrompt = `${platform} event cover image, wide banner composition with the subject centered and important details away from the top and bottom edges. No small text. ${opts.prompt}`;
   if (opts.inspiration) {
     const { editImage } = await import("@lovable.dev/ai-gateway");
@@ -78,8 +76,6 @@ export async function buildPostImage(
   const own = await loadEventImage(supabase, userId, opts.image);
   if (own) return own;
   if (!opts.image_prompt) return undefined;
-  const { reserveUsage } = await import("@/lib/usage.server");
-  await reserveUsage(userId, "ai");
   const { generateImage } = await import("@lovable.dev/ai-gateway");
   const img = await generateImage({
     model: "openai/gpt-image-2.5-sunburst",

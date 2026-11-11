@@ -143,10 +143,8 @@ export const runLinkedInApproval = createServerFn({ method: "POST" })
   .inputValidator((d) => z.object({ approvalId: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
-    const { data: ap } = await supabase.from("approvals").select("status, payload, execution_status").eq("id", data.approvalId).maybeSingle();
+    const { data: ap } = await supabase.from("approvals").select("status, payload").eq("id", data.approvalId).maybeSingle();
     if (!ap || ap.status !== "approved") throw new Error("This action isn't approved.");
-    if (ap.execution_status === "completed") throw new Error("This action already completed — see its receipt.");
-    const { recordActionReceipt } = await import("@/lib/activityReceipts.server");
     const kind = (ap.payload as { kind?: string } | null)?.kind;
 
     const { getConnectionForUser } = await import("@/lib/appUserConnections.server");
@@ -206,7 +204,6 @@ export const runLinkedInApproval = createServerFn({ method: "POST" })
       const own = await loadEventImage(supabase, userId, p.cover_image);
       const insp = own ? undefined : await loadEventImage(supabase, userId, p.inspiration_image);
       return own ?? await buildCoverBytes("LinkedIn", {
-        userId,
         prompt: p.image_prompt || `${p.title}. ${(p.description ?? "").replace(/<[^>]+>/g, " ").slice(0, 400)}`,
         inspiration: insp,
       });
@@ -261,7 +258,6 @@ export const runLinkedInApproval = createServerFn({ method: "POST" })
         post_urn: postUrn, status: post.ok ? "live" : "unposted",
       });
       const link = `https://www.linkedin.com/events/${eventId}/`;
-      await recordActionReceipt(supabase, userId, data.approvalId, { action: post.ok ? `Created and published ${p.title}` : `Created ${p.title}; announcement not published`, platform: "LinkedIn", account: organizer.includes("organization") ? organizer : c.accountName ?? person, url: link, details: post.ok ? "Event and announcement published." : "Event created; announcement failed. Event remains hidden until published." });
       await say(post.ok
         ? `✅ **${p.title}** is live on LinkedIn — [view the event](${link}).${backgroundImage ? " Custom cover image added." : "\n\n(I couldn't add a cover image this time — you can set one on the event page, or ask me to try again.)"}`
         : `⚠️ LinkedIn created **${p.title}** but wouldn't publish it${organizer.includes("organization") ? " under your company page (the app may need page-posting permission from LinkedIn)" : ""}. It stays hidden until posted — ask me to try publishing again.`);
@@ -284,7 +280,6 @@ export const runLinkedInApproval = createServerFn({ method: "POST" })
       if (!post.ok) await fail(post, "publish the event");
       await supabase.from("linkedin_events").update({ status: "live", post_urn: post.headers.get("x-restli-id"), updated_at: new Date().toISOString() }).eq("event_id", p.event_id);
       await say(`✅ **${row.name}** is now published — [view the event](https://www.linkedin.com/events/${p.event_id}/).`);
-      await recordActionReceipt(supabase, userId, data.approvalId, { action: `Published ${row.name}`, platform: "LinkedIn", account: author.includes("organization") ? author : c.accountName ?? person, url: `https://www.linkedin.com/events/${p.event_id}/` });
       return { threadId, ok: true };
     }
 
@@ -333,7 +328,6 @@ export const runLinkedInApproval = createServerFn({ method: "POST" })
         updated_at: new Date().toISOString(),
       }).eq("event_id", p.event_id);
       await say(`✏️ Updated **${p.title ?? row.name}** on LinkedIn — [view the event](https://www.linkedin.com/events/${p.event_id}/).${set["backgroundImage"] ? " Cover image updated." : ""}`);
-      await recordActionReceipt(supabase, userId, data.approvalId, { action: `Updated ${p.title ?? row.name}`, platform: "LinkedIn", account: orgRow?.linkedin_org_id ? `Company page ${orgRow.linkedin_org_id}` : c.accountName ?? person, url: `https://www.linkedin.com/events/${p.event_id}/` });
       return { threadId, ok: true };
     }
 
@@ -386,7 +380,6 @@ export const runLinkedInApproval = createServerFn({ method: "POST" })
         });
     if (!res.ok) await fail(res, "publish the post");
     const postId = res.headers.get("x-restli-id") ?? "";
-    await recordActionReceipt(supabase, userId, data.approvalId, { action: imageUrn ? "Published post with photo" : "Published post", platform: "LinkedIn", account: asPage ? `Company page ${org?.linkedin_org_id}` : c.accountName ?? person, ...(postId ? { url: `https://www.linkedin.com/feed/update/${postId}` } : {}) });
     await say(`✅ Posted to LinkedIn${imageUrn ? " with photo" : ""}${asPage ? " from your company page" : ""}${postId ? ` — [view it](https://www.linkedin.com/feed/update/${postId})` : ""}.\n\n> ${p.text.slice(0, 280).replace(/\n/g, "\n> ")}`);
     return { threadId, ok: true };
   });

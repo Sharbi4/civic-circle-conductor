@@ -58,8 +58,6 @@ export const summarizePoll = createServerFn({ method: "POST" })
     if (!p) throw new Error("Poll not found");
     const { data: rs } = await context.supabase.from("poll_responses").select("answers, created_at").eq("poll_id", data.pollId).order("created_at").limit(500);
     if (!rs?.length) return { summary: "No responses yet — share the link to start collecting answers." };
-    const { reserveUsage } = await import("@/lib/usage.server");
-    await reserveUsage(context.userId, "ai");
     const { generateResponse } = await import("@lovable.dev/ai-gateway");
     const res = await generateResponse({
       model: "openai/gpt-6.1-terra",
