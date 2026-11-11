@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { summarizePoll } from "@/lib/polls.functions";
 import { questionSchema, type PollQuestion } from "@/lib/polls.shared";
 import { z } from "zod";
+import { downloadCsv, responsesToCsv } from "@/lib/pollCsv";
 
 const KIND: Record<string, string> = { poll: "Poll", feedback: "Feedback", signup: "Sign-up" };
 
@@ -21,6 +22,18 @@ export function PollsPanel() {
     },
     refetchInterval: 15000,
   });
+  const [exporting, setExporting] = useState(false);
+  async function exportAll() {
+    setExporting(true);
+    try {
+      const { data: ps } = await supabase.from("polls").select("id, title, kind, questions, poll_responses(answers, created_at)").order("created_at", { ascending: false }).limit(100);
+      const parts = (ps ?? []).filter((p) => (p.poll_responses as unknown[] | null)?.length).map((p) =>
+        responsesToCsv(z.array(questionSchema).catch([]).parse(p.questions), p.poll_responses as { answers: unknown; created_at: string }[], { form: p.title, kind: KIND[p.kind] ?? "Poll" }));
+      if (!parts.length) { toast.error("No responses yet"); return; }
+      downloadCsv(parts.join("\r\n\r\n"), `all-form-responses-${new Date().toISOString().slice(0, 10)}`);
+    } catch { toast.error("Couldn't export responses"); }
+    finally { setExporting(false); }
+  }
   if (open) return <PollDetail id={open} onBack={() => setOpen(null)} />;
   const total = (polls.data ?? []).reduce((s, p) => s + p.count, 0);
   return (
@@ -32,6 +45,10 @@ export function PollsPanel() {
           <Stat label="Polls & forms" value={polls.data.length} />
           <Stat label="Total responses" value={total} />
         </div>
+      )}
+      {total > 0 && (
+        <div className="mx-1 mb-3"><Button size="sm" variant="outline" className="w-full rounded-full" onClick={exportAll} disabled={exporting}>
+          <Download className="mr-1 h-3.5 w-3.5" />{exporting ? "Preparing…" : "Export all responses (CSV)"}</Button></div>
       )}
       {polls.data?.length === 0 && <p className="px-3 py-2 text-sm text-muted-foreground">Nothing yet — try "Make a quick poll asking which Saturday works for our cleanup."</p>}
       {(polls.data ?? []).map((p) => (
@@ -83,16 +100,7 @@ function PollDetail({ id, onBack }: { id: string; onBack: () => void }) {
   const perDay = days.map((day) => rs.filter((r) => { const c = new Date(r.created_at); c.setHours(0, 0, 0, 0); return c.getTime() === day.getTime(); }).length);
   const maxDay = Math.max(1, ...perDay);
 
-  function csv() {
-    const cell = (v: unknown) => `"${String(v ?? "").replace(/"/g, '""')}"`;
-    const fmt = (qq: PollQuestion, a: unknown) => Array.isArray(a) ? a.join("; ") : a && typeof a === "object" ? Object.values(a as object).filter(Boolean).join(" / ") : a;
-    const rows = [["Submitted", ...d!.questions.map((x) => x.q)].map(cell).join(","),
-      ...rs.map((r) => [new Date(r.created_at).toLocaleString(), ...d!.questions.map((x) => fmt(x, (r.answers as Record<string, unknown>)[x.id]))].map(cell).join(","))];
-    const blob = new Blob([rows.join("\n")], { type: "text/csv;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a"); a.href = url; a.download = `${d!.poll!.title.replace(/[^\w-]+/g, "-")}.csv`;
-    document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 30000);
-  }
+  function csv() { downloadCsv(responsesToCsv(d!.questions, rs), `${d!.poll!.title}-responses`); }
   async function toggle() {
     await supabase.from("polls").update({ status: d!.poll!.status === "open" ? "closed" : "open" }).eq("id", id);
     qc.invalidateQueries({ queryKey: ["poll", id] }); qc.invalidateQueries({ queryKey: ["polls"] });
@@ -119,7 +127,7 @@ function PollDetail({ id, onBack }: { id: string; onBack: () => void }) {
       <div className="flex flex-wrap gap-2">
         <Button size="sm" variant="outline" className="rounded-full" onClick={() => { navigator.clipboard.writeText(link); toast.success("Link copied"); }}><Copy className="mr-1 h-3.5 w-3.5" />Copy link</Button>
         <Button size="sm" variant="outline" className="rounded-full" asChild><a href={`/p/${id}`} target="_blank" rel="noreferrer"><ExternalLink className="mr-1 h-3.5 w-3.5" />Open</a></Button>
-        <Button size="sm" variant="outline" className="rounded-full" onClick={csv} disabled={!rs.length}><Download className="mr-1 h-3.5 w-3.5" />CSV</Button>
+        <Button size="sm" variant="outline" className="rounded-full" onClick={csv} disabled={!rs.length}><Download className="mr-1 h-3.5 w-3.5" />Export CSV</Button>
       </div>
       <div className="grid grid-cols-2 gap-2"><Stat label="Responses" value={rs.length} /><Stat label="Last 24 hours" value={rs.filter((r) => Date.now() - new Date(r.created_at).getTime() < 864e5).length} /></div>
 
