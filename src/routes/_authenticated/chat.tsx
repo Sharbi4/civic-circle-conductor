@@ -3,9 +3,10 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import type React from "react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { MessageCircle, Plus, Plug, LogOut, Pin, Brain, Inbox, Megaphone, CalendarCheck, CreditCard, Sparkles, Check, X, Compass, Trash2, KeyRound, Mic, FileText, ImagePlus, BarChart3, Menu, ListChecks } from "lucide-react";
+import { MessageCircle, Plus, Plug, LogOut, Pin, Brain, Inbox, Megaphone, CalendarCheck, CreditCard, Sparkles, Check, X, Compass, Trash2, KeyRound, Mic, FileText, ImagePlus, BarChart3, Menu, ListChecks, UserCircle } from "lucide-react";
 import { PollsPanel } from "@/components/polls/PollsPanel";
 import { TasksPanel } from "@/components/tasks/TasksPanel";
+import { AccountPanel } from "@/components/account/AccountPanel";
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -103,7 +104,7 @@ function Sidebar({ orgName, mobileOpen, onClose }: { orgName: string; mobileOpen
   const navigate = useNavigate();
   const params = useParams({ strict: false }) as { threadId?: string };
   useEffect(() => { onClose(); }, [params.threadId]);
-  const [tab, setTab] = useState<"chats" | "connectors" | "memory" | "approvals" | "scout" | "logins" | "documents" | "polls" | "tasks">("chats");
+  const [tab, setTab] = useState<"chats" | "connectors" | "memory" | "approvals" | "scout" | "logins" | "documents" | "polls" | "tasks" | "account">("chats");
   const approvals = useApprovals();
   const pendingCount = approvals.data?.filter((a) => a.status === "pending").length ?? 0;
   const main = threads.data?.find((t) => t.kind === "main");
@@ -168,6 +169,7 @@ function Sidebar({ orgName, mobileOpen, onClose }: { orgName: string; mobileOpen
         {railBtn("scout", Compass, "Community Scout")}
         {railBtn("memory", Brain, "Memory")}
         {railBtn("logins", KeyRound, "Settings: saved logins")}
+        {railBtn("account", UserCircle, "My account")}
         <div className="flex-1" />
         <button aria-label="Sign out" onClick={() => supabase.auth.signOut()} className="flex h-11 w-11 items-center justify-center rounded-2xl text-muted-foreground hover:bg-secondary">
           <LogOut className="h-5 w-5" />
@@ -241,6 +243,7 @@ function Sidebar({ orgName, mobileOpen, onClose }: { orgName: string; mobileOpen
         {tab === "documents" && <DocumentsPanel />}
         {tab === "polls" && <PollsPanel />}
         {tab === "tasks" && <TasksPanel />}
+        {tab === "account" && <AccountPanel />}
       </aside>
     </div>
   );
