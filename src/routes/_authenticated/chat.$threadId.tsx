@@ -12,6 +12,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { sendOrganizerMessage } from "@/lib/organizer.functions";
 import { endBrowserSession, browserAgentStep, setBrowserDriving, startFacebookSetup } from "@/lib/browser.functions";
 import { useThreads, useOrg } from "./chat";
+import { ChatSearch } from "@/components/ChatSearch";
 import { FormLibrary } from "@/components/polls/FormLibrary";
 import { LetterheadCheck } from "@/components/LetterheadCheck";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -556,6 +557,7 @@ function ChatWindow({ threadId }: { threadId: string }) {
   return (
     <>
       <PinnedBrowser.Provider value={pinned.data?.id ?? null}>
+      <ChatSearch threadId={threadId} leadActions={LEAD_ACTIONS} />
       <div className="flex-1 overflow-y-auto">
         {pinned.data && (
           <div className="sticky top-0 z-20 border-b bg-background/85 px-5 py-2 backdrop-blur">
@@ -596,7 +598,7 @@ function ChatWindow({ threadId }: { threadId: string }) {
           <div className="space-y-5">
             {all.map((m) =>
               m.role === "user" ? (
-                <div key={m.id} className="flex justify-end">
+                <div key={m.id} id={`msg-${m.id}`} className="flex justify-end rounded-3xl">
                   <div className="bubble-premium max-w-[80%] whitespace-pre-wrap rounded-3xl px-5 py-3">
                     {m.content.replace(/\n*\[\[image:(?:cover|inspiration)\|[^\]]+\]\]/g, "").trim()}
                     {[...m.content.matchAll(/\[\[image:(cover|inspiration)\|([^\]]+)\]\]/g)].map((x) => (
@@ -605,7 +607,7 @@ function ChatWindow({ threadId }: { threadId: string }) {
                   </div>
                 </div>
               ) : (
-                <div key={m.id}>
+                <div key={m.id} id={`msg-${m.id}`} className="rounded-3xl">
                   <div className="max-w-[92%] rounded-3xl bg-bubble px-6 py-4">
                     <MessageBody content={m.content.replace(CHOICES_MARKER, "").replace(/\[\[(form_library|letterhead_check)\]\]/g, "").trim()} />
                     {m.content.includes("[[letterhead_check]]") && m.id === all[all.length - 1]?.id && <LetterheadPrompt onDone={() => submit("Letterhead details are saved — go ahead and create the document.")} />}
