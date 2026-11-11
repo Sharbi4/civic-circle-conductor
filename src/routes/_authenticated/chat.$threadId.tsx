@@ -30,7 +30,7 @@ function ThreadPage() {
   return <ChatWindow key={threadId} threadId={threadId} />;
 }
 
-const BROWSER_MARKER = /\[\[browser:\s*([0-9a-f-]{36})\s*\|(.+?)\]\]|\[\[image:(cover|inspiration)\|([^\]]+)\]\]|\[\[doc:\s*([0-9a-f-]{36})\s*\|([^|\]]+)(?:\|\s*([a-z]+)\s*)?\]\]/g;
+const BROWSER_MARKER = /\[\[browser:\s*([0-9a-f-]{36})\s*\|(.+?)\]\]|\[\[image:(cover|inspiration|post)\|([^\]]+)\]\]|\[\[doc:\s*([0-9a-f-]{36})\s*\|([^|\]]+)(?:\|\s*([a-z]+)\s*)?\]\]/g;
 
 function DocCard({ id, title, kind }: { id: string; title: string; kind: string }) {
   return (
@@ -57,8 +57,8 @@ function AttachedImage({ path, role }: { path: string; role: string }) {
   });
   return (
     <figure className="inline-block overflow-hidden rounded-2xl border bg-card">
-      {url.data ? <img src={url.data} alt={role === "cover" ? "Event cover" : "Inspiration picture"} className="max-h-56 max-w-full object-cover" /> : <div className="h-32 w-48 animate-pulse bg-muted" />}
-      <figcaption className="px-3 py-1.5 text-xs text-muted-foreground">{role === "cover" ? "Use as event cover" : "Inspiration for the cover"}</figcaption>
+      {url.data ? <img src={url.data} alt={role === "cover" ? "Event cover" : role === "post" ? "Photo for the LinkedIn post" : "Inspiration picture"} className="max-h-56 max-w-full object-cover" /> : <div className="h-32 w-48 animate-pulse bg-muted" />}
+      <figcaption className="px-3 py-1.5 text-xs text-muted-foreground">{role === "cover" ? "Use as event cover" : role === "post" ? "Photo for your LinkedIn post (goes out with it)" : "Inspiration for the cover"}</figcaption>
     </figure>
   );
 }
