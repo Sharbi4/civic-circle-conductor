@@ -14,7 +14,7 @@ export function AgentPreparing({ name }: { name: string }) {
   }, []);
   return <div role="status" aria-live="polite" className="flex min-h-[360px] flex-col items-center justify-center gap-6 px-4 py-12 text-center">
     <img src={icon.url} alt="" className="agent-preparing-mark h-24 w-24 object-contain" />
-    <div className="space-y-3"><p className="text-sm font-medium text-muted-foreground">{name}</p><h2 className="font-display text-2xl font-semibold sm:text-3xl">{phrase}</h2></div>
+    <div className="space-y-3"><p className="text-sm font-medium text-muted-foreground">{name}</p><h2 className="font-sans text-2xl font-semibold sm:text-3xl">{phrase}</h2></div>
     <div aria-hidden="true" className="flex h-4 items-center gap-2"><span className="typing-dot h-2 w-2 rounded-full bg-primary" /><span className="typing-dot h-2 w-2 rounded-full bg-primary [animation-delay:150ms]" /><span className="typing-dot h-2 w-2 rounded-full bg-primary [animation-delay:300ms]" /></div>
   </div>;
 }
