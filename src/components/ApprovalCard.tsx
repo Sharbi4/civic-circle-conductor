@@ -1,7 +1,8 @@
 import { useState, type ReactNode } from "react";
+import { Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { CalendarCheck, Check, ChevronDown, Facebook, Globe, Linkedin, Loader2, Megaphone, Phone, Sparkles, Twitter, X } from "lucide-react";
+import { ArrowUpRight, CalendarCheck, Check, ChevronDown, Facebook, Globe, Linkedin, Loader2, Megaphone, Phone, Sparkles, Twitter, X } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { decideApproval } from "@/lib/approvals.functions";
@@ -20,6 +21,7 @@ export type ApprovalRow = {
   run_error: string | null;
   browser_session_id: string | null;
   approval_mode?: string | null;
+  thread_id?: string | null;
 };
 
 function kindMeta(payload: unknown, actionType: string): { Icon: typeof Sparkles; label: string } {
@@ -59,7 +61,7 @@ function ApprovalPhoto({ path, alt }: { path: string; alt: string }) {
 }
 
 /** One compact, consistent approval card — used in the Approvals inbox and the floating chat bar. */
-export function ApprovalCard({ approval: a, onIgnore, extra }: { approval: ApprovalRow; onIgnore?: (id: string) => void; extra?: ReactNode }) {
+export function ApprovalCard({ approval: a, onIgnore, extra, threadTitle }: { approval: ApprovalRow; onIgnore?: (id: string) => void; extra?: ReactNode; threadTitle?: string | undefined }) {
   const qc = useQueryClient();
   const runDecision = useServerFn(decideApproval);
   const [busy, setBusy] = useState(false);
@@ -118,6 +120,16 @@ export function ApprovalCard({ approval: a, onIgnore, extra }: { approval: Appro
               <span className={`rounded-full bg-secondary px-2 py-0.5 text-[11px] ${a.status === "approved" ? "text-foreground" : "text-muted-foreground line-through"}`}>
                 {a.status === "approved" ? approvalStateLabel(a.run_state, a.payload) : a.status}
               </span>
+            )}
+            {a.thread_id && threadTitle && (
+              <Link
+                to="/chat/$threadId"
+                params={{ threadId: a.thread_id }}
+                className="inline-flex items-center gap-0.5 rounded-full bg-secondary px-2 py-0.5 text-[11px] font-medium text-accent hover:underline"
+                title={`Open chat: ${threadTitle}`}
+              >
+                {threadTitle} <ArrowUpRight className="h-3 w-3" />
+              </Link>
             )}
             {pending && onIgnore && (
               <Button variant="ghost" size="icon" className="ml-auto h-6 w-6" aria-label={`Ignore ${a.title}`} title="Ignore" disabled={busy} onClick={() => onIgnore(a.id)}>

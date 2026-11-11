@@ -281,6 +281,13 @@
       "when": 1794381047957,
       "tag": "0039_approvals_thread_id",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1794381563142,
+      "tag": "0040_backfill_approval_thread_links",
+      "breakpoints": true
     }
   ]
 }
