@@ -72,6 +72,7 @@ For multi-step objectives, show a visible task plan with statuses (Done / Workin
       EVENT_PLAYBOOK,
       ...(liveResearch ? [`Fresh web research for this request (cite as markdown links when used; save useful vendors/venues with [[resource: ...]]):\n${liveResearch}`] : []),
       `Saved vendors & venues (use these by name when planning): ${(savedResources ?? []).map((r) => `${r.type}: ${r.name}${r.details ? ` — ${r.details}` : ""}`).join("; ") || "none yet — offer to have the browser agent search Facebook and the web for local food trucks, caterers and venues"}`,
+      `POLLS & FEEDBACK (a core action): community input drives everything. Proactively offer a quick poll (e.g. pick a date, vote on a theme), a feedback form after every event, or an interest sign-up (volunteers, vendors). Keep them short (1-5 questions, under a minute). To create one, write one line about it then add a marker exactly like: [[poll: {"title":"...","kind":"poll|feedback|signup","description":"one friendly line","questions":[{"id":"q1","q":"Which date works best?","type":"choice","options":["Sat Mar 7","Sun Mar 8"],"required":true}]}]] — types: choice (one), multi (several), rating (1-5), text (comment), contact (name/email/phone; use for sign-ups only). Civi turns it into a shareable link and results appear under Polls in the left bar. After creating, offer to share the link on connected platforms (queue those posts with their approval markers, including the link) and offer to summarize results later.`,
       `OFFICIAL DOCUMENTS: whenever you draft a checklist (organization, event, setup, Page TLC), a plan, agenda, run-of-show, budget, vendor brief, press release, letter, flyer copy or any formal communication, do NOT put the full document in the chat. Instead write one short sentence introducing it, then output the document exactly like:\n[[document: <Title> | <checklist|plan|agenda|communication|budget|brief|letter|other>]]\n<full document in clean markdown: short intro paragraph, ## section headings, - [ ] checkboxes for checklist items, tables where useful, no emojis>\n[[/document]]\nThe app turns it into an official branded document (org logo, letterhead) the user can open and download. One or two documents per reply max.`,
       `Resource directory: the org keeps a reusable directory of vendors, venues, partners and groups so research is never repeated. When you identify a real, useful vendor, venue, nonprofit, community group or event worth saving, add a final line exactly like: [[resource: <vendor|venue|nonprofit|group|event|professional|other> | <name> | <one line of details>]]. One line per record, max 4 per reply. Only save genuinely useful, specific records.`,
       `Facebook groups (be proactive): after a group search, each group lands in Approvals ranked by relevance; once approved, the browser joins them one by one and reports each in chat. Keep a running tally of groups joined and still waiting. When the queue finishes (and at every 10 joined), celebrate progress, name the most relevant groups still waiting, and offer to find more, post in joined groups, or pause — with [[choices: ...]]. Never join or post without approval.`,
@@ -194,6 +195,17 @@ For multi-step objectives, show a visible task plan with statuses (Done / Workin
         source: "Civi chat",
         status: "suggested",
       }));
+    const { pollSpecSchema } = await import("@/lib/polls.shared");
+    for (const m of [...text.matchAll(/\[\[poll:\s*(\{.+?\})\s*\]\]/gs)].slice(0, 2)) {
+      let card = "";
+      try {
+        const spec = pollSpecSchema.parse(JSON.parse(m[1] ?? ""));
+        const { data: pl, error: pErr } = await supabase.from("polls").insert({ user_id: userId, title: spec.title, kind: spec.kind, description: spec.description ?? null, questions: spec.questions as never }).select("id").single();
+        if (pErr || !pl) throw pErr ?? new Error("insert failed");
+        card = `\n📊 **${spec.title}** — [open the ${spec.kind === "feedback" ? "feedback form" : spec.kind === "signup" ? "sign-up" : "poll"}](/p/${pl.id}). Share link: https://civimeet.com/p/${pl.id} · results under **Polls** in the left bar.\n`;
+      } catch (e) { console.error("Failed to create poll", e); card = "\n⚠️ I couldn't create that poll — try asking again.\n"; }
+      text = text.replace(m[0], card);
+    }
     const docMatches = [...text.matchAll(/\[\[document:\s*([^\]|]+?)(?:\|\s*([a-z]+)\s*)?\]\]([\s\S]*?)\[\[\/document\]\]/g)].slice(0, 2);
     const docLinks: string[] = [];
     for (const m of docMatches) {

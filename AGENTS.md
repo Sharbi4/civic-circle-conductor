@@ -32,3 +32,4 @@ use the editor.
 - AI calls go through `@lovable.dev/ai-gateway` in `src/lib/*.functions.ts` server functions with `requireSupabaseAuth`; why: keeps prompts and keys server-side and RLS scoped per user.
 - Per-org data (organizations, threads, messages, memories) is keyed by auth user id with owner-only RLS; why: each organization gets isolated agent memory.
 - Formal outputs (checklists, plans, letters) are saved as documents via a [[document: ...]] marker and rendered on one shared letterhead template; why: every org gets consistent, official, downloadable documents.
+- Polls/feedback/sign-ups are built in: Civi emits a [[poll: {...}]] marker, saved to owner-only polls; public /p/$id page reads and writes only through validated server functions (no anon table access); why: shareable links without exposing responses.

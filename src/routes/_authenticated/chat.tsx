@@ -2,7 +2,8 @@ import { createFileRoute, Link, Outlet, useNavigate, useParams } from "@tanstack
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useRef, useState, type ReactNode } from "react";
-import { MessageCircle, Plus, Plug, LogOut, Pin, Brain, Inbox, Megaphone, CalendarCheck, CreditCard, Sparkles, Check, X, Compass, Trash2, KeyRound, Mic, FileText, ImagePlus } from "lucide-react";
+import { MessageCircle, Plus, Plug, LogOut, Pin, Brain, Inbox, Megaphone, CalendarCheck, CreditCard, Sparkles, Check, X, Compass, Trash2, KeyRound, Mic, FileText, ImagePlus, BarChart3 } from "lucide-react";
+import { PollsPanel } from "@/components/polls/PollsPanel";
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -94,7 +95,7 @@ function Sidebar({ orgName }: { orgName: string }) {
   const qc = useQueryClient();
   const navigate = useNavigate();
   const params = useParams({ strict: false }) as { threadId?: string };
-  const [tab, setTab] = useState<"chats" | "connectors" | "memory" | "approvals" | "scout" | "logins" | "documents">("chats");
+  const [tab, setTab] = useState<"chats" | "connectors" | "memory" | "approvals" | "scout" | "logins" | "documents" | "polls">("chats");
   const approvals = useApprovals();
   const pendingCount = approvals.data?.filter((a) => a.status === "pending").length ?? 0;
   const main = threads.data?.find((t) => t.kind === "main");
@@ -144,6 +145,7 @@ function Sidebar({ orgName }: { orgName: string }) {
         {railBtn("approvals", Inbox, "Approvals", pendingCount)}
         {railBtn("connectors", Plug, "Connectors")}
         {railBtn("documents", FileText, "Documents")}
+        {railBtn("polls", BarChart3, "Polls & feedback")}
         {railBtn("scout", Compass, "Community Scout")}
         {railBtn("memory", Brain, "Memory")}
         {railBtn("logins", KeyRound, "Settings: saved logins")}
@@ -216,6 +218,7 @@ function Sidebar({ orgName }: { orgName: string }) {
         {tab === "memory" && <MemoryPanel />}
         {tab === "logins" && <LoginsPanel />}
         {tab === "documents" && <DocumentsPanel />}
+        {tab === "polls" && <PollsPanel />}
       </aside>
     </>
   );

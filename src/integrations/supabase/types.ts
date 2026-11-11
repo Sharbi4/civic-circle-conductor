@@ -448,6 +448,68 @@ export type Database = {
         }
         Relationships: []
       }
+      poll_responses: {
+        Row: {
+          answers: Json
+          created_at: string
+          id: string
+          poll_id: string
+        }
+        Insert: {
+          answers?: Json
+          created_at?: string
+          id?: string
+          poll_id: string
+        }
+        Update: {
+          answers?: Json
+          created_at?: string
+          id?: string
+          poll_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "poll_responses_poll_id_fkey"
+            columns: ["poll_id"]
+            isOneToOne: false
+            referencedRelation: "polls"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      polls: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          kind: string
+          questions: Json
+          status: string
+          title: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          kind?: string
+          questions?: Json
+          status?: string
+          title: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          kind?: string
+          questions?: Json
+          status?: string
+          title?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       resources: {
         Row: {
           created_at: string

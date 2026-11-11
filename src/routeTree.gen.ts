@@ -15,6 +15,7 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as DataDeletionRouteImport } from './routes/data-deletion'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as AuthenticatedChatRouteImport } from './routes/_authenticated/chat'
+import { Route as PIdRouteImport } from './routes/p.$id'
 import { Route as AuthenticatedChatIndexRouteImport } from './routes/_authenticated/chat.index'
 import { Route as AuthenticatedChatThreadIdRouteImport } from './routes/_authenticated/chat.$threadId'
 import { Route as AuthenticatedDocumentsIdRouteImport } from './routes/_authenticated/documents.$id'
@@ -54,6 +55,11 @@ const AuthenticatedChatRoute = AuthenticatedChatRouteImport.update({
   id: '/chat',
   path: '/chat',
   getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const PIdRoute = PIdRouteImport.update({
+  id: '/p/$id',
+  path: '/p/$id',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedChatIndexRoute = AuthenticatedChatIndexRouteImport.update({
   id: '/',
@@ -118,6 +124,7 @@ export interface FileRoutesByFullPath {
   '/data-deletion': typeof DataDeletionRoute
   '/privacy': typeof PrivacyRoute
   '/chat': typeof AuthenticatedChatRouteWithChildren
+  '/p/$id': typeof PIdRoute
   '/chat/$threadId': typeof AuthenticatedChatThreadIdRoute
   '/documents/$id': typeof AuthenticatedDocumentsIdRoute
   '/chat/': typeof AuthenticatedChatIndexRoute
@@ -134,6 +141,7 @@ export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/data-deletion': typeof DataDeletionRoute
   '/privacy': typeof PrivacyRoute
+  '/p/$id': typeof PIdRoute
   '/chat/$threadId': typeof AuthenticatedChatThreadIdRoute
   '/documents/$id': typeof AuthenticatedDocumentsIdRoute
   '/chat': typeof AuthenticatedChatIndexRoute
@@ -153,6 +161,7 @@ export interface FileRoutesById {
   '/data-deletion': typeof DataDeletionRoute
   '/privacy': typeof PrivacyRoute
   '/_authenticated/chat': typeof AuthenticatedChatRouteWithChildren
+  '/p/$id': typeof PIdRoute
   '/_authenticated/chat/$threadId': typeof AuthenticatedChatThreadIdRoute
   '/_authenticated/documents/$id': typeof AuthenticatedDocumentsIdRoute
   '/_authenticated/chat/': typeof AuthenticatedChatIndexRoute
@@ -172,6 +181,7 @@ export interface FileRouteTypes {
     | '/data-deletion'
     | '/privacy'
     | '/chat'
+    | '/p/$id'
     | '/chat/$threadId'
     | '/documents/$id'
     | '/chat/'
@@ -188,6 +198,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/data-deletion'
     | '/privacy'
+    | '/p/$id'
     | '/chat/$threadId'
     | '/documents/$id'
     | '/chat'
@@ -206,6 +217,7 @@ export interface FileRouteTypes {
     | '/data-deletion'
     | '/privacy'
     | '/_authenticated/chat'
+    | '/p/$id'
     | '/_authenticated/chat/$threadId'
     | '/_authenticated/documents/$id'
     | '/_authenticated/chat/'
@@ -224,6 +236,7 @@ export interface RootRouteChildren {
   AuthRoute: typeof AuthRoute
   DataDeletionRoute: typeof DataDeletionRoute
   PrivacyRoute: typeof PrivacyRoute
+  PIdRoute: typeof PIdRoute
   ApiOauthEventbriteReturnRoute: typeof ApiOauthEventbriteReturnRoute
   ApiOauthLinkedinReturnRoute: typeof ApiOauthLinkedinReturnRoute
   ApiOauthNextdoorReturnRoute: typeof ApiOauthNextdoorReturnRoute
@@ -276,6 +289,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/chat'
       preLoaderRoute: typeof AuthenticatedChatRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/p/$id': {
+      id: '/p/$id'
+      path: '/p/$id'
+      fullPath: '/p/$id'
+      preLoaderRoute: typeof PIdRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/_authenticated/chat/': {
       id: '/_authenticated/chat/'
@@ -382,6 +402,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthRoute: AuthRoute,
   DataDeletionRoute: DataDeletionRoute,
   PrivacyRoute: PrivacyRoute,
+  PIdRoute: PIdRoute,
   ApiOauthEventbriteReturnRoute: ApiOauthEventbriteReturnRoute,
   ApiOauthLinkedinReturnRoute: ApiOauthLinkedinReturnRoute,
   ApiOauthNextdoorReturnRoute: ApiOauthNextdoorReturnRoute,
