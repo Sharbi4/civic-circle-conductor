@@ -13,6 +13,7 @@ import { sendOrganizerMessage } from "@/lib/organizer.functions";
 import { endBrowserSession, browserAgentStep, setBrowserDriving, startFacebookSetup } from "@/lib/browser.functions";
 import { useThreads, useOrg } from "./chat";
 import { FormLibrary } from "@/components/polls/FormLibrary";
+import { LetterheadCheck } from "@/components/LetterheadCheck";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -416,6 +417,14 @@ function NextSteps({ threadId, msgCount, busy, onPick }: { threadId: string; msg
   );
 }
 
+function LetterheadPrompt({ onDone }: { onDone: () => void }) {
+  const [open, setOpen] = useState(true);
+  return (<>
+    <Button size="sm" className="mt-3" onClick={() => setOpen(true)}><FileText className="h-4 w-4" /> Fill in letterhead details</Button>
+    <LetterheadCheck open={open} onOpenChange={setOpen} onSaved={onDone} />
+  </>);
+}
+
 function ChatWindow({ threadId }: { threadId: string }) {
   const orgQ = useOrg();
   const qc = useQueryClient();
@@ -598,7 +607,8 @@ function ChatWindow({ threadId }: { threadId: string }) {
               ) : (
                 <div key={m.id}>
                   <div className="max-w-[92%] rounded-3xl bg-bubble px-6 py-4">
-                    <MessageBody content={m.content.replace(CHOICES_MARKER, "").replace(/\[\[form_library\]\]/g, "").trim()} />
+                    <MessageBody content={m.content.replace(CHOICES_MARKER, "").replace(/\[\[(form_library|letterhead_check)\]\]/g, "").trim()} />
+                    {m.content.includes("[[letterhead_check]]") && m.id === all[all.length - 1]?.id && <LetterheadPrompt onDone={() => submit("Letterhead details are saved — go ahead and create the document.")} />}
                     {m.content.includes("[[form_library]]") && m.id === all[all.length - 1]?.id && <FormLibrary logo={orgQ.data?.logo_url} orgName={orgQ.data?.name} onDone={(t) => submit(t)} />}
                   </div>
                   {m.id !== "p" && (

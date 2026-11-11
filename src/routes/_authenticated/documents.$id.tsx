@@ -1,6 +1,7 @@
+import { LetterheadCheck, missingLetterhead } from "@/components/LetterheadCheck";
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { ArrowLeft, Download, ImagePlus } from "lucide-react";
@@ -34,7 +35,7 @@ function DocumentPage() {
   });
   const org = useQuery({
     queryKey: ["org-letterhead"],
-    queryFn: async () => (await supabase.from("organizations").select("name, address, logo_url").maybeSingle()).data,
+    queryFn: async () => (await supabase.from("organizations").select("name, address, logo_url, contact_name, contact_email, contact_phone, website, letterhead_skipped").maybeSingle()).data,
   });
 
   async function uploadLogo(f?: File) {
@@ -57,6 +58,7 @@ function DocumentPage() {
   }
 
   const d = doc.data, o = org.data;
+  const [check, setCheck] = useState(false);
   const date = d ? new Date(d.created_at).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }) : "";
 
   return (
@@ -65,8 +67,10 @@ function DocumentPage() {
         <Button variant="ghost" size="sm" onClick={() => (window.history.length > 1 ? router.history.back() : router.navigate({ to: "/chat" }))}><ArrowLeft className="h-4 w-4" /> Back</Button>
         <div className="flex gap-2">
           <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={(e) => uploadLogo(e.target.files?.[0])} />
+          <LetterheadCheck open={check} onOpenChange={setCheck} onSaved={download} />
+          {missingLetterhead(o as never).length > 0 && <Button variant="outline" size="sm" onClick={() => setCheck(true)}>Complete details ({missingLetterhead(o as never).length})</Button>}
           <Button variant="outline" size="sm" onClick={() => fileRef.current?.click()}><ImagePlus className="h-4 w-4" /> {o?.logo_url ? "Change logo" : "Add logo"}</Button>
-          <Button size="sm" onClick={download} disabled={!d}><Download className="h-4 w-4" /> Download PDF</Button>
+          <Button size="sm" onClick={() => (missingLetterhead(o as never).length ? setCheck(true) : download())} disabled={!d}><Download className="h-4 w-4" /> Download PDF</Button>
         </div>
       </div>
 
@@ -82,6 +86,7 @@ function DocumentPage() {
               <div className="min-w-0">
                 <p className="truncate text-lg font-semibold">{o?.name ?? "Your organization"}</p>
                 {o?.address && <p className="text-sm text-muted-foreground">{o.address}</p>}
+                {[o?.contact_name, o?.contact_phone, o?.contact_email, o?.website].some(Boolean) && <p className="text-xs text-muted-foreground">{[o?.contact_name, o?.contact_phone, o?.contact_email, o?.website].filter(Boolean).join(" · ")}</p>}
               </div>
             </div>
             <div className="shrink-0 text-right text-xs uppercase tracking-[0.15em] text-muted-foreground">

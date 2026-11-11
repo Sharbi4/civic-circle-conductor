@@ -1010,6 +1010,8 @@ function Onboarding({ existing }: { existing: { name: string | null; mission: st
   const [step, setStep] = useState(existing?.name ? 1 : 0);
   const [name, setName] = useState(existing?.name ?? "");
   const [address, setAddress] = useState("");
+  const [cEmail, setCEmail] = useState(existing?.contact_email ?? "");
+  const [cPhone, setCPhone] = useState(existing?.contact_phone ?? "");
   const [heard, setHeard] = useState("");
   const [mission, setMission] = useState(existing?.mission ?? "");
   const [pages, setPages] = useState<Record<string, string>>({});
@@ -1027,7 +1029,7 @@ function Onboarding({ existing }: { existing: { name: string | null; mission: st
 
   async function upsert(extra: Record<string, unknown> = {}) {
     const { data: u } = await supabase.auth.getUser();
-    const { error } = await supabase.from("organizations").upsert({ user_id: u.user!.id, name, mission, address: address || null, referral_source: heard || null, ...extra });
+    const { error } = await supabase.from("organizations").upsert({ user_id: u.user!.id, name, mission, address: address || null, contact_email: cEmail.trim() || null, contact_phone: cPhone.trim() || null, referral_source: heard || null, ...extra });
     if (error) toast.error(error.message);
     return !error;
   }
@@ -1127,6 +1129,10 @@ function Onboarding({ existing }: { existing: { name: string | null; mission: st
             {step === 0 && (<div className="space-y-3">
               <Input autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder="Organization or business name" className="h-12 rounded-2xl" />
               <Input value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Address or city, e.g. 123 Main St, Tucson AZ" className="h-12 rounded-2xl" />
+              <div className="grid grid-cols-2 gap-3">
+                <Input type="email" value={cEmail} onChange={(e) => setCEmail(e.target.value)} placeholder="Contact email" className="h-12 rounded-2xl" />
+                <Input type="tel" value={cPhone} onChange={(e) => setCPhone(e.target.value)} placeholder="Phone" className="h-12 rounded-2xl" />
+              </div>
               <div className="pt-2 text-sm text-muted-foreground">How did you hear about Civi Meet?</div>
               <div className="flex flex-wrap gap-2">
                 {HEARD.map((h) => <button type="button" key={h} onClick={() => setHeard(h)} className={`rounded-full border px-3.5 py-1.5 text-sm transition ${heard === h ? "border-primary bg-primary text-primary-foreground" : "hover:border-primary/60"}`}>{h}</button>)}
