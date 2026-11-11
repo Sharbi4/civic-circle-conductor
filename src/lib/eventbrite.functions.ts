@@ -111,7 +111,7 @@ export const completeEventbriteConnect = createServerFn({ method: "POST" })
         thread_id: threadId,
         user_id: context.userId,
         role: "assistant",
-        content: `I'm your **Eventbrite agent**, connected to **${accountName}**. I can create and manage your events, track attendees, and fold Eventbrite into your outreach plans. What should we set up first?`,
+        content: EVENTBRITE_WELCOME(accountName),
       });
     }
 
@@ -274,3 +274,16 @@ export const runEventbriteApproval = createServerFn({ method: "POST" })
     }
     return { eventId: ev.id as string, url: ev.url as string, threadId };
   });
+
+export const EVENTBRITE_WELCOME = (accountName: string) => `Hi! I'm your **Eventbrite agent**, connected to **${accountName}**. Here's what I can do for you:
+
+- **Create events** — I'll suggest the name, best day and time, capacity and an AI cover image, then save it as a draft for you to publish
+- **Update events** — change details, dates, capacity or the cover on events you already have
+- **See your events** — list what's upcoming and what's still in draft
+- **Promote events** — share them on your connected social accounts once you approve
+
+For anything Eventbrite's connection can't do (like attendee messages, ticket settings or reports), I'll open a live browser and do it on Eventbrite.com while you watch. Nothing goes live without your OK.
+
+What should we start with?
+
+[[choices: Create a new event | Show my events | Promote an event | Something else]]`;
