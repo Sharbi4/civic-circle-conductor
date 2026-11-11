@@ -2,6 +2,11 @@ import { describe, expect, it, vi } from "vitest";
 import { uploadLinkedInImage } from "@/lib/linkedinUpload.server";
 
 describe("LinkedIn photo transfer", () => {
+  it("reports the confirmed wrong-host 405 and does not claim publication", async () => {
+    const call = vi.fn(async () => new Response('Method Not Allowed', { status: 405 }));
+    await expect(uploadLinkedInImage("https://www.linkedin.com/dms-uploads/photo?signature=test", { bytes: new Uint8Array([1]), type: "image/jpeg" }, call)).rejects.toThrow("Post not published");
+    expect(call).toHaveBeenCalledTimes(1);
+  });
   it("uses PUT, preserves the signed query, and sends the original bytes through the connection", async () => {
     const call = vi.fn(async (_path: string, _init: RequestInit) => new Response(null, { status: 201 }));
     const photo = { bytes: new Uint8Array([1, 2, 3]), type: "image/jpeg" };

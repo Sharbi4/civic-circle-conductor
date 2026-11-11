@@ -33,7 +33,7 @@ use the editor.
 - Per-org data (organizations, threads, messages, memories) is keyed by auth user id with owner-only RLS; why: each organization gets isolated agent memory.
 - Formal outputs (checklists, plans, letters) are saved as documents via a [[document: ...]] marker and rendered on one shared letterhead template; why: every org gets consistent, official, downloadable documents.
 - Polls/feedback/sign-ups are built in: Civi emits a [[poll: {...}]] marker, saved to owner-only polls; public /p/$id page reads and writes only through validated server functions (no anon table access); why: shareable links without exposing responses.
-- LinkedIn photo and event-cover transfers share a server-only authenticated PUT helper; stop publication if an approved photo fails so the published content matches the approval.
+- LinkedIn photo and event-cover transfers share a server-only authenticated PUT helper; upload-host routing errors are explicit failures, never bypass connector authentication or publish without the approved image, because approval must match actual published content.
 - Shared scheduler/recovery/report callbacks process owner-scoped durable task runs with database claims, atomic completion and a provider-start boundary; unknown outcomes require review rather than replay to avoid duplicated work.
 - Retired activity and usage schema remains preserved but unused by the chat-centered app; keep applied migration history intact so rollback never destroys organization data.
 - Thread read timestamps and assistant-message timestamps persist unread state per owner; ignored approvals are retained without executing actions, so dismissing is not approval or deletion.

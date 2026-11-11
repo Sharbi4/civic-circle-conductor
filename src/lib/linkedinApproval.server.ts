@@ -141,12 +141,7 @@ export async function executeLinkedinApproval(supabase: SupabaseClient<Database>
       const type = p.online
         ? { online: { format: { external: { endsAt, url: p.url } } } }
         : { inPerson: { endsAt, ...(p.url ? { url: p.url } : {}), address: p.address ?? {}, ...(p.venue_details ? { venueDetails: rich(p.venue_details) } : {}) } };
-      let backgroundImage: string | null = null;
-      try {
-        backgroundImage = await uploadEventCover(organizer, await buildEventCover(p), orgScopes);
-      } catch (e) {
-        console.error("LinkedIn event cover failed", e);
-      }
+      const backgroundImage = await uploadEventCover(organizer, await buildEventCover(p), orgScopes);
       const created = await rest("/rest/events", "POST", {
         name: loc(p.title), organizer, startsAt, type,
         ...(p.description ? { description: rich(p.description) } : {}),
