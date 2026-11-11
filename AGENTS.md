@@ -56,7 +56,7 @@ use the editor.
 - Eventbrite status retrieves only the authenticated member image (expanded image or its media ID) with the owner's encrypted token; its connector avatar is independent, and shared avatars use it after LinkedIn and X. Never substitute an event cover or organization logo for a member photo.
 - Eventbrite draft controls bind publication approval to an exact event and connection revision; reminders and scheduled publication are task rows consumed by the existing shared scheduler. Publication uses an atomic approval claim and a live-status readback; interrupted work requires review, not replay.
 - New channel welcome preparation is tracked per thread in the query cache and rendered inline by AgentPreparing; why: no corner toast.
-- Browser research limits trigger a read-only progress summary and actionable recommendation instead of a generic takeover request; why: bounded automation must still hand useful evidence back to the organizer.
+- Browser research limits return a progress summary and recommendation, not a takeover request; why: useful evidence.
 - LinkedIn browser tasks, session starts, retargets and direct navigation are blocked through shared routing guards; why: LinkedIn work uses the existing owner-bound API connection rather than browser authentication.
 - Event chats: threads kind 'event' + event_date, one linked Event goal; [[event_chat]] marker updates them; why: events are the central unit.
-- Event overview page (/events/$goalId) stores organizer-entered venue/budget/team/vendors/suggestions in owner-only event_profiles keyed by the event goal, and ideas in sticky_notes; the organizer prompt reads that profile as source of truth so user-found venues stop venue searches.
+- Event page data lives in owner-only event_profiles/sticky_notes keyed by goal; organizer prompt treats it as truth.
