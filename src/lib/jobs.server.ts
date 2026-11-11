@@ -23,6 +23,7 @@ export async function runSharedJob(kind: 'scheduler' | 'recovery' | 'reports') {
     }
     if (kind === 'recovery') return await recoverRuns(db);
     await ensureSystemTasks(db, kind === 'reports');
+    if (kind === 'scheduler') { try { const { queueStalledEventSteps } = await import('./resume.server'); await queueStalledEventSteps(db); } catch (e) { console.error('Resume scan failed', e); } }
     const { error: enqueueError } = await db.rpc('enqueue_due_agent_tasks');
     if (enqueueError) throw new Error('Could not enqueue due work');
     const { data: queued } = await db.from('agent_task_runs').select('id, task_id, user_id').eq('status', 'queued').order('created_at').limit(100);
@@ -53,6 +54,21 @@ export async function runSharedJob(kind: 'scheduler' | 'recovery' | 'reports') {
         else if (task.job_kind === 'scout') {
           const {runCommunityScout}=await import('@/lib/scout.server');
           await runCommunityScout(run.user_id);
+        }
+        else if (task.job_kind === 'launch_step') {
+          const { runResumeStep } = await import('./resume.server');
+          const next = await runResumeStep(scopedDb(db, run.user_id), run.user_id, task, threadId);
+          if (next === 'pause') {
+            const { error: e1 } = await db.rpc('finish_agent_task', { p_run: run.id, p_next: 'infinity' });
+            if (e1) throw new Error('Work completed but progress could not be saved');
+            // Keep the step open; it waits for the organizer instead of nagging.
+            await db.from('tasks').update({ done: false, done_at: null, scheduled_for: null, last_error: 'Waiting on you — reply in the event chat to continue' }).eq('id', task.id).eq('user_id', run.user_id);
+            await db.from('messages').insert({ user_id: run.user_id, thread_id: threadId, role: 'assistant', content: `⏸️ I've paused **${task.title}** until you reply here. Tell me how you'd like to proceed and I'll pick it straight back up.` });
+          } else {
+            const { error: e2 } = await db.rpc('finish_agent_task', { p_run: run.id, p_next: next });
+            if (e2) throw new Error('Work completed but progress could not be saved');
+          }
+          continue;
         }
         else {
           const { runOrganizer } = await import('@/lib/organizer.server');
