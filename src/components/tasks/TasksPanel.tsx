@@ -28,6 +28,7 @@ export function TasksPanel() {
   });
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [showDone, setShowDone] = useState(false);
+  const [addingGoal, setAddingGoal] = useState(false);
   const [newGoal, setNewGoal] = useState("");
   const refresh = () => qc.invalidateQueries({ queryKey: ["tasks"] });
 
@@ -60,19 +61,25 @@ export function TasksPanel() {
 
   return (
     <div className="flex-1 overflow-y-auto px-2 pb-4">
-      <h2 className="px-3 pb-1 font-medium">Event goals</h2>
-      <p className="px-3 pb-3 text-xs text-muted-foreground">Each event is a goal. Under it are the scheduled tasks Civi is working — tap the chat icon on any item for live progress.</p>
-      <div className="mx-1 mb-3 flex gap-2 text-xs">
-        <span className="rounded-full bg-secondary px-2.5 py-1">{open} open</span>
-        {overdue > 0 && <span className="rounded-full bg-destructive/15 px-2.5 py-1 text-destructive">{overdue} overdue</span>}
-        <button onClick={() => setShowDone(!showDone)} className="ml-auto rounded-full px-2.5 py-1 text-muted-foreground hover:bg-secondary">{showDone ? "Hide done" : "Show done"}</button>
+      <div className="flex items-center gap-1.5 px-2 pb-1.5 pt-1">
+        <h2 className="text-sm font-medium">Event goals</h2>
+        <span className="truncate text-[11px] text-muted-foreground" title={overdue ? `${open} open, ${overdue} overdue` : `${open} open`}>
+          {open} open{overdue > 0 && <span className="text-destructive"> · {overdue} overdue</span>}
+        </span>
+        <button onClick={() => setShowDone(!showDone)} aria-pressed={showDone} title={showDone ? "Hide completed" : "Show completed"}
+          className="ml-auto shrink-0 rounded-full px-1.5 py-0.5 text-[11px] text-muted-foreground hover:bg-secondary">{showDone ? "Done" : "Show done"}</button>
+        <button onClick={() => setAddingGoal(!addingGoal)} aria-label="Add event goal" title="Add event goal"
+          className="shrink-0 rounded-full p-1 text-muted-foreground hover:bg-secondary"><Plus className="h-3.5 w-3.5" /></button>
       </div>
 
-      <form className="mx-1 mb-3 flex items-center gap-2 rounded-2xl border bg-background/40 px-3 py-2" onSubmit={(e) => { e.preventDefault(); add(newGoal, "goal", null); setNewGoal(""); }}>
-        <Target className="h-4 w-4 shrink-0 text-muted-foreground" />
-        <input value={newGoal} onChange={(e) => setNewGoal(e.target.value)} placeholder="Add an event goal…" className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground" />
-        {newGoal && <button type="submit" aria-label="Add goal" className="rounded-full p-1 hover:bg-secondary"><Plus className="h-4 w-4" /></button>}
-      </form>
+      {addingGoal && (
+        <form className="mx-1 mb-1.5 flex items-center gap-2 rounded-xl border bg-background/40 px-2 py-1.5" onSubmit={(e) => { e.preventDefault(); add(newGoal, "goal", null); setNewGoal(""); setAddingGoal(false); }}>
+          <Target className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+          <input autoFocus value={newGoal} onChange={(e) => setNewGoal(e.target.value)} onKeyDown={(e) => { if (e.key === "Escape") { setNewGoal(""); setAddingGoal(false); } }}
+            placeholder="New event goal…" className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground" />
+          <button type="submit" aria-label="Add goal" className="rounded-full p-1 hover:bg-secondary"><Plus className="h-3.5 w-3.5" /></button>
+        </form>
+      )}
 
       {goals.map((g) => {
         const kids = all.filter((t) => t.goal_id === g.id);
@@ -81,17 +88,19 @@ export function TasksPanel() {
         const isOpen = !collapsed[g.id];
         if (g.done && !showDone) return null;
         return (
-          <div key={g.id} className="mx-1 mb-2 rounded-2xl border bg-background/30 p-2">
-            <div className="flex items-center gap-1">
-              <button aria-label={isOpen ? "Collapse" : "Expand"} onClick={() => setCollapsed({ ...collapsed, [g.id]: isOpen })} className="rounded-full p-1 text-muted-foreground hover:bg-secondary">
-                {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+          <div key={g.id} className="mx-1 mb-1.5 rounded-xl border bg-background/30 px-1 py-1">
+            <div className="flex items-center gap-0.5">
+              <button aria-label={isOpen ? "Collapse" : "Expand"} onClick={() => setCollapsed({ ...collapsed, [g.id]: isOpen })} className="shrink-0 rounded-full p-1 text-muted-foreground hover:bg-secondary">
+                {isOpen ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
               </button>
               <Row t={g} onUpdate={update} onRemove={remove} bold />
             </div>
-            <div className="mx-2 mt-1 h-1 overflow-hidden rounded-full bg-secondary"><div className="h-full rounded-full bg-primary transition-all" style={{ width: `${pct}%` }} /></div>
-            <div className="px-2 pt-1 text-[11px] text-muted-foreground">{doneN}/{kids.length} done</div>
+            <div className="ml-7 flex items-center gap-1.5 pb-0.5">
+              <div className="h-1 flex-1 overflow-hidden rounded-full bg-secondary"><div className="h-full rounded-full bg-primary transition-all" style={{ width: `${pct}%` }} /></div>
+              <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground">{doneN}/{kids.length}</span>
+            </div>
             {isOpen && (
-              <div className="mt-1 space-y-0.5 pl-5">
+              <div className="pl-6">
                 {kids.filter((t) => showDone || !t.done).map((t) => <Row key={t.id} t={t} onUpdate={update} onRemove={remove} />)}
                 <AddInline placeholder="Add a task…" onAdd={(v) => add(v, "task", g.id)} />
               </div>
@@ -101,17 +110,17 @@ export function TasksPanel() {
       })}
 
       {scheduled.filter((t) => showDone || !t.done).length > 0 && (
-        <div className="mx-1 mt-3">
-          <div className="px-2 pb-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Scheduled tasks</div>
+        <div className="mx-1 mt-2">
+          <div className="px-2 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Scheduled tasks</div>
           {scheduled.filter((t) => showDone || !t.done).map((t) => <Row key={t.id} t={t} onUpdate={update} onRemove={remove} />)}
         </div>
       )}
-      <div className="mx-1 mt-3">
-        <div className="px-2 pb-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Other tasks</div>
+      <div className="mx-1 mt-2">
+        <div className="px-2 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Other tasks</div>
         {other.filter((t) => showDone || !t.done).map((t) => <Row key={t.id} t={t} onUpdate={update} onRemove={remove} />)}
         <AddInline placeholder="Add a task…" onAdd={(v) => add(v, "task", null)} />
       </div>
-      {all.length === 0 && !q.isLoading && <p className="px-3 py-3 text-sm text-muted-foreground">Nothing yet — try asking Civi "Set goals for our spring cleanup."</p>}
+      {all.length === 0 && !q.isLoading && <p className="px-3 py-2 text-xs text-muted-foreground">Nothing yet — try asking Civi "Set goals for our spring cleanup."</p>}
     </div>
   );
 }
@@ -121,66 +130,90 @@ function Row({ t, onUpdate, onRemove, bold }: { t: Task; onUpdate: (id: string, 
   const [title, setTitle] = useState(t.title);
   const [dateOpen, setDateOpen] = useState(false);
   const over = !t.done && t.due_date && t.due_date < today();
+  const fromCivi = t.created_by === "agent" || t.created_by === "civi";
+  const showTime = Boolean(t.scheduled_for && !t.done);
+  const sameDay = Boolean(t.scheduled_for && t.due_date && new Date(t.scheduled_for).toLocaleDateString() === new Date(t.due_date + "T12:00:00").toLocaleDateString());
+  const showDue = Boolean(t.due_date) && !(showTime && sameDay);
+  const hasMeta = Boolean(t.last_error || showTime || t.repeat || fromCivi || showDue || dateOpen);
   function save() { setEditing(false); if (title.trim() && title.trim() !== t.title) onUpdate(t.id, { title: title.trim() }); else setTitle(t.title); }
   return (
-    <div className="group flex min-w-0 flex-1 items-start gap-2 rounded-xl px-1.5 py-1.5 hover:bg-sidebar-accent">
+    <div className="group flex min-w-0 flex-1 items-start gap-1.5 rounded-lg px-1 py-1 hover:bg-sidebar-accent">
       <button aria-label={t.done ? "Mark not done" : "Mark done"} onClick={() => onUpdate(t.id, { done: !t.done })}
-        className={`mt-0.5 grid h-4 w-4 shrink-0 place-items-center rounded-full border transition-colors ${t.done ? "border-primary bg-primary text-primary-foreground" : "border-muted-foreground/50 hover:border-primary"}`}>
-        {t.done && <Check className="h-3 w-3" />}
+        className={`mt-0.5 grid h-3.5 w-3.5 shrink-0 place-items-center rounded-full border transition-colors ${t.done ? "border-primary bg-primary text-primary-foreground" : "border-muted-foreground/50 hover:border-primary"}`}>
+        {t.done && <Check className="h-2.5 w-2.5" />}
       </button>
       <div className="min-w-0 flex-1">
         {editing ? (
           <input autoFocus value={title} onChange={(e) => setTitle(e.target.value)} onBlur={save} onKeyDown={(e) => { if (e.key === "Enter") save(); if (e.key === "Escape") { setTitle(t.title); setEditing(false); } }}
             className="w-full rounded bg-background/60 px-1 text-sm outline-none ring-1 ring-ring" />
         ) : (
-          <button onClick={() => setEditing(true)} title="Click to edit" className={`block w-full text-left text-sm leading-snug ${bold ? "font-medium" : ""} ${t.done ? "text-muted-foreground line-through" : ""}`}>{t.title}</button>
+          <button onClick={() => setEditing(true)} title="Click to edit" className={`block w-full truncate text-left text-[13px] leading-snug ${bold ? "font-medium" : ""} ${t.done ? "text-muted-foreground line-through" : ""}`}>{t.title}</button>
         )}
-        <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-          {t.last_error && <span className="text-destructive">{t.last_error}</span>}
-          {t.scheduled_for && !t.done && (
-            <span className="inline-flex items-center gap-0.5 text-primary" title="Scheduled run time">
-              <CalendarDays className="h-3 w-3" />
-              {new Date(t.scheduled_for).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
-            </span>
-          )}
-          {t.repeat && (
-            <select aria-label="Repeat" value={t.repeat} onChange={(e) => onUpdate(t.id, { repeat: e.target.value === "off" ? null : e.target.value })}
-              className="inline-flex rounded bg-transparent text-[11px] text-primary outline-none">
-              {["daily", "weekly", "biweekly", "monthly"].map((r) => <option key={r} value={r}>↻ {r}</option>)}
-              <option value="off">Stop repeating</option>
-            </select>
-          )}
-          {(t.created_by === "agent" || t.created_by === "civi") && <span className="inline-flex items-center gap-0.5"><Sparkles className="h-3 w-3" />Civi</span>}
-          {dateOpen ? (
-            <input type="date" autoFocus defaultValue={t.due_date ?? ""} onBlur={() => setDateOpen(false)}
-              onChange={(e) => { onUpdate(t.id, { due_date: e.target.value || null }); setDateOpen(false); }}
-              className="rounded bg-background/60 px-1 text-[11px] outline-none" />
-          ) : t.due_date ? (
-            <button onClick={() => setDateOpen(true)} className={over ? "text-destructive" : ""}>{dueLabel(t.due_date)}</button>
-          ) : null}
-        </div>
+        {hasMeta && (
+          <div className="flex min-w-0 flex-nowrap items-center gap-x-1.5 overflow-hidden whitespace-nowrap text-[10px] leading-tight text-muted-foreground">
+            {t.last_error && <span className="truncate text-destructive">{t.last_error}</span>}
+            {showTime && t.scheduled_for && (
+              <span className="inline-flex shrink-0 items-center gap-0.5 text-primary" title="Scheduled run time">
+                <CalendarDays className="h-2.5 w-2.5" />
+                {new Date(t.scheduled_for).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
+              </span>
+            )}
+            {t.repeat && (
+              <span className="relative inline-flex shrink-0 items-center text-primary">
+                <select aria-label="Repeat" value={t.repeat} onChange={(e) => onUpdate(t.id, { repeat: e.target.value === "off" ? null : e.target.value })}
+                  className="cursor-pointer appearance-none rounded bg-transparent pl-0 pr-3 text-[10px] text-primary outline-none">
+                  {["daily", "weekly", "biweekly", "monthly"].map((r) => <option key={r} value={r}>↻ {r}</option>)}
+                  <option value="off">Stop repeating</option>
+                </select>
+                <ChevronDown className="pointer-events-none absolute right-0 h-2.5 w-2.5" />
+              </span>
+            )}
+            {fromCivi && <span className="inline-flex shrink-0 items-center gap-0.5"><Sparkles className="h-2.5 w-2.5" />Civi</span>}
+            {dateOpen ? (
+              <span className="inline-flex shrink-0 items-center gap-1">
+                <input type="date" autoFocus defaultValue={t.due_date ?? ""} onBlur={() => setDateOpen(false)}
+                  onChange={(e) => { onUpdate(t.id, { due_date: e.target.value || null }); setDateOpen(false); }}
+                  className="rounded bg-background/60 px-1 text-[10px] outline-none" />
+                {t.due_date && <button aria-label="Clear due date" title="Clear due date" onClick={() => { onUpdate(t.id, { due_date: null }); setDateOpen(false); }} className="text-muted-foreground hover:text-foreground">×</button>}
+              </span>
+            ) : showDue && t.due_date ? (
+              <button onClick={() => setDateOpen(true)} className={`shrink-0 ${over ? "text-destructive" : ""}`}>{dueLabel(t.due_date)}</button>
+            ) : null}
+          </div>
+        )}
       </div>
       <div className="flex shrink-0 gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 max-md:opacity-60">
         {t.thread_id && (
           <Link to="/chat/$threadId" params={{ threadId: t.thread_id }} aria-label="View progress in chat" title="View progress in chat"
-            className="grid place-items-center rounded-full p-1 text-primary hover:bg-background/60">
-            <MessagesSquare className="h-3.5 w-3.5" />
+            className="grid place-items-center rounded-full p-0.5 text-primary hover:bg-background/60">
+            <MessagesSquare className="h-3 w-3" />
           </Link>
         )}
-        <button aria-label="Set due date" title="Due date" onClick={() => setDateOpen(true)} className="rounded-full p-1 hover:bg-background/60"><CalendarDays className="h-3.5 w-3.5" /></button>
-        {t.due_date && <button aria-label="Clear due date" title="Clear date" onClick={() => onUpdate(t.id, { due_date: null })} className="rounded-full p-1 text-xs hover:bg-background/60">×</button>}
-        <button aria-label="Delete" title="Delete" onClick={() => onRemove(t)} className="rounded-full p-1 hover:bg-background/60"><Trash2 className="h-3.5 w-3.5" /></button>
+        {!t.due_date && (
+          <button aria-label="Set due date" title="Due date" onClick={() => setDateOpen(true)} className="rounded-full p-0.5 hover:bg-background/60"><CalendarDays className="h-3 w-3" /></button>
+        )}
+        <button aria-label="Delete" title="Delete" onClick={() => onRemove(t)} className="rounded-full p-0.5 hover:bg-background/60"><Trash2 className="h-3 w-3" /></button>
       </div>
     </div>
   );
 }
 
 function AddInline({ placeholder, onAdd }: { placeholder: string; onAdd: (v: string) => void }) {
+  const [open, setOpen] = useState(false);
   const [v, setV] = useState("");
+  if (!open) {
+    return (
+      <button onClick={() => setOpen(true)} className="flex items-center gap-1.5 rounded-lg px-1 py-0.5 text-[11px] text-muted-foreground hover:bg-sidebar-accent hover:text-foreground">
+        <Plus className="h-3 w-3" />{placeholder.replace("…", "").replace("Add a ", "Add ")}
+      </button>
+    );
+  }
   return (
-    <form className="flex items-center gap-2 px-1.5 py-1" onSubmit={(e) => { e.preventDefault(); onAdd(v); setV(""); }}>
-      <Plus className="h-4 w-4 shrink-0 text-muted-foreground" />
-      <input value={v} onChange={(e) => setV(e.target.value)} placeholder={placeholder} className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground" />
+    <form className="flex items-center gap-1.5 px-1 py-0.5" onSubmit={(e) => { e.preventDefault(); onAdd(v); setV(""); setOpen(false); }}>
+      <Plus className="h-3 w-3 shrink-0 text-muted-foreground" />
+      <input autoFocus value={v} onChange={(e) => setV(e.target.value)} onBlur={() => { if (!v.trim()) setOpen(false); }}
+        onKeyDown={(e) => { if (e.key === "Escape") { setV(""); setOpen(false); } }}
+        placeholder={placeholder} className="min-w-0 flex-1 bg-transparent text-[13px] outline-none placeholder:text-muted-foreground" />
     </form>
   );
 }
