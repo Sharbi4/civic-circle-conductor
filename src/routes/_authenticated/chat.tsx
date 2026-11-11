@@ -16,7 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { CONNECTORS } from "@/lib/connectors";
 import { startLinkedInConnect, completeLinkedInConnect, getLinkedInStatus, disconnectLinkedIn, runLinkedInApproval, setLinkedInOrgPage } from "@/lib/linkedin.functions";
-import { startEventbriteConnect, completeEventbriteConnect, getEventbriteStatus, disconnectEventbrite, runEventbriteApproval } from "@/lib/eventbrite.functions";
+import { startEventbriteConnect, completeEventbriteConnect, getEventbriteStatus, disconnectEventbrite, runEventbriteApproval, EVENTBRITE_WELCOME } from "@/lib/eventbrite.functions";
 import { saveSiteCredential } from "@/lib/credentials.functions";
 import { sendOrganizerMessage } from "@/lib/organizer.functions";
 import { runOnboardingResearch, scanOrgProfile } from "@/lib/research.functions";
@@ -1333,6 +1333,12 @@ function NewChatMenu({ onBlank }: { onBlank: () => void }) {
       const { data, error } = await supabase.from("threads").insert({ user_id: u.user!.id, kind: "side", title: it.title }).select("id").single();
       if (error) { toast.error(error.message); return; }
       threadId = data.id;
+    }
+    if (it.id === "eb") {
+      // A fresh (or empty) Eventbrite chat always opens with the welcome + suggested starting actions.
+      const { count } = await supabase.from("messages").select("id", { count: "exact", head: true }).eq("thread_id", threadId);
+      if (!count) await supabase.from("messages").insert({ thread_id: threadId, user_id: u.user!.id, role: "assistant", content: EVENTBRITE_WELCOME(eb.data?.accountName ?? "your Eventbrite account") });
+      qc.invalidateQueries({ queryKey: ["messages"] });
     }
     await qc.invalidateQueries({ queryKey: ["threads"] });
     navigate({ to: "/chat/$threadId", params: { threadId } });
