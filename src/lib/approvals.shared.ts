@@ -18,8 +18,8 @@ export function executionOutcome(result: { ok?: boolean; started?: boolean; queu
 }
 
 export function approvalStateLabel(state: string | null, payload: unknown) {
-  if (state === 'running') return approvalKind(payload).includes('post') ? 'Posting…' : 'Working…';
-  if (state === 'succeeded') return approvalKind(payload) === 'eventbrite_create' ? 'Success — draft created' : 'Success';
+  if (state === 'running') return approvalKind(payload) === 'eventbrite_publish' ? 'Publishing…' : approvalKind(payload).includes('post') ? 'Posting…' : 'Working…';
+  if (state === 'succeeded') return approvalKind(payload) === 'eventbrite_create' ? 'Draft saved — not published' : approvalKind(payload) === 'eventbrite_publish' ? 'Published — live' : 'Success';
   if (state === 'failed') return 'Failed';
   if (state === 'queued') return 'Queued — awaiting completion';
   if (state === 'needs_review') return 'Outcome unknown — review needed';

@@ -38,7 +38,11 @@ export async function runSharedJob(kind: 'scheduler' | 'recovery' | 'reports') {
         if (!threadId) throw new Error('Organization has no organizer chat');
         const {error:phaseError}=await db.from('agent_task_runs').update({ phase: 'provider_started' }).eq('id', run.id);
         if(phaseError) throw new Error('Could not record provider boundary');
-        if (task.job_kind === 'daily_report') await dailyReport(db, run.user_id, threadId, run.occurrence_key);
+        if (task.job_kind === 'eventbrite_publish' || task.job_kind === 'eventbrite_reminder') {
+          const { runEventbriteDraftTask } = await import('./eventbriteDraft.server');
+          await runEventbriteDraftTask(scopedDb(db, run.user_id), run.user_id, task.run_prompt ?? '', threadId);
+        }
+        else if (task.job_kind === 'daily_report') await dailyReport(db, run.user_id, threadId, run.occurrence_key);
         else if (task.job_kind === 'review') await reviewOrganization(db, run.user_id, threadId);
         else if (task.job_kind === 'scout') {
           const {runCommunityScout}=await import('@/lib/scout.server');

@@ -19,6 +19,7 @@ import { LetterheadCheck } from "@/components/LetterheadCheck";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { EventbriteDraftControls } from '@/components/EventbriteDraftControls';
 
 export const Route = createFileRoute("/_authenticated/chat/$threadId")({
   head: () => ({ meta: [
@@ -72,6 +73,8 @@ function AttachedImage({ path, role }: { path: string; role: string }) {
 const CHOICES_MARKER = /\[\[choices:\s*([^\]]+)\]\]/;
 
 function MessageBody({ content }: { content: string }) {
+  const eventId = content.match(/\[\[eventbrite_draft:(\d+)\]\]/)?.[1] ?? content.match(/https:\/\/www\.eventbrite\.com\/myevent\?eid=(\d+)/)?.[1];
+  content = content.replace(/\[\[eventbrite_draft:\d+\]\]/g, '');
   type Part = { kind: "text"; text: string } | { kind: "browser"; id: string; task: string } | { kind: "image"; role: string; path: string } | { kind: "doc"; id: string; title: string; dkind: string };
   const parts: Part[] = [];
   let last = 0;
@@ -100,6 +103,7 @@ function MessageBody({ content }: { content: string }) {
           <PinnedAware key={p.id} id={p.id} task={p.task} />
         ),
       )}
+      {eventId && <EventbriteDraftControls eventId={eventId} />}
     </div>
   );
 }

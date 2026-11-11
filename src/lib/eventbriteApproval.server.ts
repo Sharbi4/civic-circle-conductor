@@ -97,6 +97,9 @@ export async function executeEventbriteApproval(supabase: SupabaseClient<Databas
         ...(cover ? { logo_id: cover.id } : {}),
       } }),
     });
+    // Preserve the provider receipt before later steps so drafts remain addressable.
+    const { error: receiptError } = await supabase.from('approvals').update({ payload: { ...p, event_id: String(ev.id) } }).eq('id', approvalId).eq('user_id', userId);
+    if (receiptError) throw new Error('Eventbrite created the draft, but its receipt could not be saved. Review Eventbrite before retrying.');
     // Make sure the cover really is on the Eventbrite listing; set it again if Eventbrite dropped it.
     let coverOnListing = false;
     if (cover) {

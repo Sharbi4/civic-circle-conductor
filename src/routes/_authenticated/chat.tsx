@@ -10,6 +10,7 @@ import { AccountPanel } from "@/components/account/AccountPanel";
 import { LinkedInAvatar } from '@/components/account/LinkedInAvatar';
 import { XAvatar } from '@/components/account/XAvatar';
 import { EventbriteAvatar } from '@/components/account/EventbriteAvatar';
+import { EventbriteDraftControls } from '@/components/EventbriteDraftControls';
 import { SwipeToIgnore } from '@/components/SwipeToIgnore';
 import { takeDiscoveryAction } from "@/lib/discovery.functions";
 import { discoveryIdeas } from "@/lib/discovery.shared";
@@ -795,7 +796,7 @@ function ApprovalsPanel() {
         await supabase.from('approvals').update({ run_state: 'running' }).eq('id', id);
         toast('Working in the browser');
       } else if ('ok' in result && result.ok === false) toast.error('Failed — see the chat for details');
-      else if (kind === 'eventbrite_create') toast.success('Success — Eventbrite draft created');
+      else if (kind === 'eventbrite_create') toast.success('Draft saved on Eventbrite — not published');
       else if (kind.startsWith('linkedin_') || kind === 'x_post') toast.success('Success — confirmed by the service');
       else toast('Approved');
     } catch (error) {
@@ -824,6 +825,7 @@ function ApprovalsPanel() {
         {a.details && <p className="mt-1 text-sm text-muted-foreground">{a.details}</p>}
         {a.approval_mode === 'always' && <p className="mt-2 text-xs text-muted-foreground">Always approved for this action and account</p>}
         {a.run_error && <p className="mt-2 text-sm text-destructive">{a.run_error}</p>}
+        {approvalKind(a.payload) === 'eventbrite_create' && a.payload && typeof a.payload === 'object' && 'event_id' in a.payload && typeof a.payload['event_id'] === 'string' && <EventbriteDraftControls eventId={a.payload['event_id']} />}
         {busyId === a.id && <p role="status" className="mt-2 flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" />{approvalKind(a.payload).includes('post') ? 'Posting…' : 'Working…'}</p>}
         {a.status === "pending" && (
           <div className="mt-3 flex gap-2">

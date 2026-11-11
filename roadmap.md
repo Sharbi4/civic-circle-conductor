@@ -1,4 +1,5 @@
 # Civi Meet roadmap
+- [x] Add Eventbrite draft controls: save for later, day/week/custom reminders, scheduled publishing and publish now with confirmed results; reuse shared scheduler. Real draft reminder/schedule/cancellation verified, 23 tests pass; event remains unpublished pending venue confirmation.
 - [x] Add Eventbrite member avatars to the connection row and shared account fallback, preserving organization logos.
 - [x] Wire X account photos into the X connection row and shared account avatar (LinkedIn first, X fallback), without replacing organization logos.
 - [x] Wire LinkedIn member photos to account avatars without replacing organization logos; 14 focused tests pass and signed-in phone/desktop fallback verified. Real photo display awaits successful LinkedIn reconnect after publishing.
