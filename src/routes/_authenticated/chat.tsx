@@ -8,6 +8,8 @@ import { PollsPanel } from "@/components/polls/PollsPanel";
 import { TasksPanel } from "@/components/tasks/TasksPanel";
 import { AccountPanel } from "@/components/account/AccountPanel";
 import { SwipeToIgnore } from '@/components/SwipeToIgnore';
+import { takeDiscoveryAction } from "@/lib/discovery.functions";
+import { discoveryIdeas } from "@/lib/discovery.shared";
 import { decideApproval } from '@/lib/approvals.functions';
 import { approvalKind, approvalStateLabel } from '@/lib/approvals.shared';
 import { isChatUnread } from '@/lib/inbox.shared';
@@ -178,7 +180,7 @@ function Sidebar({ orgName, mobileOpen, onClose }: { orgName: string; mobileOpen
         {railBtn("connectors", Plug, "Connectors")}
         {railBtn("documents", FileText, "Documents")}
         {railBtn("polls", BarChart3, "Polls & feedback")}
-        {railBtn("scout", Compass, "Community Scout")}
+        {railBtn("scout", Compass, "Discovery")}
         {railBtn("memory", Brain, "Memory")}
         {railBtn("logins", KeyRound, "Settings: saved logins")}
         {railBtn("account", UserCircle, "My account")}
@@ -250,7 +252,7 @@ function Sidebar({ orgName, mobileOpen, onClose }: { orgName: string; mobileOpen
           </div>
         )}
         {tab === "approvals" && <ApprovalsPanel />}
-        {tab === "scout" && <ScoutPanel />}
+        {tab === "scout" && <ScoutPanel onConnect={() => setTab("connectors")} onOpenChat={onClose} />}
         {tab === "memory" && <MemoryPanel />}
         {tab === "logins" && <LoginsPanel />}
         {tab === "documents" && <DocumentsPanel />}
@@ -825,7 +827,25 @@ function ApprovalsPanel() {
   );
 }
 
-function ScoutPanel() {
+function ScoutPanel({ onConnect, onOpenChat }: { onConnect: () => void; onOpenChat: () => void }) {
+  const navigate = useNavigate();
+  const takeAction = useServerFn(takeDiscoveryAction);
+  const [acting, setActing] = useState<string | null>(null);
+  const [connectionNeeded, setConnectionNeeded] = useState<{ findingId: string; ideaIndex: number; name: string } | null>(null);
+  async function act(findingId: string, ideaIndex: number) {
+    if (acting) return;
+    setActing(`${findingId}:${ideaIndex}`);
+    try {
+      const result = await takeAction({ data: { findingId, ideaIndex } });
+      if (result.needsConnection) {
+        setConnectionNeeded({ findingId, ideaIndex, name: result.needsConnection === 'eventbrite' ? 'Eventbrite' : result.needsConnection === 'linkedin' ? 'LinkedIn' : 'X' });
+        return;
+      }
+      await Promise.all([qc.invalidateQueries({ queryKey: ['threads'] }), qc.invalidateQueries({ queryKey: ['messages'] }), qc.invalidateQueries({ queryKey: ['approvals'] })]);
+      if (result.threadId) { navigate({ to: '/chat/$threadId', params: { threadId: result.threadId } }); onOpenChat(); }
+    } catch (error) { toast.error(error instanceof Error ? error.message : 'Could not start this idea'); }
+    finally { setActing(null); }
+  }
   const qc = useQueryClient();
   const [showForm, setShowForm] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -837,6 +857,7 @@ function ScoutPanel() {
   });
   const findings = useQuery({
     queryKey: ["scout_findings"],
+    refetchInterval: 30000,
     queryFn: async () => (await supabase.from("scout_findings").select("*").order("created_at", { ascending: false }).limit(5)).data ?? [],
   });
   const resources = useQuery({
@@ -881,9 +902,11 @@ function ScoutPanel() {
 
   return (
     <div className="flex-1 overflow-y-auto px-3 pb-4">
-      <p className="px-3 pb-3 text-sm text-muted-foreground">
-        Community Scout researches your focus areas twice a day and saves what it finds to your resource directory.
-      </p>
+      <h2 className="px-3 pb-3 text-lg font-semibold">Discovery</h2>
+      {connectionNeeded && <div role="alert" className="mb-4 border-b px-3 pb-3">
+        <p className="text-sm">Connect {connectionNeeded.name} to take this action.</p>
+        <div className="mt-2 flex flex-wrap gap-2"><Button size="sm" onClick={onConnect}><Plug className="h-4 w-4" />Connect {connectionNeeded.name}</Button><Button size="sm" variant="outline" disabled={acting !== null} onClick={() => act(connectionNeeded.findingId, connectionNeeded.ideaIndex)}>Try again</Button><Button variant="ghost" size="icon" aria-label="Dismiss connection request" onClick={() => setConnectionNeeded(null)}><X className="h-4 w-4" /></Button></div>
+      </div>}
 
       <div className="flex items-center justify-between px-3 text-sm font-semibold">
         Focus areas
@@ -937,6 +960,14 @@ function ScoutPanel() {
                 <div className="text-xs text-muted-foreground">{new Date(f.created_at).toLocaleString()}</div>
                 <div className="prose prose-sm mt-1 max-w-none leading-relaxed dark:prose-invert prose-a:text-primary">
                   <ReactMarkdown remarkPlugins={[remarkGfm]}>{f.summary}</ReactMarkdown>
+                </div>
+                <div className="mt-3 divide-y border-t">
+                  {discoveryIdeas(f.ideas, f.summary).map((idea, i) => <div key={`${f.id}:${i}`} className="py-3">
+                    <span className="text-xs font-medium uppercase text-muted-foreground">{idea.kind} idea · {idea.connector === 'internal' ? 'Document' : idea.connector === 'eventbrite' ? 'Eventbrite' : idea.connector === 'linkedin' ? 'LinkedIn' : 'X'}</span>
+                    <h4 className="mt-1 font-medium">{idea.title}</h4>
+                    <p className="mt-1 text-sm text-muted-foreground">{idea.description}</p>
+                    <Button size="sm" className="mt-2" disabled={acting !== null} aria-label={`Take action: ${idea.title}`} onClick={() => act(f.id, i)}>{acting === `${f.id}:${i}` ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}{acting === `${f.id}:${i}` ? 'Starting…' : 'Take action'}</Button>
+                  </div>)}
                 </div>
               </div>
             ))}

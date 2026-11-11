@@ -39,3 +39,5 @@ use the editor.
 - Thread read timestamps and assistant-message timestamps persist unread state per owner; ignored approvals are retained without executing actions, so dismissing is not approval or deletion.
 
 - Standing approvals are owner-scoped by action, connection revision, page and target; provider execution shares an atomic claim and persisted outcome across manual and scheduled turns, so approval is never mistaken for success and actions cannot be replayed.
+
+- Scout writes briefings and validated action ideas only to owner-scoped Discovery findings; historical Scout messages stay stored but are hidden from chat, and Take action verifies the required connection before starting the organization’s agent.

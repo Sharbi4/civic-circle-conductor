@@ -131,9 +131,10 @@ export async function runCommunityScout(onlyUserId: string) {
                   `Output a short markdown briefing, then one line per new discovery exactly like: [[resource: <group|vendor|venue|nonprofit|event|professional|other> | <name> | <one line of details>]]. Max 6 resources. Also flag any listed directory entries that are likely duplicates or outdated.`,
                 ].join("\n");
 
+            const ideaInstructions = '\nAlso propose 3 organization-specific ideas: one blog, one event and one social post. Ground each in this research and the mission; do not invent dates, availability or partnership interest. Finish with [[ideas: JSON_ARRAY]] where each object has kind (blog|event|post), title, description, connector (internal for blogs, eventbrite for events, linkedin or x for posts), and prompt (specific instruction to draft or plan the action while preserving unknowns and approval requirements). No checklist reminders or approval reviews in this feed.';
             const res = await generateResponse({
               model: MODEL,
-              instructions,
+              instructions: instructions + ideaInstructions,
               input: `Run a community discovery pass for ${area.city}, ${area.state}.`,
             });
 
@@ -159,22 +160,18 @@ export async function runCommunityScout(onlyUserId: string) {
                 source: url && validUrls.has(url) ? url : "Community Scout",
                 status: "suggested",
               }));
-            const briefing = text.replace(/\n?\[\[resource:.+?\]\]/g, "").trim() || "No new findings this pass.";
+            const { discoveryIdeas } = await import('./discovery.shared');
+            const ideaMatch = text.match(/\[\[ideas:\s*([\s\S]*?)\]\](?!\])/);
+            let rawIdeas: unknown = [];
+            try { rawIdeas = JSON.parse(ideaMatch?.[1] ?? '[]'); } catch { /* use briefing-based defaults */ }
+            const briefing = text.replace(/\n?\[\[resource:.+?\]\]/g, '').replace(/\n?\[\[ideas:[\s\S]*?\]\](?!\])/g, '').trim() || 'No new findings this pass.';
+            const ideas = discoveryIdeas(rawIdeas, briefing);
 
             // Idempotent progress: findings + resources recorded before the lease clears.
             await supabaseAdmin.from("scout_findings").insert({
-              user_id: userId, focus_area_id: area.id, summary: briefing,
+              user_id: userId, focus_area_id: area.id, summary: briefing, ideas,
             });
             if (resourceRows.length) await supabaseAdmin.from("resources").insert(resourceRows);
-
-            const { data: mainThread } = await supabaseAdmin
-              .from("threads").select("id").eq("user_id", userId).eq("kind", "main").maybeSingle();
-            if (mainThread) {
-              await supabaseAdmin.from("messages").insert({
-                thread_id: mainThread.id, user_id: userId, role: "assistant",
-                content: `🔎 **Community Scout — ${area.city}, ${area.state}**\n\n${briefing}\n\n_${liveMode ? "Researched live on the web — sources are linked above." : "Web search was unavailable, so these are unverified leads."} New discoveries are in your resource directory as suggestions to review._`,
-              });
-            }
 
             await supabaseAdmin.from("scout_state").upsert({
               user_id: userId, lease_until: null, last_run_at: new Date().toISOString(),

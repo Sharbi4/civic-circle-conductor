@@ -1,3 +1,4 @@
+import { isScoutBriefing } from "./discovery.shared";
 import { generateResponse } from "@lovable.dev/ai-gateway";
 
 export type Suggestion = { label: string; prompt: string; browser_goal?: string };
@@ -18,7 +19,7 @@ export async function generateSuggestions(supabase: Db, userId: string, threadId
     supabase.from("approvals").select("title, status").eq("user_id", userId).eq("status", "pending").limit(10),
     supabase.from("browser_sessions").select("site, signed_in, agent_status, goal").eq("thread_id", threadId).eq("status", "running").limit(1),
   ]);
-  const transcript = [...(msgs ?? [])].reverse().map((m: { role: string; content: string }) => `${m.role}: ${m.content.slice(0, 600)}`).join("\n");
+  const transcript = [...(msgs ?? [])].filter((m: { content: string }) => !isScoutBriefing(m.content)).reverse().map((m: { role: string; content: string }) => `${m.role}: ${m.content.slice(0, 600)}`).join("\n");
   const instructions = [
     "You are Civi, a proactive AI community organizer. Review this chat and the org's state, then propose the 2-4 most obvious next moves, like quick-reply chips.",
     "North star: keep the org consistently engaged with its community and turn that into successful events with follow-up (engage → strategize → organize → fund → promote → run → follow up). If no touchpoint happened recently, propose one. Prefer, when relevant: Facebook Page TLC (add contact details, update description, photos), follow-ups on unfinished tasks and pending approvals, posts & events (draft a scheduled post, plan the next event), finding/joining more relevant groups.",

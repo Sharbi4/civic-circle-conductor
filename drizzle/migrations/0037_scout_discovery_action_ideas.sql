@@ -1,0 +1,2 @@
+ALTER TABLE public.scout_findings ADD COLUMN IF NOT EXISTS ideas jsonb NOT NULL DEFAULT '[]'::jsonb;
+COMMENT ON COLUMN public.scout_findings.ideas IS 'Organization-specific blog, event and social-post ideas derived from the discovery briefing.';

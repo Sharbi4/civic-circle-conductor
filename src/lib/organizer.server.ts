@@ -56,7 +56,7 @@ export async function runOrganizer(supabase: SupabaseClient<Database>, userId: s
       : "";
     const [{ data: org }, { data: history }, { data: memories }] = await Promise.all([
       supabase.from("organizations").select("name, mission, linkedin_org_id, address, logo_url, contact_name, contact_email, contact_phone, website, letterhead_skipped").eq("user_id", userId).maybeSingle(),
-      supabase.from("messages").select("role, content").eq("thread_id", data.threadId).order("created_at").limit(60),
+      supabase.from("messages").select("role, content").eq("thread_id", data.threadId).order("created_at", { ascending: false }).limit(60),
       supabase.from("memories").select("content").order("created_at", { ascending: false }).limit(80),
     ]);
 
@@ -130,7 +130,7 @@ For multi-step objectives, show a visible task plan with statuses (Done / Workin
       const res = await generateResponse({
         model: MODEL,
         instructions,
-        input: (history ?? []).map((m) => ({
+        input: [...(history ?? [])].reverse().map((m) => ({
           role: m.role === "assistant" ? ("assistant" as const) : ("user" as const),
           content: m.content,
         })),

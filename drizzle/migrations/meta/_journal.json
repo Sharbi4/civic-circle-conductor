@@ -260,6 +260,13 @@
       "when": 1794371890268,
       "tag": "0036_link_browser_approval_completion",
       "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1794372060449,
+      "tag": "0037_scout_discovery_action_ideas",
+      "breakpoints": true
     }
   ]
 }

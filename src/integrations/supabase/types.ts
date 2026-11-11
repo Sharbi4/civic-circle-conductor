@@ -882,6 +882,7 @@ export type Database = {
           created_at: string
           focus_area_id: string | null
           id: string
+          ideas: Json
           summary: string
           user_id: string
         }
@@ -889,6 +890,7 @@ export type Database = {
           created_at?: string
           focus_area_id?: string | null
           id?: string
+          ideas?: Json
           summary: string
           user_id: string
         }
@@ -896,6 +898,7 @@ export type Database = {
           created_at?: string
           focus_area_id?: string | null
           id?: string
+          ideas?: Json
           summary?: string
           user_id?: string
         }

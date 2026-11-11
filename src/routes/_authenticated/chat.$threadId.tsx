@@ -12,6 +12,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { sendOrganizerMessage } from "@/lib/organizer.functions";
 import { endBrowserSession, browserAgentStep, setBrowserDriving, startFacebookSetup } from "@/lib/browser.functions";
 import { useThreads, useOrg } from "./chat";
+import { isScoutBriefing } from "@/lib/discovery.shared";
 import { ChatSearch } from "@/components/ChatSearch";
 import { FormLibrary } from "@/components/polls/FormLibrary";
 import { LetterheadCheck } from "@/components/LetterheadCheck";
@@ -473,7 +474,7 @@ function ChatWindow({ threadId }: { threadId: string }) {
       const { data, error } = await supabase
         .from("messages").select("id, role, content").eq("thread_id", threadId).order("created_at");
       if (error) throw error;
-      return data as Msg[];
+      return (data as Msg[]).filter((m) => !isScoutBriefing(m.content));
     },
   });
 
