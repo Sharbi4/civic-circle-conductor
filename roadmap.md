@@ -41,3 +41,6 @@
 - [ ] Square vendor payments (approval-gated) — waiting on Square setup
 - [ ] Event promotion media: photos on X + LinkedIn done; remaining — AI video generation + upload, Facebook browser media upload
 - [ ] Tasks & Goals sidebar panel (table + Civi awareness done; UI pending)
+
+- [x] Correct LinkedIn image transfers to authenticated PUT; never silently publish text-only after a photo failure. Transfer regression tests passed.
+- [ ] Verify a real LinkedIn photo upload and post after the correction; requires a new approved attempt, without automatically replaying earlier approved posts.
