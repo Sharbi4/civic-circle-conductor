@@ -4,7 +4,7 @@ import { CalendarDays, Check, ChevronDown, ChevronRight, Plus, Sparkles, Target,
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
-type Task = { id: string; goal_id: string | null; kind: string; title: string; due_date: string | null; done: boolean; created_by: string; created_at: string };
+type Task = { id: string; goal_id: string | null; kind: string; title: string; due_date: string | null; done: boolean; created_by: string; created_at: string; repeat?: string | null };
 
 const today = () => new Date().toISOString().slice(0, 10);
 function dueLabel(d: string) {
@@ -127,7 +127,14 @@ function Row({ t, onUpdate, onRemove, bold }: { t: Task; onUpdate: (id: string, 
           <button onClick={() => setEditing(true)} title="Click to edit" className={`block w-full text-left text-sm leading-snug ${bold ? "font-medium" : ""} ${t.done ? "text-muted-foreground line-through" : ""}`}>{t.title}</button>
         )}
         <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-          {t.created_by === "agent" && <span className="inline-flex items-center gap-0.5"><Sparkles className="h-3 w-3" />Civi</span>}
+          {t.repeat && (
+            <select aria-label="Repeat" value={t.repeat} onChange={(e) => onUpdate(t.id, { repeat: e.target.value === "off" ? null : e.target.value })}
+              className="inline-flex rounded bg-transparent text-[11px] text-primary outline-none">
+              {["daily", "weekly", "biweekly", "monthly"].map((r) => <option key={r} value={r}>↻ {r}</option>)}
+              <option value="off">Stop repeating</option>
+            </select>
+          )}
+          {(t.created_by === "agent" || t.created_by === "civi") && <span className="inline-flex items-center gap-0.5"><Sparkles className="h-3 w-3" />Civi</span>}
           {dateOpen ? (
             <input type="date" autoFocus defaultValue={t.due_date ?? ""} onBlur={() => setDateOpen(false)}
               onChange={(e) => { onUpdate(t.id, { due_date: e.target.value || null }); setDateOpen(false); }}

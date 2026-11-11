@@ -88,8 +88,38 @@ export const Route = createFileRoute("/api/public/jobs/civi-autopilot")({
             out.push({ review: org.user_id, error: msg.slice(0, 200) });
           }
         }
+        // 4) Scheduled (repeating) tasks: when due, queue an approval that runs the task's instruction, then roll the due date forward.
+        const today = new Date().toISOString().slice(0, 10);
+        const { data: dueTasks } = await db.from("tasks").select("id, user_id, title, repeat, run_prompt, thread_id, due_date, last_run_at")
+          .not("repeat", "is", null).eq("done", false).lte("due_date", today).limit(25);
+        for (const t of dueTasks ?? []) {
+          if (t.last_run_at && t.last_run_at.slice(0, 10) === today) continue;
+          let thread = t.thread_id;
+          if (thread) { const { data: th } = await db.from("threads").select("id").eq("id", thread).maybeSingle(); thread = th?.id ?? null; }
+          if (!thread) { const { data: main } = await db.from("threads").select("id").eq("user_id", t.user_id).eq("kind", "main").maybeSingle(); thread = main?.id ?? null; }
+          const next = nextRun(t.due_date!, t.repeat!, today);
+          // Claim first so overlapping runs can't double-queue.
+          const { data: claimed } = await db.from("tasks").update({ last_run_at: new Date().toISOString(), due_date: next })
+            .eq("id", t.id).eq("due_date", t.due_date!).select("id");
+          if (!claimed?.length || !thread) continue;
+          await db.from("approvals").insert({ user_id: t.user_id, action_type: "other", title: `Scheduled: ${t.title}`.slice(0, 200),
+            details: `${t.run_prompt ?? t.title}\n\nRepeats ${t.repeat}; next run ${next}.`, payload: { kind: "civi_suggestion", thread, prompt: t.run_prompt ?? t.title } });
+          out.push({ scheduled: t.id, next });
+        }
         return Response.json({ ok: true, out });
       },
     },
   },
 });
+
+function nextRun(from: string, repeat: string, today: string): string {
+  const d = new Date(from + "T12:00:00Z");
+  const step = () => {
+    if (repeat === "daily") d.setUTCDate(d.getUTCDate() + 1);
+    else if (repeat === "weekly") d.setUTCDate(d.getUTCDate() + 7);
+    else if (repeat === "biweekly") d.setUTCDate(d.getUTCDate() + 14);
+    else d.setUTCMonth(d.getUTCMonth() + 1);
+  };
+  do step(); while (d.toISOString().slice(0, 10) <= today);
+  return d.toISOString().slice(0, 10);
+}

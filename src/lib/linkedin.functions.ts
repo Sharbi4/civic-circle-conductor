@@ -52,7 +52,7 @@ export const completeLinkedInConnect = createServerFn({ method: "POST" })
       threadId = t.id;
       await supabase.from("messages").insert({
         thread_id: threadId, user_id: userId, role: "assistant",
-        content: `I'm your **LinkedIn agent**, connected to **${accountName}**. I can write and share posts about your events and wins — every post waits for your approval first. What should we share?`,
+        content: LINKEDIN_WELCOME(accountName),
       });
     }
     return { accountName, threadId };
@@ -386,3 +386,14 @@ export const runLinkedInApproval = createServerFn({ method: "POST" })
     await say(`✅ Posted to LinkedIn${imageUrn ? " with photo" : ""}${asPage ? " from your company page" : ""}${postId ? ` — [view it](https://www.linkedin.com/feed/update/${postId})` : ""}.\n\n> ${p.text.slice(0, 280).replace(/\n/g, "\n> ")}`);
     return { threadId, ok: true };
   });
+
+export const LINKEDIN_WELCOME = (accountName: string) => `Hi! I'm your **LinkedIn agent**, connected to **${accountName}**. What do you want me to do? Here's what I can take off your plate:
+
+- **Share a post** — announce an event, a win, a volunteer call or a partner shout-out, with a photo if you'd like
+- **Create a LinkedIn event** — with a cover image, then promote it
+- **Post on a schedule** — weekly updates, monthly impact recaps or reminders before each event
+- **Grow partnerships** — draft outreach-ready posts that spotlight local partners and sponsors
+
+I'd suggest starting with a quick post about what you're working on right now — or just let me know what you need. Nothing goes live without your OK.
+
+[[choices: Share a post | Create a LinkedIn event | Set up a weekly post | Just let me know what you need]]`;

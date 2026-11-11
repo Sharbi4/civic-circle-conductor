@@ -687,6 +687,10 @@ export type Database = {
           goal_id: string | null
           id: string
           kind: string
+          last_run_at: string | null
+          repeat: string | null
+          run_prompt: string | null
+          thread_id: string | null
           title: string
           user_id: string
         }
@@ -699,6 +703,10 @@ export type Database = {
           goal_id?: string | null
           id?: string
           kind?: string
+          last_run_at?: string | null
+          repeat?: string | null
+          run_prompt?: string | null
+          thread_id?: string | null
           title: string
           user_id: string
         }
@@ -711,6 +719,10 @@ export type Database = {
           goal_id?: string | null
           id?: string
           kind?: string
+          last_run_at?: string | null
+          repeat?: string | null
+          run_prompt?: string | null
+          thread_id?: string | null
           title?: string
           user_id?: string
         }

@@ -15,7 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { CONNECTORS } from "@/lib/connectors";
-import { startLinkedInConnect, completeLinkedInConnect, getLinkedInStatus, disconnectLinkedIn, runLinkedInApproval, setLinkedInOrgPage } from "@/lib/linkedin.functions";
+import { startLinkedInConnect, completeLinkedInConnect, getLinkedInStatus, disconnectLinkedIn, runLinkedInApproval, setLinkedInOrgPage, LINKEDIN_WELCOME } from "@/lib/linkedin.functions";
 import { startEventbriteConnect, completeEventbriteConnect, getEventbriteStatus, disconnectEventbrite, runEventbriteApproval, EVENTBRITE_WELCOME } from "@/lib/eventbrite.functions";
 import { saveSiteCredential } from "@/lib/credentials.functions";
 import { sendOrganizerMessage } from "@/lib/organizer.functions";
@@ -1334,10 +1334,10 @@ function NewChatMenu({ onBlank }: { onBlank: () => void }) {
       if (error) { toast.error(error.message); return; }
       threadId = data.id;
     }
-    if (it.id === "eb" || it.id === "x") {
+    if (it.id === "eb" || it.id === "x" || it.id === "li") {
       // A fresh (or empty) Eventbrite chat always opens with the welcome + suggested starting actions.
       const { count } = await supabase.from("messages").select("id", { count: "exact", head: true }).eq("thread_id", threadId);
-      if (!count) await supabase.from("messages").insert({ thread_id: threadId, user_id: u.user!.id, role: "assistant", content: it.id === "x" ? X_WELCOME(x.data?.accountName ?? "your X account") : EVENTBRITE_WELCOME(eb.data?.accountName ?? "your Eventbrite account") });
+      if (!count) await supabase.from("messages").insert({ thread_id: threadId, user_id: u.user!.id, role: "assistant", content: it.id === "li" ? LINKEDIN_WELCOME(li.data?.accountName ?? "your LinkedIn account") : it.id === "x" ? X_WELCOME(x.data?.accountName ?? "your X account") : EVENTBRITE_WELCOME(eb.data?.accountName ?? "your Eventbrite account") });
       qc.invalidateQueries({ queryKey: ["messages"] });
     }
     await qc.invalidateQueries({ queryKey: ["threads"] });

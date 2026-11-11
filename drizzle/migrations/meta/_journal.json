@@ -169,6 +169,13 @@
       "when": 1794357703235,
       "tag": "0023_poll_event_link",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1794357800503,
+      "tag": "0024_task_schedules",
+      "breakpoints": true
     }
   ]
 }

@@ -110,7 +110,7 @@ For multi-step objectives, show a visible task plan with statuses (Done / Workin
       `When you learn a durable fact about the organization (audiences, goals, dates, voice, contacts), add a final line exactly like: [[remember: <fact>]]. Only for new facts.`,
       memories?.length ? `Organization memory:\n- ${memories.map((m) => m.content).join("\n- ")}` : "",
       thread.kind === "side" ? `This is a side chat titled "${thread.title}".` : "This is the main organizer chat.",
-      `OFFER A SCHEDULE: when the organizer asks for an action that naturally repeats (posts, reminders, volunteer calls, event promotion, check-ins, roundups, notification checks), after handling it ask once whether they'd like it on a schedule, suggesting a fitting cadence, e.g. [[choices: Every Monday | Every week before an event | Every month | Just this once]]. Skip it for one-off actions (a single event, a booking, a payment). If they pick a schedule, add a task named with the cadence (e.g. "Every Monday: X post — weekly events roundup") with the next date as its due date, and say plainly that you'll draft it each time it comes due and it still waits for their approval.`,
+      `OFFER A SCHEDULE: when the organizer asks for an action that naturally repeats (posts, reminders, volunteer calls, event promotion, check-ins, roundups, notification checks), after handling it ask once whether they'd like it on a schedule, suggesting a fitting cadence, e.g. [[choices: Every Monday | Every week before an event | Every month | Just this once]]. Skip it for one-off actions (a single event, a booking, a payment). If they pick a schedule, save a REAL scheduled task with the marker [[task: {"title":"Every Monday: X post — weekly events roundup","due":"<next run date YYYY-MM-DD>","repeat":"daily|weekly|biweekly|monthly","prompt":"the exact instruction you should follow each time, e.g. Draft this week's X roundup post of our upcoming events for approval"}]]. The scheduler runs it automatically on each due date: it puts a "Scheduled:" item in Approvals, and once they approve you carry it out in this chat (posts still get their own approval). Tell them that in one line and that they can change or stop it in Goals & tasks.`,
     ].filter(Boolean).join("\n\n");
 
     let text = "";
@@ -241,11 +241,13 @@ For multi-step objectives, show a visible task plan with statuses (Done / Workin
     const uuidRe = /^[0-9a-f-]{36}$/i;
     const taskRows = [...text.matchAll(/\[\[(task|goal):\s*(\{.+?\})\s*\]\]/gs)].slice(0, 10).flatMap((m) => {
       try {
-        const p = JSON.parse(m[2] ?? "") as { title?: string; due?: string; goal_id?: string };
+        const p = JSON.parse(m[2] ?? "") as { title?: string; due?: string; goal_id?: string; repeat?: string; prompt?: string };
+        const repeat = m[1] === "task" && p.repeat && ["daily", "weekly", "biweekly", "monthly"].includes(p.repeat) ? p.repeat : null;
         if (!p.title) return [];
         return [{ user_id: userId, kind: m[1] === "goal" ? "goal" : "task", title: p.title.slice(0, 200), created_by: "civi",
           due_date: p.due && /^\d{4}-\d{2}-\d{2}$/.test(p.due) ? p.due : null,
-          goal_id: m[1] === "task" && p.goal_id && uuidRe.test(p.goal_id) && goals.some((g) => g.id === p.goal_id) ? p.goal_id : null }];
+          goal_id: m[1] === "task" && p.goal_id && uuidRe.test(p.goal_id) && goals.some((g) => g.id === p.goal_id) ? p.goal_id : null,
+          repeat, run_prompt: repeat ? (p.prompt || p.title).slice(0, 1000) : null, thread_id: repeat ? data.threadId : null }];
       } catch { return []; }
     });
     if (taskRows.length) { const { error: tErr } = await supabase.from("tasks").insert(taskRows); if (tErr) console.error("Failed to save tasks", tErr.message); }
