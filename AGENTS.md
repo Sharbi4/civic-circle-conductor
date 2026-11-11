@@ -58,4 +58,4 @@ use the editor.
 - New channel welcome preparation is tracked per thread in the shared query cache and rendered by AgentPreparing; why: navigation shows the pending welcome inline rather than as a corner notification.
 - Browser research limits trigger a read-only progress summary and actionable recommendation instead of a generic takeover request; why: bounded automation must still hand useful evidence back to the organizer.
 - LinkedIn browser tasks, session starts, retargets and direct navigation are blocked through shared routing guards; why: LinkedIn work uses the existing owner-bound API connection rather than browser authentication.
-- Event chats are threads with kind 'event' (title = event name, event_date) each linked to one Event goal with a step checklist; the organizer's [[event_chat: ...]] marker converts/updates them, and agents use connected APIs first, browser mainly for Facebook/Instagram; why: the event is the app's central unit of work.
+- Event chats: threads kind 'event' + event_date, one linked Event goal; [[event_chat]] marker updates them; why: events are the central unit.
