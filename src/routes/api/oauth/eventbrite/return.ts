@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { LINKEDIN_APP_ORIGINS } from "@/lib/linkedinDirect.shared";
 
 // Eventbrite OAuth landing page. Runs in a popup with no app session, so it
 // only parses the one-time code and posts it to the opener window, which
@@ -17,7 +18,7 @@ export const Route = createFileRoute("/api/oauth/eventbrite/return")({
         let targetOrigin = url.origin;
         try {
           const origin = new URL(state).origin;
-          if (origin.endsWith(".lovable.app") || origin === "https://civic-circle-conductor.lovable.app") {
+          if (origin.endsWith(".lovable.app") || LINKEDIN_APP_ORIGINS.includes(origin)) {
             targetOrigin = origin;
           }
         } catch {

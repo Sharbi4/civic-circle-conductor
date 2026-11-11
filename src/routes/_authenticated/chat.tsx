@@ -23,6 +23,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { CONNECTORS } from "@/lib/connectors";
 import { startLinkedInConnect, completeLinkedInConnect, getLinkedInStatus, disconnectLinkedIn, runLinkedInApproval, setLinkedInOrgPage, LINKEDIN_WELCOME } from "@/lib/linkedin.functions";
 import { startEventbriteConnect, completeEventbriteConnect, getEventbriteStatus, disconnectEventbrite, runEventbriteApproval, EVENTBRITE_WELCOME } from "@/lib/eventbrite.functions";
+import { LINKEDIN_APP_ORIGINS } from "@/lib/linkedinDirect.shared";
 import { saveSiteCredential } from "@/lib/credentials.functions";
 import { sendOrganizerMessage } from "@/lib/organizer.functions";
 import { runOnboardingResearch, scanOrgProfile } from "@/lib/research.functions";
@@ -281,7 +282,7 @@ function EventbriteConnectorRow() {
         // The OAuth popup can land on the published domain while the opener is
         // the preview (Eventbrite allows only one redirect URI), so accept our
         // own app origins rather than only this window's origin.
-        if (!event.origin.endsWith(".lovable.app") || event.source !== popup) return;
+        if (!(event.origin.endsWith(".lovable.app") || LINKEDIN_APP_ORIGINS.includes(event.origin)) || event.source !== popup) return;
         const type = event.data?.type;
         if (event.data?.connectorId !== "eventbrite") return;
         if (type !== "civiOauthComplete" && type !== "civiOauthFailed") return;
@@ -379,7 +380,7 @@ function NextdoorConnectorRow() {
         // The OAuth popup can land on the published domain while the opener is
         // the preview (Nextdoor allows only one redirect URI), so accept our
         // own app origins rather than only this window's origin.
-        if (!event.origin.endsWith(".lovable.app") || event.source !== popup) return;
+        if (!(event.origin.endsWith(".lovable.app") || LINKEDIN_APP_ORIGINS.includes(event.origin)) || event.source !== popup) return;
         const type = event.data?.type;
         if (event.data?.connectorId !== "nextdoor") return;
         if (type !== "civiOauthComplete" && type !== "civiOauthFailed") return;
