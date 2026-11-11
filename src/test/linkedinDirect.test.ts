@@ -50,7 +50,7 @@ describe('organization LinkedIn authorization', () => {
 describe('worker-compatible redirect handling', () => {
   it('never asks the runtime for unsupported redirect mode and refuses redirects', async () => {
     const { createDirectLinkedInTransport } = await import('@/lib/linkedinDirect.server');
-    const send = vi.fn(async () => new Response(null, { status: 302, headers: { Location: 'https://evil.example/' } }));
+    const send = vi.fn(async (_url: string, _init?: RequestInit) => new Response(null, { status: 302, headers: { Location: 'https://evil.example/' } }));
     const t = createDirectLinkedInTransport({ accessToken: 'x', expiresAt: new Date(Date.now() + 3600_000).toISOString(), scopes: [] }, send as unknown as typeof fetch);
     await expect(t.call('/v2/userinfo')).rejects.toThrow(/redirected/);
     expect(send.mock.calls[0]?.[1]?.redirect).toBe('manual');
