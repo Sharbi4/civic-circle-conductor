@@ -1,0 +1,4 @@
+ALTER TABLE public.threads ADD COLUMN last_read_at timestamptz, ADD COLUMN latest_assistant_at timestamptz;
+UPDATE public.threads t SET latest_assistant_at=(SELECT max(m.created_at) FROM public.messages m WHERE m.thread_id=t.id AND m.user_id=t.user_id AND m.role='assistant');
+CREATE OR REPLACE FUNCTION public.update_thread_unread() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$ BEGIN IF NEW.role='assistant' THEN UPDATE public.threads SET latest_assistant_at=NEW.created_at WHERE id=NEW.thread_id AND user_id=NEW.user_id; END IF; RETURN NEW; END $$;
+CREATE TRIGGER messages_update_unread AFTER INSERT ON public.messages FOR EACH ROW EXECUTE FUNCTION public.update_thread_unread();

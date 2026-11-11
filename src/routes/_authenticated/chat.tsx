@@ -7,6 +7,8 @@ import { MessageCircle, Plus, Plug, LogOut, Pin, Brain, Inbox, Megaphone, Calend
 import { PollsPanel } from "@/components/polls/PollsPanel";
 import { TasksPanel } from "@/components/tasks/TasksPanel";
 import { AccountPanel } from "@/components/account/AccountPanel";
+import { SwipeToIgnore } from '@/components/SwipeToIgnore';
+import { isChatUnread } from '@/lib/inbox.shared';
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -57,6 +59,7 @@ export function useOrg() {
 export function useApprovals() {
   return useQuery({
     queryKey: ["approvals"],
+    refetchInterval: 10000,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("approvals")
@@ -71,6 +74,7 @@ export function useApprovals() {
 export function useThreads() {
   return useQuery({
     queryKey: ["threads"],
+    refetchInterval: 10000,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("threads").select("*").order("kind").order("updated_at", { ascending: false });
@@ -110,6 +114,11 @@ function Sidebar({ orgName, mobileOpen, onClose }: { orgName: string; mobileOpen
   const pendingCount = approvals.data?.filter((a) => a.status === "pending").length ?? 0;
   const main = threads.data?.find((t) => t.kind === "main");
   const side = threads.data?.filter((t) => t.kind !== "main") ?? [];
+  const activeThread = threads.data?.find((t) => t.id === params.threadId);
+  useEffect(() => {
+    if (!activeThread || !isChatUnread(activeThread.latest_assistant_at, activeThread.last_read_at) || document.visibilityState !== 'visible') return;
+    supabase.from('threads').update({ last_read_at: new Date().toISOString() }).eq('id', activeThread.id).then(({error}) => { if (!error) qc.invalidateQueries({queryKey:['threads']}); });
+  }, [activeThread?.id, activeThread?.latest_assistant_at]);
   async function togglePin(id: string, pinned: boolean) {
     const { error } = await supabase.from("threads").update({ pinned }).eq("id", id);
     if (error) { toast.error(error.message); return; }
@@ -190,7 +199,7 @@ function Sidebar({ orgName, mobileOpen, onClose }: { orgName: string; mobileOpen
                 params={{ threadId: main.id }}
                 className={`block rounded-2xl px-3 py-2.5 font-medium ${params.threadId === main.id ? "bg-sidebar-accent" : "hover:bg-sidebar-accent"}`}
               >
-                Main chat
+                Main chat {params.threadId !== main.id && isChatUnread(main.latest_assistant_at, main.last_read_at) && <span aria-label="Unread messages" className="ml-2 inline-block h-2 w-2 rounded-full bg-primary" />}
               </Link>
             )}
             <div className="mt-4 flex items-center justify-between px-3 text-sm text-muted-foreground">
@@ -203,6 +212,7 @@ function Sidebar({ orgName, mobileOpen, onClose }: { orgName: string; mobileOpen
                   <Link to="/chat/$threadId" params={{ threadId: t.id }} className="flex min-w-0 flex-1 items-center gap-2 px-3 py-2.5">
                     {t.pinned && <Pin className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />}
                     <span className="truncate">{t.title}</span>
+                    {params.threadId !== t.id && isChatUnread(t.latest_assistant_at, t.last_read_at) && <span aria-label="Unread messages" className="h-2 w-2 shrink-0 rounded-full bg-primary" />}
                   </Link>
                   <div className="flex shrink-0 gap-0.5 pr-2 opacity-60 transition-opacity group-hover:opacity-100">
                     <button title={t.pinned ? "Unpin chat" : "Pin chat"} aria-label={t.pinned ? "Unpin chat" : "Pin chat"} onClick={() => togglePin(t.id, !t.pinned)} className="rounded-full p-1.5 hover:bg-background/60"><Pin className={`h-3.5 w-3.5 ${t.pinned ? "fill-current" : ""}`} /></button>
@@ -691,7 +701,15 @@ function ApprovalsPanel() {
   const runX = useServerFn(runXApproval);
   const main = threads.data?.find((t) => t.kind === "main");
   const pending = approvals.data?.filter((a) => a.status === "pending") ?? [];
-  const resolved = approvals.data?.filter((a) => a.status !== "pending") ?? [];
+  const resolved = approvals.data?.filter((a) => a.status !== "pending" && a.status !== "ignored") ?? [];
+  async function ignore(id: string) {
+    setBusyId(id);
+    const { error } = await supabase.from('approvals').update({status:'ignored',resolved_at:new Date().toISOString()}).eq('id',id).eq('status','pending');
+    setBusyId(null);
+    if(error) {toast.error("Couldn't ignore this item");return;}
+    await qc.invalidateQueries({queryKey:['approvals']});
+    toast('Ignored — no action will be taken', {action:{label:'Undo',onClick:async()=>{await supabase.from('approvals').update({status:'pending',resolved_at:null}).eq('id',id).eq('status','ignored');qc.invalidateQueries({queryKey:['approvals']});}}});
+  }
 
   async function respond(id: string, decision: "approved" | "declined", title: string, browserSessionId?: string | null, payload?: unknown) {
     setBusyId(id);
@@ -782,10 +800,11 @@ function ApprovalsPanel() {
   const card = (a: NonNullable<typeof approvals.data>[number]) => {
     const { Icon, label } = APPROVAL_TYPE[a.action_type] ?? APPROVAL_TYPE["other"]!;
     return (
-      <div key={a.id} className="rounded-2xl border bg-card p-4 shadow-soft">
+      <SwipeToIgnore key={a.id} onIgnore={() => ignore(a.id)} disabled={a.status !== 'pending' || busyId !== null}><div className="rounded-2xl border bg-card p-4 shadow-soft">
         <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
           <Icon className="h-4 w-4 text-accent" />
           {label}
+          {a.status === 'pending' && <Button variant="ghost" size="icon" className="ml-auto h-7 w-7" aria-label={`Ignore ${a.title}`} title="Ignore" disabled={busyId !== null} onClick={() => ignore(a.id)}><X className="h-3.5 w-3.5" /></Button>}
           {a.status !== "pending" && (
             <span className={`ml-auto rounded-full px-2 py-0.5 ${a.status === "approved" ? "bg-secondary text-foreground" : "bg-secondary text-muted-foreground line-through"}`}>
               {a.status}
@@ -804,7 +823,7 @@ function ApprovalsPanel() {
             </Button>
           </div>
         )}
-      </div>
+      </div></SwipeToIgnore>
     );
   };
 

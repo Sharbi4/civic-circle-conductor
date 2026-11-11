@@ -1044,6 +1044,8 @@ export type Database = {
           created_at: string
           id: string
           kind: string
+          last_read_at: string | null
+          latest_assistant_at: string | null
           pinned: boolean
           title: string
           updated_at: string
@@ -1054,6 +1056,8 @@ export type Database = {
           created_at?: string
           id?: string
           kind?: string
+          last_read_at?: string | null
+          latest_assistant_at?: string | null
           pinned?: boolean
           title?: string
           updated_at?: string
@@ -1064,6 +1068,8 @@ export type Database = {
           created_at?: string
           id?: string
           kind?: string
+          last_read_at?: string | null
+          latest_assistant_at?: string | null
           pinned?: boolean
           title?: string
           updated_at?: string
