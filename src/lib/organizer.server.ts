@@ -4,7 +4,7 @@ import { generateResponse, GatewayError } from "@lovable.dev/ai-gateway";
 import { EVENT_PLAYBOOK } from "@/lib/eventPlaybook";
 import { CORE_PLAYBOOK } from "@/lib/corePlaybook";
 import { perplexitySearch, formatHits } from "@/lib/research.server";
-import { openBrowserSession, retargetSession, closeOtherBrowsers } from "@/lib/browser.functions";
+import { openBrowserSession, retargetSession, closeOtherBrowsers } from "@/lib/browser.server";
 
 const MODEL = "openai/gpt-6.1-terra";
 /**

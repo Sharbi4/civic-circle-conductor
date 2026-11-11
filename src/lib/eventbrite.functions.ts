@@ -2,8 +2,6 @@ import { createServerFn } from "@tanstack/react-start";
 import { getRequest } from "@tanstack/react-start/server";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { buildCoverBytes as buildCoverBytesShared, loadEventImage } from "@/lib/eventCover.server";
-import { encryptToken } from "@/lib/tokenCrypto.server";
 
 const AUTHORIZE_URL = "https://www.eventbrite.com/oauth/authorize";
 const TOKEN_URL = "https://www.eventbrite.com/oauth/token";
@@ -78,6 +76,7 @@ export const completeEventbriteConnect = createServerFn({ method: "POST" })
     const me = (await meRes.json()) as { name?: string; emails?: { email: string }[] };
     const accountName = me.name ?? me.emails?.[0]?.email ?? "Eventbrite account";
 
+    const { encryptToken } = await import("@/lib/tokenCrypto.server");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { error } = await supabaseAdmin.from("connector_connections").upsert(
       {
@@ -144,43 +143,6 @@ export const disconnectEventbrite = createServerFn({ method: "POST" })
     if (error) throw error;
     return { ok: true };
   });
-
-const EventPayload = z.object({
-  kind: z.literal("eventbrite_create"),
-  title: z.string().min(1).max(200),
-  start: z.string().min(10),
-  end: z.string().min(10),
-  timezone: z.string().default("America/Phoenix"),
-  location: z.string().default("Online"),
-  capacity: z.coerce.number().int().positive().default(100),
-  price: z.coerce.number().min(0).default(0),
-  description: z.string().default(""),
-  image_prompt: z.string().max(2000).optional(),
-  cover_image: z.string().max(300).optional(),
-  inspiration_image: z.string().max(300).optional(),
-});
-
-const buildCoverBytes = async (opts: Parameters<typeof buildCoverBytesShared>[1]) =>
-  buildCoverBytesShared("Eventbrite", opts);
-
-/** Uploads cover bytes to Eventbrite. Returns media id + url. */
-async function createEventCover(cover: { bytes: Uint8Array<ArrayBuffer>; type: string }, eb: (path: string, init?: RequestInit) => Promise<any>) {
-  const bytes = cover.bytes;
-  const up = await eb("/media/upload/?type=image-event-logo");
-  const form = new FormData();
-  for (const [k, v] of Object.entries(up.upload_data ?? {})) form.append(k, String(v));
-  form.append(up.file_parameter_name ?? "file", new Blob([bytes], { type: cover.type }), cover.type === "image/png" ? "cover.png" : "cover.jpg");
-  const put = await fetch(up.upload_url, { method: "POST", body: form });
-  if (!put.ok) throw new Error(`Cover upload failed [${put.status}]`);
-  const { imageSize, bannerCrop } = await import("@/lib/eventCover.server");
-  const size = imageSize(bytes);
-  const media = await eb("/media/upload/", {
-    method: "POST",
-    // Crop to Eventbrite's 2:1 banner so the photo shows properly on the listing.
-    body: JSON.stringify({ upload_token: up.upload_token, ...(size ? { crop_mask: bannerCrop(size.width, size.height) } : {}) }),
-  });
-  return { id: media.id as string, url: (media.url ?? media.original?.url) as string | undefined };
-}
 
 /** Runs an approved Eventbrite action. Creates the event as an unpublished draft. */
 export const runEventbriteApproval = createServerFn({ method: "POST" })

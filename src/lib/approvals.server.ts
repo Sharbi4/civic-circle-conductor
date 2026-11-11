@@ -56,7 +56,7 @@ export async function dispatchApproval(db: Db, userId: string, id: string, paylo
     return executeApproval(db, userId, id, async () => ({ ...await executeEventbriteApproval(db, userId, id), ok: true }));
   }
   if (kind.startsWith('fb_')) {
-    const { executeFacebookApproval } = await import('./browser.functions');
+    const { executeFacebookApproval } = await import('./browser.server');
     return executeApproval(db, userId, id, () => executeFacebookApproval(db, userId, id));
   }
   if (kind === 'civi_suggestion') {

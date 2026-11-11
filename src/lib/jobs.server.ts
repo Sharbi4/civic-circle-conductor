@@ -59,7 +59,7 @@ export async function runSharedJob(kind: 'scheduler' | 'recovery' | 'reports') {
     }
     if(kind==='scheduler') {
       const {data:browsers}=await db.from('browser_sessions').select('id,user_id,driver_lease').eq('status','running').eq('agent_status','driving').is('driver_lease',null).limit(3);
-      const {runAgentStep}=await import('@/lib/browser.functions');
+      const {runAgentStep}=await import('@/lib/browser.server');
       for(const browser of browsers??[]) {try{const {data:state}=await db.from('autopilot_state').select('paused_reason').eq('user_id',browser.user_id).maybeSingle();if(state?.paused_reason) continue;await runAgentStep(scopedDb(db,browser.user_id),browser.user_id,browser.id);}catch(e){await noteJobFailure(browser.user_id,e);}}
     }
     return { ok: true, processed };

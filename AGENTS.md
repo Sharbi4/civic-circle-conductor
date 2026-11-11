@@ -41,3 +41,5 @@ use the editor.
 - Standing approvals are owner-scoped by action, connection revision, page and target; provider execution shares an atomic claim and persisted outcome across manual and scheduled turns, so approval is never mistaken for success and actions cannot be replayed.
 
 - Scout writes briefings and validated action ideas only to owner-scoped Discovery findings; historical Scout messages stay stored but are hidden from chat, and Take action verifies the required connection before starting the organization’s agent.
+
+- Browser execution and media helpers live in server-only modules; client-reachable function declarations dynamically load them only inside handlers to keep provider credentials and automation dependencies out of frontend bundles.

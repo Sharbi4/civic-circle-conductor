@@ -2,7 +2,6 @@ import { createServerFn } from "@tanstack/react-start";
 import { getRequest } from "@tanstack/react-start/server";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { buildCoverBytes, loadEventImage } from "@/lib/eventCover.server";
 
 const GATEWAY = "https://connector-gateway.lovable.dev";
 const SCOPES = ["openid", "profile", "w_member_social"];
@@ -91,51 +90,6 @@ export const setLinkedInOrgPage = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { ok: true };
   });
-
-const addressSchema = z.object({
-  line1: z.string().max(200).optional(), city: z.string().max(100).optional(),
-  geographicArea: z.string().max(100).optional(), postalCode: z.string().max(20).optional(),
-  country: z.string().length(2).optional(),
-}).optional();
-
-const coverFields = {
-  image_prompt: z.string().max(2000).optional(),
-  cover_image: z.string().max(300).optional(),
-  inspiration_image: z.string().max(300).optional(),
-};
-
-const eventCreateSchema = z.object({
-  kind: z.literal("linkedin_event_create"),
-  title: z.string().min(1).max(255),
-  start: z.string(), end: z.string(),
-  description: z.string().max(5000).default(""),
-  online: z.boolean().default(false),
-  url: z.string().url().optional(),
-  address: addressSchema,
-  venue_details: z.string().max(500).optional(),
-  post_text: z.string().max(3000).default(""),
-  ...coverFields,
-});
-
-const eventUpdateSchema = z.object({
-  kind: z.literal("linkedin_event_update"),
-  event_id: z.string().regex(/^\d+$/),
-  title: z.string().min(1).max(255).optional(),
-  start: z.string().optional(), end: z.string().optional(),
-  description: z.string().max(5000).optional(),
-  url: z.string().url().optional(),
-  address: addressSchema,
-  venue_details: z.string().max(500).optional(),
-  ...coverFields,
-});
-
-const ms = (iso: string) => {
-  const t = Date.parse(iso);
-  if (Number.isNaN(t)) throw new Error(`Invalid date: ${iso}`);
-  return t;
-};
-const loc = (t: string) => ({ localized: { en_US: t } });
-const rich = (t: string) => ({ localized: { en_US: { rawText: t } } });
 
 /** Runs an approved LinkedIn action: member post, event create+publish, or event edit. */
 export const runLinkedInApproval = createServerFn({ method: "POST" })
