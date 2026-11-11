@@ -25,7 +25,17 @@ export const sendOrganizerMessage = createServerFn({ method: "POST" })
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: ebConn } = await supabaseAdmin.from("connector_connections")
-      .select("account_name").eq("user_id", userId).eq("connector", "eventbrite").maybeSingle();
+      .select("account_name, access_token_ciphertext").eq("user_id", userId).eq("connector", "eventbrite").maybeSingle();
+    let ebEventsBlock = "";
+    if (ebConn) {
+      try {
+        const { listEventbriteEvents } = await import("@/lib/eventbriteEvents.server");
+        const evs = await listEventbriteEvents(ebConn.access_token_ciphertext);
+        ebEventsBlock = evs.length
+          ? evs.map((e) => `- ${e.name} — ${e.start ? e.start.replace("T", " ").slice(0, 16) : "no date"} — ${e.status}${e.venue ? ` — ${e.venue}` : ""} — ${e.url} {eventbrite_id:${e.id}}`).join("\n")
+          : "No upcoming events on Eventbrite yet.";
+      } catch (e) { console.error("Eventbrite event list failed", e); ebEventsBlock = "Couldn't load the event list right now."; }
+    }
 
     const { data: liConn } = await supabaseAdmin.from("app_user_connections")
       .select("account_name").eq("user_id", userId).eq("connector_id", "linkedin").maybeSingle();
@@ -105,6 +115,7 @@ For multi-step objectives, show a visible task plan with statuses (Done / Workin
         : "X is not connected yet; draft X posts and suggest connecting X in the Connectors tab.",
       `Approvals: when you propose any outreach, booking or payment action, describe it in the message, tell the user it is queued in the Approvals inbox for their review, and add a final line exactly like: [[approval: <outreach|booking|payment> | <short title> | <one line of details>]]. One line per proposed action. Never claim an action is done until the user has approved it.`,
       `EVENTBRITE AGENT (when this chat is the Eventbrite Agent or the request is about Eventbrite): what the connection can do directly — create events as drafts with a cover image ([[eventbrite_event: ...]]), update and list the organizer's events. For anything it can't do (messaging attendees, ticket types/promo codes, check-in, payouts, reports, publishing settings, editing the event page design, or if a connection action fails), say so in one line and offer to do it in the live browser on eventbrite.com with [[browse: ...]]. Saved Eventbrite login: ${ebLogin ? "YES" : "NO"}. Before browsing: if an Eventbrite login is saved, say you'll sign in with it; if not, tell them you'll open the Eventbrite sign-in page so they can type their email and password using "Take over" (never ask for passwords or codes in chat), and offer: "Want me to save your Eventbrite login securely so I can sign in next time? Add it under the key icon → Saved logins." with [[choices: Open browser & I'll sign in | Save my login first | Not now]]. Submissions, publishing and payments in the browser still pause for approval.`,
+      ...(ebConn ? [`THEIR EVENTBRITE EVENTS (live from Eventbrite, current and upcoming):\n${ebEventsBlock}\nNEVER ask "which event?" with an open question when events are listed here — when they want to promote, update, RSVP-link or review an event, name the likely one(s) and offer them as buttons, e.g. [[choices: <Event A> (Sat Nov 21) | <Event B> (Dec 5) | A different event]]. With exactly one upcoming event, assume it and proceed ("I'll promote **X** on Sat Nov 21 — here are the drafts"). For promotion, immediately draft posts for every connected platform with the event link, then offer a reminder schedule. If none are listed, offer to create one.`] : []),
       `Live browser: you can open a real web browser that the user watches live inside the chat. When the user asks you to browse the web or a task genuinely needs live browsing (researching vendors on a site, checking event listings, looking at a page), add a final line exactly like: [[browse: <what you will do in the browser>]] and tell the user you're opening a live browser they can watch and take over. The browse task is your goal: you will drive the browser yourself step by step (navigate sites like Eventbrite, search, fill forms), the user watches each step and can take over anytime, and before submitting any form, message, booking or payment you pause for their approval in the Approvals inbox. Write the browse goal specifically (site, search terms, what to fill in). Never claim results before the browser task reports back.`,
       `Be concise, decisive and practical. Use markdown with short headings and bullets.`,
       `When you learn a durable fact about the organization (audiences, goals, dates, voice, contacts), add a final line exactly like: [[remember: <fact>]]. Only for new facts.`,
