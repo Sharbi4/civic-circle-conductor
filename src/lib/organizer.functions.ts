@@ -223,7 +223,17 @@ For multi-step objectives, show a visible task plan with statuses (Done / Workin
         const { data: chk } = await supabase.from("polls").select("id, status, questions").eq("id", pl.id).maybeSingle();
         const okQs = Array.isArray(chk?.questions) ? chk.questions.length : 0;
         if (!chk || chk.status !== "open" || okQs !== spec.questions.length) throw new Error("form self-test failed");
-        card = `\n📊 **${spec.title}** — [open the ${spec.kind === "feedback" ? "feedback form" : spec.kind === "signup" ? "sign-up" : "poll"}](/p/${pl.id}). ✅ Tested: live and accepting responses (${spec.questions.length} questions). Share link: https://civimeet.com/p/${pl.id} · results under **Polls** in the left bar.\n`;
+        const { getRequest } = await import("@tanstack/react-start/server");
+        const { verifyPublicForm } = await import("@/lib/formCheck.server");
+        const origin = new URL(getRequest().url).origin;
+        const live = await verifyPublicForm(origin, pl.id, spec.title, spec.questions);
+        if (!live.ok) {
+          console.error("Public form check failed", pl.id, live.reason);
+          card = `\n⚠️ I built **${spec.title}**, but when I opened its public link ${live.reason}, so I'm not sharing it yet. Ask me to try again.\n`;
+          text = text.replace(m[0], card);
+          continue;
+        }
+        card = `\n📊 **${spec.title}** — [open the ${spec.kind === "feedback" ? "feedback form" : spec.kind === "signup" ? "sign-up" : "poll"}](/p/${pl.id}). ✅ Tested: I opened the public link and all ${spec.questions.length} questions loaded. Share link: https://civimeet.com/p/${pl.id} · results under **Polls** in the left bar.\n`;
       } catch (e) { console.error("Failed to create poll", e); card = "\n⚠️ I couldn't create that poll — try asking again.\n"; }
       text = text.replace(m[0], card);
     }
