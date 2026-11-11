@@ -20,6 +20,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { EventbriteDraftControls } from '@/components/EventbriteDraftControls';
+import { AgentPreparing } from '@/components/AgentPreparing';
 
 export const Route = createFileRoute("/_authenticated/chat/$threadId")({
   head: () => ({ meta: [
@@ -445,6 +446,7 @@ function ChatWindow({ threadId }: { threadId: string }) {
   const send = useServerFn(sendOrganizerMessage);
   const threads = useThreads();
   const thread = threads.data?.find((t) => t.id === threadId);
+  const preparing = useQuery({ queryKey: ["agent-preparing", threadId], queryFn: () => false, enabled: false });
   const [pending, setPending] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
@@ -612,7 +614,8 @@ function ChatWindow({ threadId }: { threadId: string }) {
           </div>
         )}
         <div className="mx-auto w-full max-w-3xl px-5 pt-8">
-          {all.length === 0 && !msgs.isLoading && (
+          {preparing.data && <AgentPreparing name={thread?.title ?? "Your agent"} />}
+          {!preparing.data && all.length === 0 && !msgs.isLoading && !thread?.title?.endsWith(" Agent") && (
             <div className="flex flex-col items-center pt-14 text-center">
               <div className="flex h-16 w-16 items-center justify-center rounded-full bg-accent text-accent-foreground shadow-soft">
                 <MessageSquareHeart className="h-7 w-7" />

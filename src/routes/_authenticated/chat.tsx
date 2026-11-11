@@ -1423,22 +1423,26 @@ function NewChatMenu({ onBlank }: { onBlank: () => void }) {
       if (error) { toast.error(error.message); return; }
       threadId = data.id;
     }
+    const supportsWelcome = it.id === "eb" || it.id === "x" || it.id === "li";
+    const { count } = await supabase.from("messages").select("id", { count: "exact", head: true }).eq("thread_id", threadId);
+    const preparing = supportsWelcome && !count;
+    qc.setQueryData(["agent-preparing", threadId], preparing);
     await qc.invalidateQueries({ queryKey: ["threads"] });
     navigate({ to: "/chat/$threadId", params: { threadId } });
-    if (it.id === "eb" || it.id === "x" || it.id === "li") {
+    if (supportsWelcome) {
       // A fresh (or empty) agent chat opens with org-specific ideas for each thing the agent can do.
-      const { count } = await supabase.from("messages").select("id", { count: "exact", head: true }).eq("thread_id", threadId);
       if (!count) {
         const accountName = it.id === "li" ? li.data?.accountName ?? "your LinkedIn account" : it.id === "x" ? x.data?.accountName ?? "your X account" : eb.data?.accountName ?? "your Eventbrite account";
         const fallback = it.id === "li" ? LINKEDIN_WELCOME(accountName) : it.id === "x" ? X_WELCOME(accountName) : EVENTBRITE_WELCOME(accountName);
-        const tid = toast.loading("Civi is thinking up ideas for you…");
         try {
           await writeAgentWelcome({ data: { threadId, agent: it.id === "li" ? "linkedin" : it.id === "x" ? "x" : "eventbrite", accountName, fallback } });
         } catch {
           await supabase.from("messages").insert({ thread_id: threadId, user_id: u.user!.id, role: "assistant", content: fallback });
         }
-        toast.dismiss(tid);
-        qc.invalidateQueries({ queryKey: ["messages"] });
+        finally {
+          await qc.invalidateQueries({ queryKey: ["messages"] });
+          qc.setQueryData(["agent-preparing", threadId], false);
+        }
       }
     }
     if (it.id === "fb") {
