@@ -197,6 +197,7 @@ export async function runAgentStep(supabase: any, userId: string, sessionRowId: 
             "List fb_groups most relevant to the mission first; skip groups already joined earlier in this browser.",
             "When the goal says it is APPROVED by the organizer, you may use submit on the Join / Post button that completes it.",
             "For an approved action, use done only after the page confirms completion. Include a visible confirmation or resulting object link in summary. If success cannot be verified, use handoff instead. Never claim success from merely clicking Submit.",
+            "For venue booking, verify the selected date/time, capacity, accessibility, price, deposit and cancellation terms on the official website. Prepare the actual enquiry or reservation rather than stopping after reading a venue page. Pause for explicit approval before an enquiry or booking submission. Booking approval never authorizes spending: obtain a separate approval specifying payee, exact amount and what is purchased before payment. Use handoff for entering card number, CVV, banking credentials or payment verification; never type, request, repeat or include these secrets in summaries. Report booked or paid only after visible confirmation with a reference or receipt; an availability enquiry alone is not a reservation.",
             "Never invent contact details. Never ask the organizer to paste passwords or codes in chat.",
           ].join("\n"),
           input: [{

@@ -1,4 +1,6 @@
 # Civi Meet roadmap
+- [x] Prioritize venue availability and real browser reservation preparation before promotion; retain separate booking/payment approval and secure credential handoff. Verified selected meetup launches a real read-only browser session.
+- [ ] Add outbound availability/booking calls: awaiting calling setup decision; requires voice service, an outbound number, approved scripts, owner-scoped call records and secure payment link/human handoff (no payment-card details in agent transcripts).
 - [x] Set the shared enterprise document standard and sourced real photography; verified a saved 1,489-word Tucson spotlight with eight substantive sections, licensed photo, citations, phone/desktop layout and no runtime errors. Existing documents remain unchanged.
 - [x] Add Eventbrite draft controls: save for later, day/week/custom reminders, scheduled publishing and publish now with confirmed results; reuse shared scheduler. Real draft reminder/schedule/cancellation verified, 23 tests pass; event remains unpublished pending venue confirmation.
 - [x] Add Eventbrite member avatars to the connection row and shared account fallback, preserving organization logos.
