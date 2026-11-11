@@ -1,4 +1,3 @@
-// @vitest-environment node
 import { describe, expect, it, vi } from "vitest";
 import { uploadLinkedInImage } from "@/lib/linkedinUpload.server";
 
@@ -14,7 +13,16 @@ describe("LinkedIn photo transfer", () => {
     const [path, init] = attempt;
     expect(path).toBe("/dms-uploads/photo?sync=1&signature=test");
     expect(init.method).toBe("PUT");
-    expect(await (init.body as Blob).arrayBuffer()).toEqual(photo.bytes.buffer);
+    const transferred = await new Promise<ArrayBuffer>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onerror = () => reject(reader.error);
+      reader.onload = () => {
+        if (reader.result instanceof ArrayBuffer) resolve(reader.result);
+        else reject(new Error("Expected image bytes"));
+      };
+      reader.readAsArrayBuffer(init.body as Blob);
+    });
+    expect(new Uint8Array(transferred)).toEqual(photo.bytes);
   });
   it("rejects upload addresses outside LinkedIn before sending anything", async () => {
     const call = vi.fn();
