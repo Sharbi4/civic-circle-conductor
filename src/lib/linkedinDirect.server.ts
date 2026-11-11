@@ -37,7 +37,10 @@ export function createDirectLinkedInTransport(token: DirectToken, send: typeof f
     const headers = new Headers(init?.headers);
     headers.set('Authorization', `Bearer ${token.accessToken}`);
     // Do not follow redirects with OAuth credentials or signed upload queries.
-    return send(url, { ...init, headers, redirect: 'error' });
+    // The Worker runtime supports only 'follow' | 'manual', so reject redirects explicitly.
+    const response = await send(url, { ...init, headers, redirect: 'manual' });
+    if (response.type === 'opaqueredirect' || (response.status >= 300 && response.status < 400)) throw new Error('LinkedIn redirected unexpectedly; request was not sent onward.');
+    return response;
   };
   return {
     call: (path: string, init?: RequestInit) => {
@@ -89,9 +92,10 @@ export async function handleDirectLinkedInCallback(request: Request): Promise<Re
     const { id, secret } = credentials();
     stage = 'token_exchange';
     const response = await fetch('https://www.linkedin.com/oauth/v2/accessToken', {
-      method: 'POST', redirect: 'error', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      method: 'POST', redirect: 'manual', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({ grant_type: 'authorization_code', code, redirect_uri: row.redirect_uri, client_id: id, client_secret: secret }),
     });
+    if (response.status >= 300 && response.status < 400) throw new Error(`LinkedIn authorization failed [${response.status}]. Please try a new connection attempt.`);
     if (!response.ok) {
       const body: unknown = await response.json().catch(() => null);
       const providerCode = z.object({ error: z.string() }).safeParse(body);
