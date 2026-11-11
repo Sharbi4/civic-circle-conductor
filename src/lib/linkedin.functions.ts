@@ -170,6 +170,17 @@ export const runLinkedInApproval = createServerFn({ method: "POST" })
       throw new Error(`LinkedIn couldn't ${what} [${res.status}]${msg ? `: ${msg}` : ""}`);
     };
 
+    /** Upload URLs are signed and often live on www.linkedin.com, which the API gateway can't reach: try the URL directly, then the gateway. */
+    const putUpload = async (uploadUrl: string, method: "PUT" | "POST", photo: { bytes: Uint8Array<ArrayBuffer>; type: string }, scopes?: string[]) => {
+      try {
+        const direct = await fetch(uploadUrl, { method, headers: { "Content-Type": photo.type }, body: new Blob([photo.bytes], { type: photo.type }) });
+        if (direct.ok) return direct;
+        console.error(`LinkedIn direct upload [${direct.status}] ${new URL(uploadUrl).host}`);
+      } catch (e) { console.error("LinkedIn direct upload failed", e); }
+      const u = new URL(uploadUrl);
+      return call(u.pathname + u.search, { method, headers: { "Content-Type": photo.type }, body: new Blob([photo.bytes], { type: photo.type }) }, scopes);
+    };
+
     const me = await call("/v2/userinfo");
     if (!me.ok) await fail(me, "look up your profile");
     const { sub } = (await me.json()) as { sub: string };
@@ -338,15 +349,14 @@ export const runLinkedInApproval = createServerFn({ method: "POST" })
     const { data: org } = await supabase.from("organizations").select("linkedin_org_id").eq("user_id", userId).maybeSingle();
     const asPage = !!org?.linkedin_org_id;
     let imageUrn: string | undefined;
+    let photoFailed = false;
     if (photo && asPage) {
       const init = await rest("/rest/images?action=initializeUpload", "POST", { initializeUploadRequest: { owner: `urn:li:organization:${org!.linkedin_org_id}` } }, {}, ORG_ALL);
       if (!init.ok) await fail(init, "prepare the photo");
       const v = ((await init.json()) as { value?: { uploadUrl?: string; image?: string } }).value;
       if (!v?.uploadUrl || !v.image) throw new Error("LinkedIn didn't return an upload URL for the photo.");
-      const u = new URL(v.uploadUrl);
-      const up = await call(u.pathname + u.search, { method: "PUT", headers: { "Content-Type": photo.type }, body: new Blob([photo.bytes], { type: photo.type }) }, ORG_ALL);
-      if (!up.ok) await fail(up, "upload the photo");
-      imageUrn = v.image;
+      const up = await putUpload(v.uploadUrl, "PUT", photo, ORG_ALL);
+      if (up.ok) imageUrn = v.image; else { console.error(`LinkedIn photo upload failed [${up.status}]`); photoFailed = true; }
     } else if (photo) {
       const reg = await call("/v2/assets?action=registerUpload", {
         method: "POST", headers: { "Content-Type": "application/json", "X-Restli-Protocol-Version": "2.0.0" },
@@ -357,10 +367,8 @@ export const runLinkedInApproval = createServerFn({ method: "POST" })
       const v = ((await reg.json()) as { value?: { uploadMechanism?: Record<string, { uploadUrl?: string }>; asset?: string } }).value;
       const uploadUrl = v?.uploadMechanism?.["com.linkedin.digitalmedia.uploading.MediaUploadHttpRequest"]?.uploadUrl;
       if (!uploadUrl || !v?.asset) throw new Error("LinkedIn didn't return an upload URL for the photo.");
-      const u = new URL(uploadUrl);
-      const up = await call(u.pathname + u.search, { method: "POST", headers: { "Content-Type": photo.type }, body: new Blob([photo.bytes], { type: photo.type }) });
-      if (!up.ok) await fail(up, "upload the photo");
-      imageUrn = v.asset;
+      const up = await putUpload(uploadUrl, "POST", photo);
+      if (up.ok) imageUrn = v.asset; else { console.error(`LinkedIn photo upload failed [${up.status}]`); photoFailed = true; }
     }
     const res = asPage
       ? await rest("/rest/posts", "POST", {
@@ -383,7 +391,7 @@ export const runLinkedInApproval = createServerFn({ method: "POST" })
         });
     if (!res.ok) await fail(res, "publish the post");
     const postId = res.headers.get("x-restli-id") ?? "";
-    await say(`✅ Posted to LinkedIn${imageUrn ? " with photo" : ""}${asPage ? " from your company page" : ""}${postId ? ` — [view it](https://www.linkedin.com/feed/update/${postId})` : ""}.\n\n> ${p.text.slice(0, 280).replace(/\n/g, "\n> ")}`);
+    await say(`✅ Posted to LinkedIn${imageUrn ? " with photo" : ""}${asPage ? " from your company page" : ""}${postId ? ` — [view it](https://www.linkedin.com/feed/update/${postId})` : ""}.${photoFailed ? " LinkedIn wouldn't accept the photo upload, so it went out text-only." : ""}\n\n> ${p.text.slice(0, 280).replace(/\n/g, "\n> ")}`);
     return { threadId, ok: true };
   });
 
