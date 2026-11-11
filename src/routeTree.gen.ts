@@ -20,6 +20,7 @@ import { Route as AuthenticatedChatIndexRouteImport } from './routes/_authentica
 import { Route as AuthenticatedChatThreadIdRouteImport } from './routes/_authenticated/chat.$threadId'
 import { Route as AuthenticatedDocumentsIdRouteImport } from './routes/_authenticated/documents.$id'
 import { Route as ApiOauthEventbriteReturnRouteImport } from './routes/api/oauth/eventbrite/return'
+import { Route as ApiOauthGoogle_mailReturnRouteImport } from './routes/api/oauth/google_mail/return'
 import { Route as ApiOauthLinkedinReturnRouteImport } from './routes/api/oauth/linkedin/return'
 import { Route as ApiOauthNextdoorReturnRouteImport } from './routes/api/oauth/nextdoor/return'
 import { Route as ApiOauthXReturnRouteImport } from './routes/api/oauth/x/return'
@@ -86,6 +87,12 @@ const ApiOauthEventbriteReturnRoute =
   ApiOauthEventbriteReturnRouteImport.update({
     id: '/api/oauth/eventbrite/return',
     path: '/api/oauth/eventbrite/return',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiOauthGoogle_mailReturnRoute =
+  ApiOauthGoogle_mailReturnRouteImport.update({
+    id: '/api/oauth/google_mail/return',
+    path: '/api/oauth/google_mail/return',
     getParentRoute: () => rootRouteImport,
   } as any)
 const ApiOauthLinkedinReturnRoute = ApiOauthLinkedinReturnRouteImport.update({
@@ -157,6 +164,7 @@ export interface FileRoutesByFullPath {
   '/documents/$id': typeof AuthenticatedDocumentsIdRoute
   '/chat/': typeof AuthenticatedChatIndexRoute
   '/api/oauth/eventbrite/return': typeof ApiOauthEventbriteReturnRoute
+  '/api/oauth/google_mail/return': typeof ApiOauthGoogle_mailReturnRoute
   '/api/oauth/linkedin/return': typeof ApiOauthLinkedinReturnRoute
   '/api/oauth/nextdoor/return': typeof ApiOauthNextdoorReturnRoute
   '/api/oauth/x/return': typeof ApiOauthXReturnRoute
@@ -178,6 +186,7 @@ export interface FileRoutesByTo {
   '/documents/$id': typeof AuthenticatedDocumentsIdRoute
   '/chat': typeof AuthenticatedChatIndexRoute
   '/api/oauth/eventbrite/return': typeof ApiOauthEventbriteReturnRoute
+  '/api/oauth/google_mail/return': typeof ApiOauthGoogle_mailReturnRoute
   '/api/oauth/linkedin/return': typeof ApiOauthLinkedinReturnRoute
   '/api/oauth/nextdoor/return': typeof ApiOauthNextdoorReturnRoute
   '/api/oauth/x/return': typeof ApiOauthXReturnRoute
@@ -202,6 +211,7 @@ export interface FileRoutesById {
   '/_authenticated/documents/$id': typeof AuthenticatedDocumentsIdRoute
   '/_authenticated/chat/': typeof AuthenticatedChatIndexRoute
   '/api/oauth/eventbrite/return': typeof ApiOauthEventbriteReturnRoute
+  '/api/oauth/google_mail/return': typeof ApiOauthGoogle_mailReturnRoute
   '/api/oauth/linkedin/return': typeof ApiOauthLinkedinReturnRoute
   '/api/oauth/nextdoor/return': typeof ApiOauthNextdoorReturnRoute
   '/api/oauth/x/return': typeof ApiOauthXReturnRoute
@@ -226,6 +236,7 @@ export interface FileRouteTypes {
     | '/documents/$id'
     | '/chat/'
     | '/api/oauth/eventbrite/return'
+    | '/api/oauth/google_mail/return'
     | '/api/oauth/linkedin/return'
     | '/api/oauth/nextdoor/return'
     | '/api/oauth/x/return'
@@ -247,6 +258,7 @@ export interface FileRouteTypes {
     | '/documents/$id'
     | '/chat'
     | '/api/oauth/eventbrite/return'
+    | '/api/oauth/google_mail/return'
     | '/api/oauth/linkedin/return'
     | '/api/oauth/nextdoor/return'
     | '/api/oauth/x/return'
@@ -270,6 +282,7 @@ export interface FileRouteTypes {
     | '/_authenticated/documents/$id'
     | '/_authenticated/chat/'
     | '/api/oauth/eventbrite/return'
+    | '/api/oauth/google_mail/return'
     | '/api/oauth/linkedin/return'
     | '/api/oauth/nextdoor/return'
     | '/api/oauth/x/return'
@@ -290,6 +303,7 @@ export interface RootRouteChildren {
   PrivacyRoute: typeof PrivacyRoute
   PIdRoute: typeof PIdRoute
   ApiOauthEventbriteReturnRoute: typeof ApiOauthEventbriteReturnRoute
+  ApiOauthGoogle_mailReturnRoute: typeof ApiOauthGoogle_mailReturnRoute
   ApiOauthLinkedinReturnRoute: typeof ApiOauthLinkedinReturnRoute
   ApiOauthNextdoorReturnRoute: typeof ApiOauthNextdoorReturnRoute
   ApiOauthXReturnRoute: typeof ApiOauthXReturnRoute
@@ -379,6 +393,13 @@ declare module '@tanstack/react-router' {
       path: '/api/oauth/eventbrite/return'
       fullPath: '/api/oauth/eventbrite/return'
       preLoaderRoute: typeof ApiOauthEventbriteReturnRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/oauth/google_mail/return': {
+      id: '/api/oauth/google_mail/return'
+      path: '/api/oauth/google_mail/return'
+      fullPath: '/api/oauth/google_mail/return'
+      preLoaderRoute: typeof ApiOauthGoogle_mailReturnRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/oauth/linkedin/return': {
@@ -488,6 +509,7 @@ const rootRouteChildren: RootRouteChildren = {
   PrivacyRoute: PrivacyRoute,
   PIdRoute: PIdRoute,
   ApiOauthEventbriteReturnRoute: ApiOauthEventbriteReturnRoute,
+  ApiOauthGoogle_mailReturnRoute: ApiOauthGoogle_mailReturnRoute,
   ApiOauthLinkedinReturnRoute: ApiOauthLinkedinReturnRoute,
   ApiOauthNextdoorReturnRoute: ApiOauthNextdoorReturnRoute,
   ApiOauthXReturnRoute: ApiOauthXReturnRoute,
