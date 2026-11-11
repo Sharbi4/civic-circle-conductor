@@ -3,6 +3,7 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { generateResponse, GatewayError } from "@lovable.dev/ai-gateway";
 import { EVENT_PLAYBOOK } from "@/lib/eventPlaybook";
+import { CORE_PLAYBOOK } from "@/lib/corePlaybook";
 import { perplexitySearch, formatHits } from "@/lib/research.server";
 import { openBrowserSession, retargetSession, closeOtherBrowsers } from "@/lib/browser.functions";
 
@@ -93,6 +94,7 @@ export const sendOrganizerMessage = createServerFn({ method: "POST" })
 5. Email Campaign — objective, opted-in audience, timing; draft content, organize approved recipient lists, plan scheduling and tracking, recommend follow-up.
 6. Phone Outreach — purpose, consented contacts, approved script, schedule; prepare call workflows, record outcomes, escalate important conversations.
 For multi-step objectives, show a visible task plan with statuses (Done / Working / Approval / Pending) and keep it updated as work progresses. Prioritize contributing value to the community over promoting the organization.`,
+      CORE_PLAYBOOK,
       EVENT_PLAYBOOK,
       ...(liveResearch ? [`Fresh web research for this request (cite as markdown links when used; save useful vendors/venues with [[resource: ...]]):\n${liveResearch}`] : []),
       `Saved vendors & venues (use these by name when planning): ${(savedResources ?? []).map((r) => `${r.type}: ${r.name}${r.details ? ` — ${r.details}` : ""}`).join("; ") || "none yet — offer to have the browser agent search Facebook and the web for local food trucks, caterers and venues"}`,

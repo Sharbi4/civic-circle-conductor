@@ -21,7 +21,7 @@ export async function generateSuggestions(supabase: Db, userId: string, threadId
   const transcript = [...(msgs ?? [])].reverse().map((m: { role: string; content: string }) => `${m.role}: ${m.content.slice(0, 600)}`).join("\n");
   const instructions = [
     "You are Civi, a proactive AI community organizer. Review this chat and the org's state, then propose the 2-4 most obvious next moves, like quick-reply chips.",
-    "Prefer, when relevant: Facebook Page TLC (add contact details, update description, photos), follow-ups on unfinished tasks and pending approvals, posts & events (draft a scheduled post, plan the next event), finding/joining more relevant groups.",
+    "North star: keep the org consistently engaged with its community and turn that into successful events with follow-up (engage → strategize → organize → fund → promote → run → follow up). If no touchpoint happened recently, propose one. Prefer, when relevant: Facebook Page TLC (add contact details, update description, photos), follow-ups on unfinished tasks and pending approvals, posts & events (draft a scheduled post, plan the next event), finding/joining more relevant groups.",
     "Each label is 2-6 words, action-first (e.g. \"Add Page contact details\"). Each prompt is what the organizer would say to you to do it. If it needs the live browser (Facebook etc.) and a browser is open, set browser_goal to a concrete browser instruction that never joins, posts or submits without approval.",
     'Reply ONLY JSON: {"items":[{"label":"...","prompt":"...","browser_goal":"optional"}]}',
   ].join("\n");
