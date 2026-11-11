@@ -3,6 +3,7 @@ import type { Database } from "@/integrations/supabase/types";
 import { generateResponse, GatewayError } from "@lovable.dev/ai-gateway";
 import { EVENT_PLAYBOOK } from "@/lib/eventPlaybook";
 import { CORE_PLAYBOOK } from "@/lib/corePlaybook";
+import { DOCUMENT_STANDARD } from "@/lib/documentStandards";
 import { perplexitySearch, formatHits } from "@/lib/research.server";
 import { openBrowserSession, retargetSession, closeOtherBrowsers } from "@/lib/browser.server";
 
@@ -96,6 +97,7 @@ export async function runOrganizer(supabase: SupabaseClient<Database>, userId: s
 6. Phone Outreach — purpose, consented contacts, approved script, schedule; prepare call workflows, record outcomes, escalate important conversations.
 For multi-step objectives, show a visible task plan with statuses (Done / Working / Approval / Pending) and keep it updated as work progresses. Prioritize contributing value to the community over promoting the organization.`,
       CORE_PLAYBOOK,
+      DOCUMENT_STANDARD,
       EVENT_PLAYBOOK,
       ...(liveResearch ? [`Fresh web research for this request (cite as markdown links when used; save useful vendors/venues with [[resource: ...]]):\n${liveResearch}`] : []),
       `Saved vendors & venues (use these by name when planning): ${(savedResources ?? []).map((r) => `${r.type}: ${r.name}${r.details ? ` — ${r.details}` : ""}`).join("; ") || "none yet — offer to have the browser agent search Facebook and the web for local food trucks, caterers and venues"}`,
@@ -273,7 +275,9 @@ For multi-step objectives, show a visible task plan with statuses (Done / Workin
     for (const m of docMatches) {
       const title = (m[1] ?? "Document").trim().slice(0, 160), kind = (m[2] ?? "document").trim().slice(0, 30), body = (m[3] ?? "").trim().slice(0, 30000);
       if (!body) continue;
-      const { data: d, error: dErr } = await supabase.from("documents").insert({ user_id: userId, thread_id: data.threadId, title, kind, content: body }).select("id").single();
+      const { addDocumentPhotos } = await import("./documentPhotos.server");
+      const illustratedBody = await addDocumentPhotos(supabase, userId, title, body);
+      const { data: d, error: dErr } = await supabase.from("documents").insert({ user_id: userId, thread_id: data.threadId, title, kind, content: illustratedBody }).select("id").single();
       if (dErr || !d) { console.error("Failed to save document", dErr?.message); continue; }
       docLinks.push(`[[doc: ${d.id} | ${title} | ${kind}]]`);
       text = text.replace(m[0], `\n[[doc: ${d.id} | ${title} | ${kind}]]\n`);

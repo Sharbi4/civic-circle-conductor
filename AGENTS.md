@@ -32,6 +32,7 @@ use the editor.
 - AI calls go through `@lovable.dev/ai-gateway` in `src/lib/*.functions.ts` server functions with `requireSupabaseAuth`; why: keeps prompts and keys server-side and RLS scoped per user.
 - Per-org data (organizations, threads, messages, memories) is keyed by auth user id with owner-only RLS; why: each organization gets isolated agent memory.
 - Formal outputs (checklists, plans, letters) are saved as documents via a [[document: ...]] marker and rendered on one shared letterhead template; why: every org gets consistent, official, downloadable documents.
+- All organizer document creation passes through the shared document standard and Wikimedia photo enrichment; real reusable photos are stored in owner-prefixed private storage and signed at render time, because source hotlinks and invented documentary imagery are not reliable deliverables.
 - Letterhead reminders share an owner-keyed sessionStorage claim reset on sign-out; explicit editing remains available, because chat and PDF downloads must not repeatedly interrupt the same session.
 - The chat brand mark reuses the uploaded CDN asset and animates only on entry or newly observed inbox items; reduced motion disables it, because alerts should not cause continuous distracting animation.
 - Polls/feedback/sign-ups are built in: Civi emits a [[poll: {...}]] marker, saved to owner-only polls; public /p/$id page reads and writes only through validated server functions (no anon table access); why: shareable links without exposing responses.

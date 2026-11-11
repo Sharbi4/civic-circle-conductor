@@ -212,6 +212,13 @@
 .prose-chat code { background: var(--color-muted); padding: 0 0.3rem; border-radius: 0.3rem; }
 
 .doc-body { font-size: 0.95rem; line-height: 1.7; }
+.document-photo { display: block; width: 100%; max-height: 340px; object-fit: contain; margin: 0 0 1rem; }
+.doc-body > p:has(.document-photo) { margin: 0; }
+.doc-body p:has(.document-photo) + p { font-size: 0.75rem; line-height: 1.5; color: var(--muted-foreground); }
+.doc-body table { display: block; overflow-x: auto; }
+.doc-body a { color: var(--primary); text-decoration: underline; overflow-wrap: anywhere; }
+.doc-body h2, .doc-body h3 { break-after: avoid; }
+.doc-body img { break-inside: avoid; }
 .doc-body h2 { margin-top: 1.75rem; margin-bottom: 0.5rem; font-size: 1.15rem; font-weight: 600; border-bottom: 1px solid var(--border); padding-bottom: 0.25rem; }
 .doc-body h3 { margin-top: 1.25rem; font-weight: 600; }
 .doc-body p { margin: 0.6rem 0; }

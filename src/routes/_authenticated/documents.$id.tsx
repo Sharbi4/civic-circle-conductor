@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { logoToDataUrl } from "@/lib/logo";
+import { DocumentPhoto } from "@/components/DocumentPhoto";
 
 export const Route = createFileRoute("/_authenticated/documents/$id")({
   head: () => ({
@@ -63,9 +64,9 @@ function DocumentPage() {
 
   return (
     <div className="min-h-screen bg-muted/50 print:bg-background">
-      <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b bg-background/90 px-4 py-3 backdrop-blur print:hidden">
+      <div className="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-3 border-b bg-background/90 px-4 py-3 backdrop-blur print:hidden">
         <Button variant="ghost" size="sm" onClick={() => (window.history.length > 1 ? router.history.back() : router.navigate({ to: "/chat" }))}><ArrowLeft className="h-4 w-4" /> Back</Button>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={(e) => uploadLogo(e.target.files?.[0])} />
           <LetterheadCheck open={check} onOpenChange={setCheck} onSaved={download} onSkipped={download} />
           {missingLetterhead(o as never).length > 0 && <Button variant="outline" size="sm" onClick={() => setCheck(true)}>Complete details ({missingLetterhead(o as never).length})</Button>}
@@ -95,7 +96,9 @@ function DocumentPage() {
           </header>
           <h1 className="mt-8 text-3xl font-semibold tracking-tight">{d.title}</h1>
           <div className="doc-body mt-6">
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>{d.content}</ReactMarkdown>
+            <ReactMarkdown remarkPlugins={[remarkGfm]} urlTransform={(url) => url.startsWith("document-photo:") ? url : /^(https?:|mailto:|#|\/)/i.test(url) ? url : ""} components={{
+              img: ({ src, alt }) => typeof src === "string" && src.startsWith("document-photo:") ? <DocumentPhoto path={src.slice("document-photo:".length)} alt={alt ?? "Document photograph"} /> : null,
+            }}>{d.content}</ReactMarkdown>
           </div>
           <footer className="mt-12 flex justify-between border-t pt-4 text-xs text-muted-foreground">
             <span>{o?.name}</span><span>Prepared with Civi Meet · {date}</span>

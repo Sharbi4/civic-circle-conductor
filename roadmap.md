@@ -1,4 +1,5 @@
 # Civi Meet roadmap
+- [x] Set the shared enterprise document standard and sourced real photography; verified a saved 1,489-word Tucson spotlight with eight substantive sections, licensed photo, citations, phone/desktop layout and no runtime errors. Existing documents remain unchanged.
 - [x] Add Eventbrite draft controls: save for later, day/week/custom reminders, scheduled publishing and publish now with confirmed results; reuse shared scheduler. Real draft reminder/schedule/cancellation verified, 23 tests pass; event remains unpublished pending venue confirmation.
 - [x] Add Eventbrite member avatars to the connection row and shared account fallback, preserving organization logos.
 - [x] Wire X account photos into the X connection row and shared account avatar (LinkedIn first, X fallback), without replacing organization logos.
