@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { logoToDataUrl } from "@/lib/logo";
 import { LETTERHEAD_FIELDS, useLetterhead } from "@/components/LetterheadCheck";
+import { LinkedInAvatar } from './LinkedInAvatar';
 
 export function AccountPanel() {
   const qc = useQueryClient();
@@ -40,6 +41,10 @@ export function AccountPanel() {
   return (
     <div className="flex-1 overflow-y-auto px-3 pb-4">
       <h2 className="px-2 pb-1 font-medium">My account</h2>
+      <div className="flex items-center gap-3 px-2 py-3">
+        <LinkedInAvatar className="h-12 w-12 shrink-0" />
+        <span className="min-w-0 truncate text-sm">{email || 'Your account'}</span>
+      </div>
       <p className="px-2 pb-3 text-xs text-muted-foreground">These appear on your official documents, forms and letterhead.</p>
       <div className="mb-3 flex items-center gap-3 rounded-2xl border bg-background/30 p-3">
         {logo ? <img src={logo} alt="Organization logo" className="h-14 w-14 rounded-lg object-contain" /> : <span className="grid h-14 w-14 place-items-center rounded-lg bg-secondary text-xs text-muted-foreground">Logo</span>}

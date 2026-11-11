@@ -7,6 +7,7 @@ import { MessageCircle, Plus, Plug, LogOut, Pin, Brain, Inbox, Megaphone, Calend
 import { PollsPanel } from "@/components/polls/PollsPanel";
 import { TasksPanel } from "@/components/tasks/TasksPanel";
 import { AccountPanel } from "@/components/account/AccountPanel";
+import { LinkedInAvatar } from '@/components/account/LinkedInAvatar';
 import { SwipeToIgnore } from '@/components/SwipeToIgnore';
 import { takeDiscoveryAction } from "@/lib/discovery.functions";
 import { discoveryIdeas } from "@/lib/discovery.shared";
@@ -184,7 +185,10 @@ function Sidebar({ orgName, mobileOpen, onClose }: { orgName: string; mobileOpen
         {railBtn("scout", Compass, "Discovery")}
         {railBtn("memory", Brain, "Memory")}
         {railBtn("logins", KeyRound, "Settings: saved logins")}
-        {railBtn("account", UserCircle, "My account")}
+        <Button variant="ghost" aria-label="My account" onClick={() => setTab('account')}
+          className={`h-11 w-11 shrink-0 rounded-2xl p-0 ${tab === 'account' ? 'bg-secondary text-foreground' : 'text-muted-foreground hover:bg-secondary'}`}>
+          <LinkedInAvatar />
+        </Button>
         <div className="flex-1" />
         <button aria-label="Sign out" onClick={() => supabase.auth.signOut()} className="flex h-11 w-11 items-center justify-center rounded-2xl text-muted-foreground hover:bg-secondary">
           <LogOut className="h-5 w-5" />

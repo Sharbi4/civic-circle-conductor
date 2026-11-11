@@ -41,13 +41,13 @@ export const getLinkedInStatus = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const { getDirectLinkedInConnection, directLinkedInConfigured } = await import('./linkedinDirect.server');
-    const { linkedInTokenUsable } = await import('./linkedinDirect.shared');
+    const { linkedInTokenUsable, linkedInProfilePhoto } = await import('./linkedinDirect.shared');
     const { getConnectionForUser } = await import('./appUserConnections.server');
     const c = await getDirectLinkedInConnection(context.userId);
     const legacy = c ? null : await getConnectionForUser(context.userId, 'linkedin');
     const { data: org } = await context.supabase.from("organizations").select("linkedin_org_id").eq("user_id", context.userId).maybeSingle();
     const connected = Boolean(c && linkedInTokenUsable(c.token));
-    return { connected, needsReconnect: Boolean(legacy || (c && !connected)), configured: directLinkedInConfigured(), accountName: c?.accountName ?? legacy?.accountName ?? null, orgPageId: org?.linkedin_org_id ?? null };
+    return { connected, needsReconnect: Boolean(legacy || (c && !connected)), configured: directLinkedInConfigured(), accountName: c?.accountName ?? legacy?.accountName ?? null, orgPageId: org?.linkedin_org_id ?? null, profilePhoto: connected ? linkedInProfilePhoto(c?.token.picture) : null };
   });
 
 export const disconnectLinkedIn = createServerFn({ method: "POST" })

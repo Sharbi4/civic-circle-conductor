@@ -18,3 +18,14 @@ export function canCompleteLinkedInState(row: { user_id: string; status: string;
 export function linkedInTokenUsable(token: { expiresAt: string }, now = Date.now()) {
   return Date.parse(token.expiresAt) > now + 60_000;
 }
+
+/** Profile images are display-only; never accept executable or credential-bearing URLs. */
+export function linkedInProfilePhoto(picture: unknown): string | null {
+  if (typeof picture !== 'string') return null;
+  try {
+    const url = new URL(picture);
+    return url.protocol === 'https:' && !url.username && !url.password ? url.href : null;
+  } catch {
+    return null;
+  }
+}

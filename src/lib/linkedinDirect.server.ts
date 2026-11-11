@@ -2,9 +2,9 @@ import { createHash, randomBytes } from 'node:crypto';
 import { z } from 'zod';
 import { getConnectionForUser, saveConnectionKeyForUser, deleteConnectionForUser } from './appUserConnections.server';
 import { encryptConnectionKey, decryptConnectionKey } from './connectionKeyCrypto.server';
-import { LINKEDIN_REDIRECT_URI, LINKEDIN_SCOPES, validLinkedInOrigin, canCompleteLinkedInState, linkedInTokenUsable } from './linkedinDirect.shared';
+import { LINKEDIN_REDIRECT_URI, LINKEDIN_SCOPES, validLinkedInOrigin, canCompleteLinkedInState, linkedInTokenUsable, linkedInProfilePhoto } from './linkedinDirect.shared';
 
-const tokenSchema = z.object({ accessToken: z.string().min(1), expiresAt: z.string(), scopes: z.array(z.string()) });
+const tokenSchema = z.object({ accessToken: z.string().min(1), expiresAt: z.string(), scopes: z.array(z.string()), picture: z.string().nullable().optional() });
 type DirectToken = z.infer<typeof tokenSchema>;
 const hashState = (state: string) => createHash('sha256').update(state).digest('hex');
 
@@ -119,7 +119,8 @@ export async function handleDirectLinkedInCallback(request: Request): Promise<Re
       throw new Error(`LinkedIn profile confirmation failed [${profile.status}]. Check that OpenID Connect is enabled with openid and profile permissions, then reconnect.`);
     }
     stage = 'profile_validation';
-    const identity = z.object({ sub: z.string().min(1), name: z.string().optional() }).parse(await profile.json());
+    const identity = z.object({ sub: z.string().min(1), name: z.string().optional(), picture: z.unknown().optional() }).parse(await profile.json());
+    token.picture = linkedInProfilePhoto(identity.picture);
     stage = 'token_encryption';
     const ciphertext = encryptConnectionKey(JSON.stringify(token));
     stage = 'authorization_storage';

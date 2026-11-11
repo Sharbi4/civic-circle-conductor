@@ -46,3 +46,4 @@ use the editor.
 - Browser execution and media helpers live in server-only modules; client-reachable function declarations dynamically load them only inside handlers to keep provider credentials and automation dependencies out of frontend bundles.
 - Server fetches never use redirect: 'error' (the Worker runtime throws on it); use 'manual' and reject 3xx explicitly.
 - OAuth return pages also broadcast results on BroadcastChannel 'civi-oauth' and openers tolerate a severed popup; why: providers like X cut window.opener.
+- LinkedIn profile photos travel with the encrypted owner-scoped connection and only their safe display URL enters connection status; account avatars share that refreshed status without replacing organization letterhead logos.

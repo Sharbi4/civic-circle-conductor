@@ -1,5 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { handleDirectLinkedInCallback } from '@/lib/linkedinDirect.server';
+import { encryptConnectionKey } from '@/lib/connectionKeyCrypto.server';
+
+vi.mock('@/lib/connectionKeyCrypto.server', () => ({
+  encryptConnectionKey: vi.fn(() => 'encrypted-fixture'),
+  decryptConnectionKey: vi.fn(),
+}));
 
 vi.mock('@/integrations/supabase/client.server', () => ({
   supabaseAdmin: { from: () => ({ update: () => ({
@@ -12,6 +18,17 @@ vi.mock('@/integrations/supabase/client.server', () => ({
 afterEach(() => { vi.unstubAllGlobals(); vi.unstubAllEnvs(); vi.restoreAllMocks(); });
 
 describe('LinkedIn callback failure diagnosis', () => {
+  it('captures the logged-in LinkedIn member photo with the encrypted connection', async () => {
+    vi.stubEnv('LINKEDIN_DIRECT_CLIENT_ID', 'fixture-client');
+    vi.stubEnv('LINKEDIN_DIRECT_CLIENT_SECRET', 'fixture-secret');
+    const picture = 'https://media.licdn.com/dms/image/connected-member';
+    vi.stubGlobal('fetch', vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ access_token: 'fixture-token', expires_in: 5184000 })))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ sub: 'member-a', name: 'Member A', picture }))));
+    const response = await handleDirectLinkedInCallback(new Request(`https://civimeet.com/api/public/oauth/linkedin/return?state=${'c'.repeat(64)}&code=fixture-code`));
+    expect(await response.text()).toContain('civiLinkedInOAuthComplete');
+    expect(JSON.parse(vi.mocked(encryptConnectionKey).mock.calls.at(-1)?.[0] ?? '{}').picture).toBe(picture);
+  });
   it('reports the failing token validation stage without logging a returned token', async () => {
     vi.stubEnv('LINKEDIN_DIRECT_CLIENT_ID', 'fixture-client');
     vi.stubEnv('LINKEDIN_DIRECT_CLIENT_SECRET', 'fixture-secret');
