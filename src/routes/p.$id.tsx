@@ -52,6 +52,7 @@ function PollPage() {
         </div>
         <h1 className="font-display text-2xl font-bold">{poll.title}</h1>
         {poll.description && <p className="mt-2 text-muted-foreground">{poll.description}</p>}
+        {poll.event && <EventCard e={poll.event} />}
         {done ? (
           <p className="mt-8 rounded-2xl bg-secondary p-5 text-center">Thank you — your response was recorded.</p>
         ) : poll.status !== "open" ? (
@@ -91,5 +92,26 @@ function Question({ q, value, onChange }: { q: PollQuestion; value: unknown; onC
         </div>;
       })()}
     </fieldset>
+  );
+}
+
+function EventCard({ e }: { e: NonNullable<ReturnType<typeof Route.useLoaderData>["event"]> }) {
+  const fmt = (v?: string) => {
+    if (!v) return null;
+    const d = new Date(v); if (isNaN(d.getTime())) return v;
+    return d.toLocaleString(undefined, { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit", ...(e.timezone ? { timeZone: e.timezone } : {}) });
+  };
+  const start = fmt(e.start), end = e.end ? new Date(e.end) : null;
+  const endT = end && !isNaN(end.getTime()) ? end.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit", ...(e.timezone ? { timeZone: e.timezone } : {}) }) : null;
+  return (
+    <section aria-label="Event details" className="mt-5 overflow-hidden rounded-2xl border bg-secondary/40">
+      {e.image && <img src={e.image} alt="" className="aspect-[2/1] w-full object-cover" />}
+      <div className="space-y-1.5 p-4 text-sm">
+        <div className="font-medium">{e.title}</div>
+        {start && <div className="text-muted-foreground">🗓 {start}{endT ? ` – ${endT}` : ""}</div>}
+        {e.location && <div className="text-muted-foreground">📍 {e.location}</div>}
+        {e.url && <a href={e.url} target="_blank" rel="noreferrer" className="inline-block pt-1 font-medium text-primary underline underline-offset-4">View event page ↗</a>}
+      </div>
+    </section>
   );
 }

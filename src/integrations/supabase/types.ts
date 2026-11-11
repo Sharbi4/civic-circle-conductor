@@ -496,6 +496,7 @@ export type Database = {
         Row: {
           created_at: string
           description: string | null
+          event: Json | null
           id: string
           kind: string
           questions: Json
@@ -506,6 +507,7 @@ export type Database = {
         Insert: {
           created_at?: string
           description?: string | null
+          event?: Json | null
           id?: string
           kind?: string
           questions?: Json
@@ -516,6 +518,7 @@ export type Database = {
         Update: {
           created_at?: string
           description?: string | null
+          event?: Json | null
           id?: string
           kind?: string
           questions?: Json

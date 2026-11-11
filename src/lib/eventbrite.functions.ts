@@ -263,13 +263,26 @@ export const runEventbriteApproval = createServerFn({ method: "POST" })
         : { name: "General Admission", quantity_total: p.capacity, free: true } }),
     });
 
+    // Every Eventbrite event gets a linked RSVP sign-up form that shows the event details.
+    let rsvpId: string | null = null;
+    try {
+      const { RSVP_QUESTIONS } = await import("@/lib/polls.shared");
+      const { data: rsvp } = await supabase.from("polls").insert({
+        user_id: userId, kind: "signup", title: `RSVP: ${p.title}`,
+        description: "Let us know you're coming — it takes less than a minute.",
+        questions: RSVP_QUESTIONS as never,
+        event: { title: p.title, start: p.start, end: p.end, timezone: p.timezone, location: p.location, url: ev.url, ...(cover?.url ? { image: cover.url } : {}) } as never,
+      }).select("id").single();
+      rsvpId = rsvp?.id ?? null;
+    } catch (e) { console.error("RSVP form failed", e); }
+
     const { data: thread } = await supabase.from("threads").select("id").eq("kind", "side").eq("title", "Eventbrite Agent").maybeSingle();
     const { data: main } = await supabase.from("threads").select("id").eq("kind", "main").maybeSingle();
     const threadId = thread?.id ?? main?.id;
     if (threadId) {
       await supabase.from("messages").insert({
         thread_id: threadId, user_id: userId, role: "assistant",
-        content: `🎉 Created **${p.title}** on Eventbrite as a draft.${coverOnListing ? `\n\n${p.cover_image ? "Your photo is the cover on the Eventbrite listing:" : "Cover image on the Eventbrite listing:"}${cover?.url ? `\n\n![Event cover](${cover.url})` : ""}` : cover ? "\n\n(I uploaded the cover, but Eventbrite didn't attach it — add it from the event's Images section on Eventbrite.)" : `\n\n(I couldn't ${p.cover_image ? "upload your photo" : "make a cover image"} this time — you can add one on Eventbrite.)`}\n\n- [Review & publish it on Eventbrite](https://www.eventbrite.com/myevent?eid=${ev.id})\n- Public page (live after you publish): ${ev.url}`,
+        content: `🎉 Created **${p.title}** on Eventbrite as a draft.${coverOnListing ? `\n\n${p.cover_image ? "Your photo is the cover on the Eventbrite listing:" : "Cover image on the Eventbrite listing:"}${cover?.url ? `\n\n![Event cover](${cover.url})` : ""}` : cover ? "\n\n(I uploaded the cover, but Eventbrite didn't attach it — add it from the event's Images section on Eventbrite.)" : `\n\n(I couldn't ${p.cover_image ? "upload your photo" : "make a cover image"} this time — you can add one on Eventbrite.)`}\n\n- [Review & publish it on Eventbrite](https://www.eventbrite.com/myevent?eid=${ev.id})\n- Public page (live after you publish): ${ev.url}${rsvpId ? `\n- 📋 RSVP sign-up with the event details: [open it](/p/${rsvpId}) · share link https://civimeet.com/p/${rsvpId} (replies show under **Polls**)` : ""}`,
       });
     }
     return { eventId: ev.id as string, url: ev.url as string, threadId };

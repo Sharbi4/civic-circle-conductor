@@ -1,19 +1,20 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { questionSchema } from "@/lib/polls.shared";
+import { eventLinkSchema, questionSchema } from "@/lib/polls.shared";
 
 /** Public: the safe fields of an open poll, for the shareable /p/:id page. */
 export const getPublicPoll = createServerFn({ method: "GET" })
   .inputValidator((d) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: p } = await supabaseAdmin.from("polls").select("id, user_id, title, kind, description, questions, status").eq("id", data.id).maybeSingle();
+    const { data: p } = await supabaseAdmin.from("polls").select("id, user_id, title, kind, description, questions, status, event").eq("id", data.id).maybeSingle();
     if (!p) return null;
     const { data: org } = await supabaseAdmin.from("organizations").select("name, logo_url").eq("user_id", p.user_id).maybeSingle();
     return {
       id: p.id, title: p.title, kind: p.kind, description: p.description, status: p.status,
       questions: z.array(questionSchema).catch([]).parse(p.questions),
+      event: eventLinkSchema.nullable().catch(null).parse(p.event ?? null),
       orgName: org?.name ?? null, logoUrl: org?.logo_url ?? null,
     };
   });
