@@ -641,6 +641,15 @@ function ChatWindow({ threadId }: { threadId: string }) {
             </div>
           </div>
         )}
+        {thread?.kind === "event" && (
+          <div className="sticky top-0 z-10 border-b bg-background/85 px-5 py-2 backdrop-blur">
+            <div className="mx-auto flex max-w-3xl items-center gap-2 text-sm">
+              <CalendarHeart className="h-4 w-4 shrink-0 text-primary" />
+              <span className="truncate font-semibold">{thread.title}</span>
+              <span className="shrink-0 text-muted-foreground">· {thread.event_date ? new Date(thread.event_date + "T12:00:00").toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric", year: "numeric" }) : "Date TBD"}</span>
+            </div>
+          </div>
+        )}
         <div className="mx-auto w-full max-w-3xl px-5 pt-8">
           {preparing.data && <AgentPreparing name={thread?.title ?? "Your agent"} />}
           {!preparing.data && all.length === 0 && !msgs.isLoading && !thread?.title?.endsWith(" Agent") && (

@@ -288,6 +288,13 @@
       "when": 1794381563142,
       "tag": "0040_backfill_approval_thread_links",
       "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1794428385686,
+      "tag": "0041_thread_event_date",
+      "breakpoints": true
     }
   ]
 }

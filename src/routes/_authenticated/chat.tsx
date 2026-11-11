@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import type React from "react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { MessageCircle, Plus, Plug, LogOut, Pin, Brain, Inbox, Megaphone, CalendarCheck, CreditCard, Sparkles, Check, X, Compass, Trash2, KeyRound, Mic, FileText, ImagePlus, BarChart3, Menu, ListChecks, UserCircle, ChevronDown, Loader2 } from "lucide-react";
+import { MessageCircle, Plus, Plug, LogOut, Pin, Brain, Inbox, Megaphone, CalendarCheck, CreditCard, Sparkles, Check, X, Compass, Trash2, KeyRound, Mic, FileText, ImagePlus, BarChart3, Menu, ListChecks, UserCircle, ChevronDown, Loader2, CalendarPlus, CalendarHeart } from "lucide-react";
 import { PollsPanel } from "@/components/polls/PollsPanel";
 import { TasksPanel } from "@/components/tasks/TasksPanel";
 import { AccountPanel } from "@/components/account/AccountPanel";
@@ -131,7 +131,8 @@ function Sidebar({ orgName, mobileOpen, onClose }: { orgName: string; mobileOpen
     ...threads.data.filter((t) => isChatUnread(t.latest_assistant_at, t.last_read_at)).map((t) => `chat:${t.id}:${t.latest_assistant_at}`),
   ] : undefined;
   const main = threads.data?.find((t) => t.kind === "main");
-  const side = threads.data?.filter((t) => t.kind !== "main") ?? [];
+  const side = threads.data?.filter((t) => t.kind !== "main" && t.kind !== "event") ?? [];
+  const events = threads.data?.filter((t) => t.kind === "event") ?? [];
   const activeThread = threads.data?.find((t) => t.id === params.threadId);
   useEffect(() => {
     if (!activeThread || !isChatUnread(activeThread.latest_assistant_at, activeThread.last_read_at) || document.visibilityState !== 'visible') return;
@@ -149,6 +150,20 @@ function Sidebar({ orgName, mobileOpen, onClose }: { orgName: string; mobileOpen
     await qc.invalidateQueries({ queryKey: ["threads"] });
     if (params.threadId === id && main) navigate({ to: "/chat/$threadId", params: { threadId: main.id } });
     toast.success("Chat deleted");
+  }
+
+  async function newEvent() {
+    const { data: u } = await supabase.auth.getUser();
+    const uid = u.user!.id;
+    const { data, error } = await supabase.from("threads").insert({ user_id: uid, kind: "event", title: "New event" }).select().single();
+    if (error) { toast.error(error.message); return; }
+    const { data: g } = await supabase.from("tasks").insert({ user_id: uid, kind: "goal", title: "Event: New event", created_by: "civi", thread_id: data.id }).select("id").single();
+    if (g) await supabase.from("tasks").insert(["Budget, people & venue confirmed", "Create on Eventbrite (API)", "Share via connected APIs (X, LinkedIn)", "RSVP sign-up & calendar link", "Facebook & Instagram (browser)", "Reminders", "Feedback & follow-up"]
+      .map((title) => ({ user_id: uid, kind: "task", title, created_by: "civi", goal_id: g.id, thread_id: data.id })));
+    await supabase.from("messages").insert({ thread_id: data.id, user_id: uid, role: "assistant",
+      content: "🎉 Let's build an event! Tell me what you have in mind — or pick a starting point and I'll propose a name, date, venue, budget and turnout. Once it's set, I'll create it on Eventbrite, share it through your connected accounts, set up the RSVP and follow-up feedback, and track every step under **Event goals**.\n\n[[choices: Community meetup | Fundraiser | Volunteer day | Workshop or training]]" });
+    await Promise.all([qc.invalidateQueries({ queryKey: ["threads"] }), qc.invalidateQueries({ queryKey: ["tasks"] })]);
+    navigate({ to: "/chat/$threadId", params: { threadId: data.id } });
   }
 
   async function newSide() {
@@ -222,6 +237,29 @@ function Sidebar({ orgName, mobileOpen, onClose }: { orgName: string; mobileOpen
               >
                 Main chat {params.threadId !== main.id && isChatUnread(main.latest_assistant_at, main.last_read_at) && <span aria-label="Unread messages" className="ml-2 inline-block h-2 w-2 rounded-full bg-primary" />}
               </Link>
+            )}
+            <button onClick={newEvent} className="mt-3 flex w-full items-center gap-2 rounded-2xl bg-primary px-3 py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90">
+              <CalendarPlus className="h-4 w-4" /> Create new event
+            </button>
+            {events.length > 0 && (
+              <>
+                <div className="mt-4 px-3 text-sm text-muted-foreground">Events</div>
+                <div className="mt-1 space-y-0.5">
+                  {events.map((t) => (
+                    <div key={t.id} className={`group flex items-center rounded-2xl ${params.threadId === t.id ? "bg-sidebar-accent" : "hover:bg-sidebar-accent"}`}>
+                      <Link to="/chat/$threadId" params={{ threadId: t.id }} className="flex min-w-0 flex-1 items-center gap-2 px-3 py-2">
+                        <CalendarHeart className="h-4 w-4 shrink-0 text-primary" />
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate">{t.title}</span>
+                          <span className="block text-xs text-muted-foreground">{t.event_date ? new Date(t.event_date + "T12:00:00").toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) : "Date TBD"}</span>
+                        </span>
+                        {params.threadId !== t.id && isChatUnread(t.latest_assistant_at, t.last_read_at) && <span aria-label="Unread messages" className="h-2 w-2 shrink-0 rounded-full bg-primary" />}
+                      </Link>
+                      <button title="Delete event chat" aria-label="Delete event chat" onClick={() => deleteChat(t.id, t.title)} className="mr-2 rounded-full p-1.5 opacity-60 hover:bg-background/60 group-hover:opacity-100"><Trash2 className="h-3.5 w-3.5" /></button>
+                    </div>
+                  ))}
+                </div>
+              </>
             )}
             <div className="mt-4 flex items-center justify-between px-3 text-sm text-muted-foreground">
               Side chats

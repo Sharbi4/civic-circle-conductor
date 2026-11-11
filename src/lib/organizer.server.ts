@@ -17,7 +17,7 @@ export async function runOrganizer(supabase: SupabaseClient<Database>, userId: s
   {
 
     const { data: thread, error: tErr } = await supabase
-      .from("threads").select("id, title, kind").eq("id", data.threadId).maybeSingle();
+      .from("threads").select("id, title, kind, event_date").eq("id", data.threadId).maybeSingle();
     if (tErr || !thread) throw new Error("Chat not found");
 
     const { error: insErr } = await supabase.from("messages").insert({
@@ -130,7 +130,10 @@ For multi-step objectives, show a visible task plan with statuses (Done / Workin
       `Be concise, decisive and practical. Use markdown with short headings and bullets.`,
       `When you learn a durable fact about the organization (audiences, goals, dates, voice, contacts), add a final line exactly like: [[remember: <fact>]]. Only for new facts.`,
       memories?.length ? `Organization memory:\n- ${memories.map((m) => m.content).join("\n- ")}` : "",
-      thread.kind === "side" ? `This is a side chat titled "${thread.title}".` : "This is the main organizer chat.",
+      thread.kind === "event"
+        ? `This is an EVENT CHAT for "${thread.title}"${thread.event_date ? ` on ${thread.event_date}` : " (date not set yet)"}. Everything here works this one event to completion, in order: 1) concept, budget, people/volunteers, venue (confirm availability); 2) create it on Eventbrite via the API; 3) share through every connected API first (X, LinkedIn, Eventbrite); 4) RSVP sign-up and Add-to-Calendar link; 5) browser only for Facebook/Instagram events, posts, groups and messages; 6) reminders; 7) post-event feedback poll and follow-up. As soon as the name or date is decided or changes, add [[event_chat: {"title":"<event name>","date":"YYYY-MM-DD"}]] so the chat and its Event goal tile update.`
+        : `${thread.kind === "side" ? `This is a side chat titled "${thread.title}".` : "This is the main organizer chat."} EVENT CHAT OFFER: when the organizer starts planning a specific event here, ask once "Want to make this an event chat?" with [[choices: Yes, make it an event chat | Keep chatting here]]. If they agree, add [[event_chat: {"title":"<event name or working title>","date":"YYYY-MM-DD or omit if unknown"}]] — the app turns it into an event chat (name + date) with its own Event goal checklist.`,
+      `API FIRST, BROWSER LAST: for any platform with a connected API (Eventbrite, X, LinkedIn, Gmail, polls, documents, calls) ALWAYS use its API markers, never the browser. Do research from your own knowledge, memory, the resource directory and Community Scout rather than opening the browser. Use the live browser mainly for Facebook and Instagram (events, Page/profile/group posts, Messenger/DMs) and for sites with no API (e.g. a venue booking page).`,
       `OFFER A SCHEDULE: when the organizer asks for an action that naturally repeats (posts, reminders, volunteer calls, event promotion, check-ins, roundups, notification checks), after handling it ask once whether they'd like it on a schedule, suggesting a fitting cadence, e.g. [[choices: Every Monday | Every week before an event | Every month | Just this once]]. Skip it for one-off actions (a single event, a booking, a payment). If they pick a schedule, save a REAL scheduled task with the marker [[task: {"title":"Every Monday: X post — weekly events roundup","due":"<next run date YYYY-MM-DD>","repeat":"daily|weekly|biweekly|monthly","prompt":"the exact instruction you should follow each time, e.g. Draft this week's X roundup post of our upcoming events for approval"}]]. The scheduler runs it automatically on each due date: it puts a "Scheduled:" item in Approvals, and once they approve you carry it out in this chat (posts still get their own approval). Tell them that in one line and that they can change or stop it in Goals & tasks.`,
     ].filter(Boolean).join("\n\n");
 
@@ -258,6 +261,35 @@ For multi-step objectives, show a visible task plan with statuses (Done / Workin
         card = `\n📊 **${spec.title}** — [open the ${spec.kind === "feedback" ? "feedback form" : spec.kind === "signup" ? "sign-up" : "poll"}](/p/${pl.id}). ✅ Tested: I opened the public link and all ${spec.questions.length} questions loaded. Share link: https://civimeet.com/p/${pl.id} · results under **Polls** in the left bar.\n`;
       } catch (e) { console.error("Failed to create poll", e); card = "\n⚠️ I couldn't create that poll — try asking again.\n"; }
       text = text.replace(m[0], card);
+    }
+    const evMatch = text.match(/\[\[event_chat:\s*(\{.+?\})\s*\]\]/s);
+    if (evMatch) {
+      text = text.replace(/\n?\[\[event_chat:.+?\]\]/gs, "");
+      try {
+        const ev = JSON.parse(evMatch[1] ?? "") as { title?: string; date?: string };
+        const title = (ev.title ?? "").trim().slice(0, 120) || thread.title;
+        const date = ev.date && /^\d{4}-\d{2}-\d{2}$/.test(ev.date) ? ev.date : null;
+        if (thread.kind !== "main") {
+          await supabase.from("threads").update({ kind: "event", title, ...(date ? { event_date: date } : {}) }).eq("id", data.threadId);
+          const { data: g } = await supabase.from("tasks").select("id").eq("kind", "goal").eq("thread_id", data.threadId).maybeSingle();
+          if (g) await supabase.from("tasks").update({ title: `Event: ${title}`, ...(date ? { due_date: date } : {}) }).eq("id", g.id);
+          else {
+            const { data: ng } = await supabase.from("tasks").insert({ user_id: userId, kind: "goal", title: `Event: ${title}`, created_by: "civi", thread_id: data.threadId, due_date: date }).select("id").single();
+            if (ng) await supabase.from("tasks").insert(["Budget, people & venue confirmed", "Create on Eventbrite (API)", "Share via connected APIs (X, LinkedIn)", "RSVP sign-up & calendar link", "Facebook & Instagram (browser)", "Reminders", "Feedback & follow-up"]
+              .map((t) => ({ user_id: userId, kind: "task", title: t, created_by: "civi", goal_id: ng.id, thread_id: data.threadId })));
+          }
+        } else {
+          // The main chat stays main: spin off a dedicated event chat instead.
+          const { data: nt } = await supabase.from("threads").insert({ user_id: userId, kind: "event", title, event_date: date }).select("id").single();
+          if (nt) {
+            const { data: ng } = await supabase.from("tasks").insert({ user_id: userId, kind: "goal", title: `Event: ${title}`, created_by: "civi", thread_id: nt.id, due_date: date }).select("id").single();
+            if (ng) await supabase.from("tasks").insert(["Budget, people & venue confirmed", "Create on Eventbrite (API)", "Share via connected APIs (X, LinkedIn)", "RSVP sign-up & calendar link", "Facebook & Instagram (browser)", "Reminders", "Feedback & follow-up"]
+              .map((t) => ({ user_id: userId, kind: "task", title: t, created_by: "civi", goal_id: ng.id, thread_id: nt.id })));
+            await supabase.from("messages").insert({ thread_id: nt.id, user_id: userId, role: "assistant", content: `🎉 This is the event chat for **${title}**${date ? ` (${date})` : ""}. I'll pick up from what we discussed in the main chat — budget, people and venue first, then Eventbrite and sharing.` });
+            text += `\n\n📅 I opened a dedicated event chat for **${title}** under **Events** in the left bar, with its checklist in Event goals.`;
+          }
+        }
+      } catch (e) { console.error("event_chat marker failed", e); }
     }
     const uuidRe = /^[0-9a-f-]{36}$/i;
     const taskRows = [...text.matchAll(/\[\[(task|goal):\s*(\{.+?\})\s*\]\]/gs)].slice(0, 10).flatMap((m) => {

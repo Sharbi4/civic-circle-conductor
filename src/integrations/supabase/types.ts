@@ -1133,6 +1133,7 @@ export type Database = {
         Row: {
           activity_id: string | null
           created_at: string
+          event_date: string | null
           id: string
           kind: string
           last_read_at: string | null
@@ -1145,6 +1146,7 @@ export type Database = {
         Insert: {
           activity_id?: string | null
           created_at?: string
+          event_date?: string | null
           id?: string
           kind?: string
           last_read_at?: string | null
@@ -1157,6 +1159,7 @@ export type Database = {
         Update: {
           activity_id?: string | null
           created_at?: string
+          event_date?: string | null
           id?: string
           kind?: string
           last_read_at?: string | null
