@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { CalendarDays, Check, ChevronDown, ChevronRight, MessagesSquare, Plus, Sparkles, Target, Trash2 } from "lucide-react";
+import { CalendarDays, Check, ChevronDown, ChevronRight, MessagesSquare, Plus, Target, Trash2 } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -130,11 +130,10 @@ function Row({ t, onUpdate, onRemove, bold }: { t: Task; onUpdate: (id: string, 
   const [title, setTitle] = useState(t.title);
   const [dateOpen, setDateOpen] = useState(false);
   const over = !t.done && t.due_date && t.due_date < today();
-  const fromCivi = t.created_by === "agent" || t.created_by === "civi";
   const showTime = Boolean(t.scheduled_for && !t.done);
   const sameDay = Boolean(t.scheduled_for && t.due_date && new Date(t.scheduled_for).toLocaleDateString() === new Date(t.due_date + "T12:00:00").toLocaleDateString());
   const showDue = Boolean(t.due_date) && !(showTime && sameDay);
-  const hasMeta = Boolean(t.last_error || showTime || t.repeat || fromCivi || showDue || dateOpen);
+  const hasMeta = Boolean(t.last_error || showTime || t.repeat || showDue || dateOpen);
   function save() { setEditing(false); if (title.trim() && title.trim() !== t.title) onUpdate(t.id, { title: title.trim() }); else setTitle(t.title); }
   return (
     <div className="group flex min-w-0 flex-1 items-start gap-1.5 rounded-lg px-1 py-1 hover:bg-sidebar-accent">
@@ -168,7 +167,7 @@ function Row({ t, onUpdate, onRemove, bold }: { t: Task; onUpdate: (id: string, 
                 <ChevronDown className="pointer-events-none absolute right-0 h-2.5 w-2.5" />
               </span>
             )}
-            {fromCivi && <span className="inline-flex shrink-0 items-center gap-0.5"><Sparkles className="h-2.5 w-2.5" />Civi</span>}
+            
             {dateOpen ? (
               <span className="inline-flex shrink-0 items-center gap-1">
                 <input type="date" autoFocus defaultValue={t.due_date ?? ""} onBlur={() => setDateOpen(false)}
