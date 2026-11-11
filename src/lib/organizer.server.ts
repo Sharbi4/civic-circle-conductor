@@ -322,6 +322,12 @@ For multi-step objectives, show a visible task plan with statuses (Done / Workin
         text = text.replace(call[0], '\nAvailability call queued in Approvals. No call has been placed yet.');
       } catch { text = text.replace(call[0], '\nCall not queued: a verified business phone number and specific calling brief are required.'); }
     }
+    for (const m of [...text.matchAll(/\[\[fill_pdf:\s*(https:\/\/[^\s\]]+)\s*\]\]/g)].slice(0, 1)) {
+      try {
+        const { fillPdfApplication } = await import('./pdfFill.server');
+        text = text.replace(m[0], `\n\n${await fillPdfApplication(supabase, userId, data.threadId, m[1]!)}`);
+      } catch (e) { text = text.replace(m[0], `\n\nI couldn't fill that application: ${e instanceof Error ? e.message : 'unknown problem'}`); }
+    }
     const docLinks: string[] = [];
     for (const m of docMatches) {
       const title = (m[1] ?? "Document").trim().slice(0, 160), kind = (m[2] ?? "document").trim().slice(0, 30), body = (m[3] ?? "").trim().slice(0, 30000);
