@@ -1,3 +1,5 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/integrations/supabase/types";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
@@ -12,8 +14,14 @@ const MODEL = "openai/gpt-6.1-terra";
 export const sendOrganizerMessage = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) => z.object({ threadId: z.string().uuid(), content: z.string().min(1).max(8000) }).parse(d))
-  .handler(async ({ data, context }) => {
-    const { supabase, userId } = context;
+  .handler(async ({ data, context }) => runOrganizer(context.supabase, context.userId, data));
+
+/**
+ * Runs one organizer turn: saves the user message, generates Civi's reply, and applies its markers.
+ * Used by the chat (as the signed-in user) and by the scheduler (with a client scoped to one org's user id).
+ */
+export async function runOrganizer(supabase: SupabaseClient<Database>, userId: string, data: { threadId: string; content: string }) {
+  {
 
     const { data: thread, error: tErr } = await supabase
       .from("threads").select("id, title, kind").eq("id", data.threadId).maybeSingle();
@@ -330,4 +338,5 @@ For multi-step objectives, show a visible task plan with statuses (Done / Workin
     await supabase.from("threads").update(patch).eq("id", data.threadId);
 
     return { content: clean, remembered: facts.length };
-  });
+  }
+}

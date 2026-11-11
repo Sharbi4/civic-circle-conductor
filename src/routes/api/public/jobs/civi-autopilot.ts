@@ -126,7 +126,7 @@ export const Route = createFileRoute("/api/public/jobs/civi-autopilot")({
         // 4) Scheduled (repeating) tasks: when due, queue an approval that runs the task's instruction, then roll the due date forward.
         const today = new Date().toISOString().slice(0, 10);
         const { data: dueTasks } = await db.from("tasks").select("id, user_id, title, repeat, run_prompt, thread_id, due_date, last_run_at")
-          .not("repeat", "is", null).eq("done", false).lte("due_date", today).limit(25);
+          .not("repeat", "is", null).eq("done", false).lte("due_date", today).limit(5);
         for (const t of dueTasks ?? []) {
           if (t.last_run_at && t.last_run_at.slice(0, 10) === today) continue;
           let thread = t.thread_id;
@@ -137,9 +137,19 @@ export const Route = createFileRoute("/api/public/jobs/civi-autopilot")({
           const { data: claimed } = await db.from("tasks").update({ last_run_at: new Date().toISOString(), due_date: next })
             .eq("id", t.id).eq("due_date", t.due_date!).select("id");
           if (!claimed?.length || !thread) continue;
-          await db.from("approvals").insert({ user_id: t.user_id, action_type: "other", title: `Scheduled: ${t.title}`.slice(0, 200),
-            details: `${t.run_prompt ?? t.title}\n\nRepeats ${t.repeat}; next run ${next}.`, payload: { kind: "civi_suggestion", thread, prompt: t.run_prompt ?? t.title } });
-          out.push({ scheduled: t.id, next });
+          // Run it now: Civi does the work in the chat as this org only. Posts/payments it drafts still queue their own approval.
+          try {
+            const { runOrganizer } = await import("@/lib/organizer.functions");
+            const { scopedDb } = await import("@/lib/scopedDb.server");
+            await runOrganizer(scopedDb(db, t.user_id), t.user_id, { threadId: thread,
+              content: `⏰ Scheduled task (${t.repeat}): ${t.run_prompt ?? t.title}\n\n(This ran automatically on schedule. Do it now: draft and queue everything for approval in this message without asking questions. Next run ${next}.)` });
+            out.push({ scheduled: t.id, ran: true, next });
+          } catch (e) {
+            const msg = String(e).slice(0, 300);
+            await db.from("messages").insert({ thread_id: thread, user_id: t.user_id, role: "assistant",
+              content: `⚠️ I couldn't run your scheduled task **${t.title}** just now (${msg}). I'll try again on ${next}.\n\n[[choices: Run it now | Skip this time]]` });
+            out.push({ scheduled: t.id, error: msg });
+          }
         }
         return Response.json({ ok: true, out });
       },
