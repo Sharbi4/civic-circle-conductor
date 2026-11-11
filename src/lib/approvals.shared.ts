@@ -11,6 +11,41 @@ export function approvalScope(payload: unknown, account: string, page = ''): str
   return JSON.stringify([kind, account, page, target ?? '']);
 }
 
+/** One plain-language line naming the action this approval will take. */
+export function approvalAction(payload: unknown, actionType = ''): string {
+  const kind = approvalKind(payload);
+  const p = payload && typeof payload === 'object' ? (payload as Record<string, unknown>) : {};
+  const hasPhoto = typeof p['image'] === 'string' || typeof p['image_prompt'] === 'string';
+  switch (kind) {
+    case 'linkedin_post': return hasPhoto ? 'Publish this post on LinkedIn with its photo' : 'Publish this post on LinkedIn';
+    case 'x_post': return hasPhoto ? 'Publish this post on X with its photo' : 'Publish this post on X';
+    case 'linkedin_event_create': return 'Create and publish this event on LinkedIn';
+    case 'linkedin_event_update': return 'Update this LinkedIn event';
+    case 'linkedin_event_publish': return 'Publish this LinkedIn event';
+    case 'eventbrite_create': return 'Create this event as an Eventbrite draft';
+    case 'eventbrite_publish': return 'Publish this Eventbrite event';
+    case 'venue_call': return `Place a research call to ${typeof p['recipient'] === 'string' ? p['recipient'] : 'the venue'} — no booking or payment`;
+    case 'fb_join_group': return 'Join this Facebook group in the live browser';
+    case 'fb_page_post': return 'Post this update on your Facebook Page';
+    case 'civi_suggestion': return 'Start this suggested action';
+    default:
+      if (actionType === 'payment') return 'Make this payment';
+      if (actionType === 'booking') return 'Make this booking';
+      if (actionType === 'outreach') return 'Send this outreach';
+      return 'Take this action';
+  }
+}
+
+/** Storage path (or https URL) of the photo that goes with this approval, if any. */
+export function approvalImage(payload: unknown): string | null {
+  const p = payload && typeof payload === 'object' ? (payload as Record<string, unknown>) : {};
+  for (const key of ['image', 'cover_image'] as const) {
+    const v = p[key];
+    if (typeof v === 'string' && v.trim()) return v.trim();
+  }
+  return null;
+}
+
 export function executionOutcome(result: { ok?: boolean; started?: boolean; queued?: number }) {
   if (result.ok === false) return 'failed' as const;
   if (result.started !== undefined || result.queued !== undefined) return 'queued' as const;

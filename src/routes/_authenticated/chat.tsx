@@ -15,8 +15,8 @@ import { CiviChatMark } from '@/components/CiviChatMark';
 import { SwipeToIgnore } from '@/components/SwipeToIgnore';
 import { takeDiscoveryAction } from "@/lib/discovery.functions";
 import { discoveryIdeas } from "@/lib/discovery.shared";
-import { decideApproval } from '@/lib/approvals.functions';
-import { approvalKind, approvalStateLabel } from '@/lib/approvals.shared';
+import { approvalKind } from '@/lib/approvals.shared';
+import { ApprovalCard } from '@/components/ApprovalCard';
 import { isChatUnread } from '@/lib/inbox.shared';
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
@@ -753,20 +753,12 @@ function LinkedInPageField({ current }: { current: string }) {
   );
 }
 
-const APPROVAL_TYPE: Record<string, { Icon: typeof Megaphone; label: string }> = {
-  outreach: { Icon: Megaphone, label: "Outreach" },
-  booking: { Icon: CalendarCheck, label: "Booking" },
-  payment: { Icon: CreditCard, label: "Payment" },
-  other: { Icon: Sparkles, label: "Action" },
-};
-
 function ApprovalsPanel() {
   const approvals = useApprovals();
   const threads = useThreads();
   const qc = useQueryClient();
   const navigate = useNavigate();
   const [busyId, setBusyId] = useState<string | null>(null);
-  const runDecision = useServerFn(decideApproval);
   const preferences = useQuery({ queryKey: ['approval_preferences'], queryFn: async () => {
     const { data, error } = await supabase.from('approval_preferences').select('id, label');
     if (error) throw error;
@@ -784,81 +776,17 @@ function ApprovalsPanel() {
     toast('Ignored — no action will be taken', {action:{label:'Undo',onClick:async()=>{await supabase.from('approvals').update({status:'pending',resolved_at:null}).eq('id',id).eq('status','ignored');qc.invalidateQueries({queryKey:['approvals']});}}});
   }
 
-  async function respond(id: string, decision: "approved" | "declined", title: string, browserSessionId?: string | null, payload?: unknown, mode: 'once' | 'always' = 'once') {
-    if (busyId) return;
-    setBusyId(id);
-    try {
-      if (decision === 'declined') {
-        const { error } = await supabase.from('approvals').update({ status: 'declined', resolved_at: new Date().toISOString() }).eq('id', id).eq('status', 'pending');
-        if (error) throw error;
-        toast('Declined — no action will be taken');
-        return;
-      }
-      const result = await runDecision({ data: { approvalId: id, mode } });
-      const kind = approvalKind(payload);
-      if (kind.startsWith('fb_')) {
-        toast('Queued — waiting for Facebook to finish');
-      } else if (kind === 'venue_call') {
-        toast('Call initiated — not a booking confirmation');
-      } else if (browserSessionId) {
-        const { error } = await supabase.from('browser_sessions').update({ agent_status: 'driving', submit_approved: true, active_approval_id: id }).eq('id', browserSessionId);
-        if (error) throw error;
-        await supabase.from('approvals').update({ run_state: 'running' }).eq('id', id);
-        toast('Working in the browser');
-      } else if ('ok' in result && result.ok === false) toast.error('Failed — see the chat for details');
-      else if (kind === 'eventbrite_create') toast.success('Draft saved on Eventbrite — not published');
-      else if (kind.startsWith('linkedin_') || kind === 'x_post') toast.success('Success — confirmed by the service');
-      else toast('Approved');
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Couldn't complete this action");
-    } finally {
-      await Promise.all([qc.invalidateQueries({ queryKey: ['approvals'] }), qc.invalidateQueries({ queryKey: ['messages'] }), qc.invalidateQueries({ queryKey: ['approval_preferences'] }), qc.invalidateQueries({ queryKey: ['browser_session'] })]);
-      setBusyId(null);
-    }
-  }
-
-  const card = (a: NonNullable<typeof approvals.data>[number]) => {
-    const { Icon, label } = APPROVAL_TYPE[a.action_type] ?? APPROVAL_TYPE["other"] ?? { Icon: Sparkles, label: "Action" };
-    return (
-      <SwipeToIgnore key={a.id} onIgnore={() => ignore(a.id)} disabled={a.status !== 'pending' || busyId !== null}><div className="rounded-2xl border bg-card p-4 shadow-soft">
-        <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          <Icon className="h-4 w-4 text-accent" />
-          {label}
-          {a.status === 'pending' && <Button variant="ghost" size="icon" className="ml-auto h-7 w-7" aria-label={`Ignore ${a.title}`} title="Ignore" disabled={busyId !== null} onClick={() => ignore(a.id)}><X className="h-3.5 w-3.5" /></Button>}
-          {a.status !== "pending" && (
-            <span className={`ml-auto rounded-full px-2 py-0.5 ${a.status === "approved" ? "bg-secondary text-foreground" : "bg-secondary text-muted-foreground line-through"}`}>
-              {a.status === "approved" ? approvalStateLabel(a.run_state, a.payload) : a.status}
-            </span>
-          )}
-        </div>
-        <div className="mt-2 font-medium">{a.title}</div>
-        {a.details && <p className="mt-1 text-sm text-muted-foreground">{a.details}</p>}
-        {a.approval_mode === 'always' && <p className="mt-2 text-xs text-muted-foreground">Always approved for this action and account</p>}
-        {a.run_error && <p className="mt-2 text-sm text-destructive">{a.run_error}</p>}
-        {approvalKind(a.payload) === 'eventbrite_create' && a.payload && typeof a.payload === 'object' && 'event_id' in a.payload && typeof a.payload['event_id'] === 'string' && <EventbriteDraftControls eventId={a.payload['event_id']} />}
-        {busyId === a.id && <p role="status" className="mt-2 flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" />{approvalKind(a.payload).includes('post') ? 'Posting…' : 'Working…'}</p>}
-        {a.status === "pending" && (
-          <div className="mt-3 flex gap-2">
-            <div className="flex items-center">
-              <Button size="sm" disabled={busyId !== null} onClick={() => respond(a.id, "approved", a.title, a.browser_session_id, a.payload)} className="rounded-l-full rounded-r-none">
-                <Check className="h-4 w-4" /> Approve
-              </Button>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild><Button size="sm" disabled={busyId !== null} className="rounded-l-none rounded-r-full border-l border-primary-foreground/30 px-2" aria-label={`Approval options for ${a.title}`}><ChevronDown className="h-4 w-4" /></Button></DropdownMenuTrigger>
-                <DropdownMenuContent align="start">
-                  <DropdownMenuItem onSelect={() => respond(a.id, 'approved', a.title, a.browser_session_id, a.payload, 'once')}>Approve one time</DropdownMenuItem>
-                  <DropdownMenuItem disabled={!approvalKind(a.payload)} onSelect={() => respond(a.id, 'approved', a.title, a.browser_session_id, a.payload, 'always')}>Always approve this action</DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-            <Button size="sm" variant="outline" disabled={busyId === a.id} onClick={() => respond(a.id, "declined", a.title, a.browser_session_id, a.payload)} className="rounded-full">
-              <X className="h-4 w-4" /> Decline
-            </Button>
-          </div>
-        )}
-      </div></SwipeToIgnore>
-    );
-  };
+  const card = (a: NonNullable<typeof approvals.data>[number]) => (
+    <SwipeToIgnore key={a.id} onIgnore={() => ignore(a.id)} disabled={a.status !== 'pending'}>
+      <ApprovalCard
+        approval={a}
+        onIgnore={ignore}
+        extra={approvalKind(a.payload) === 'eventbrite_create' && a.payload && typeof a.payload === 'object' && 'event_id' in a.payload && typeof a.payload['event_id'] === 'string'
+          ? <EventbriteDraftControls eventId={a.payload['event_id']} />
+          : undefined}
+      />
+    </SwipeToIgnore>
+  );
 
   return (
     <div className="flex-1 overflow-y-auto px-3 pb-4">
