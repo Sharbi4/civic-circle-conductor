@@ -1,4 +1,5 @@
 # Civi Meet roadmap
+- [ ] Add scoped always-approve choices and persistent provider-confirmed execution status.
 - [ ] Restore LinkedIn photo posting: confirmed account lookup and photo registration succeed, but photo transfer returns 405 at api.linkedin.com instead of the returned www.linkedin.com upload address. Blocked on a supported authenticated upload-host mechanism; no publication retried.
 - [x] Add swipe-to-ignore notification/approval cards with Undo and unread dots beside chats. Verified signed-in swipe saves ignored status without executing work; opening unread chat clears its dot.
 - [x] Restore the pre-activity chat-centered app and remove later usage controls while preserving the three shared scheduled jobs and existing data. Verified main-chat redirect, account fields, absent activity/usage UI, authenticated recovery, schedule metadata and safety tests.

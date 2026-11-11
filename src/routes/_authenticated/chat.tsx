@@ -3,11 +3,13 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import type React from "react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { MessageCircle, Plus, Plug, LogOut, Pin, Brain, Inbox, Megaphone, CalendarCheck, CreditCard, Sparkles, Check, X, Compass, Trash2, KeyRound, Mic, FileText, ImagePlus, BarChart3, Menu, ListChecks, UserCircle } from "lucide-react";
+import { MessageCircle, Plus, Plug, LogOut, Pin, Brain, Inbox, Megaphone, CalendarCheck, CreditCard, Sparkles, Check, X, Compass, Trash2, KeyRound, Mic, FileText, ImagePlus, BarChart3, Menu, ListChecks, UserCircle, ChevronDown, Loader2 } from "lucide-react";
 import { PollsPanel } from "@/components/polls/PollsPanel";
 import { TasksPanel } from "@/components/tasks/TasksPanel";
 import { AccountPanel } from "@/components/account/AccountPanel";
 import { SwipeToIgnore } from '@/components/SwipeToIgnore';
+import { decideApproval } from '@/lib/approvals.functions';
+import { approvalKind, approvalStateLabel } from '@/lib/approvals.shared';
 import { isChatUnread } from '@/lib/inbox.shared';
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
@@ -694,11 +696,12 @@ function ApprovalsPanel() {
   const qc = useQueryClient();
   const navigate = useNavigate();
   const [busyId, setBusyId] = useState<string | null>(null);
-  const runEb = useServerFn(runEventbriteApproval);
-  const runLi = useServerFn(runLinkedInApproval);
-  const runFb = useServerFn(runFacebookApproval);
-  const runSend = useServerFn(sendOrganizerMessage);
-  const runX = useServerFn(runXApproval);
+  const runDecision = useServerFn(decideApproval);
+  const preferences = useQuery({ queryKey: ['approval_preferences'], queryFn: async () => {
+    const { data, error } = await supabase.from('approval_preferences').select('id, label');
+    if (error) throw error;
+    return data;
+  }});
   const main = threads.data?.find((t) => t.kind === "main");
   const pending = approvals.data?.filter((a) => a.status === "pending") ?? [];
   const resolved = approvals.data?.filter((a) => a.status !== "pending" && a.status !== "ignored") ?? [];
@@ -711,94 +714,39 @@ function ApprovalsPanel() {
     toast('Ignored — no action will be taken', {action:{label:'Undo',onClick:async()=>{await supabase.from('approvals').update({status:'pending',resolved_at:null}).eq('id',id).eq('status','ignored');qc.invalidateQueries({queryKey:['approvals']});}}});
   }
 
-  async function respond(id: string, decision: "approved" | "declined", title: string, browserSessionId?: string | null, payload?: unknown) {
+  async function respond(id: string, decision: "approved" | "declined", title: string, browserSessionId?: string | null, payload?: unknown, mode: 'once' | 'always' = 'once') {
+    if (busyId) return;
     setBusyId(id);
-    const { data: u } = await supabase.auth.getUser();
-    const { error } = await supabase
-      .from("approvals")
-      .update({ status: decision, resolved_at: new Date().toISOString() })
-      .eq("id", id);
-    if (error) { toast.error(error.message); setBusyId(null); return; }
-    if (decision === "approved" && (payload as { kind?: string } | null)?.kind === "eventbrite_create") {
-      try {
-        const r = await runEb({ data: { approvalId: id } });
-        toast.success("Event created on Eventbrite as a draft.");
-        if (r.threadId) qc.invalidateQueries({ queryKey: ["messages", r.threadId] });
-      } catch (e) {
-        toast.error(e instanceof Error ? e.message : "Eventbrite couldn't create the event");
+    try {
+      if (decision === 'declined') {
+        const { error } = await supabase.from('approvals').update({ status: 'declined', resolved_at: new Date().toISOString() }).eq('id', id).eq('status', 'pending');
+        if (error) throw error;
+        toast('Declined — no action will be taken');
+        return;
       }
-      await qc.invalidateQueries({ queryKey: ["approvals"] });
+      const result = await runDecision({ data: { approvalId: id, mode } });
+      const kind = approvalKind(payload);
+      if (kind.startsWith('fb_')) {
+        toast('Queued — waiting for Facebook to finish');
+      } else if (browserSessionId) {
+        const { error } = await supabase.from('browser_sessions').update({ agent_status: 'driving', submit_approved: true, active_approval_id: id }).eq('id', browserSessionId);
+        if (error) throw error;
+        await supabase.from('approvals').update({ run_state: 'running' }).eq('id', id);
+        toast('Working in the browser');
+      } else if ('ok' in result && result.ok === false) toast.error('Failed — see the chat for details');
+      else if (kind === 'eventbrite_create') toast.success('Success — Eventbrite draft created');
+      else if (kind.startsWith('linkedin_') || kind === 'x_post') toast.success('Success — confirmed by the service');
+      else toast('Approved');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Couldn't complete this action");
+    } finally {
+      await Promise.all([qc.invalidateQueries({ queryKey: ['approvals'] }), qc.invalidateQueries({ queryKey: ['messages'] }), qc.invalidateQueries({ queryKey: ['approval_preferences'] }), qc.invalidateQueries({ queryKey: ['browser_session'] })]);
       setBusyId(null);
-      return;
     }
-    if (decision === "approved" && (payload as { kind?: string } | null)?.kind?.startsWith("linkedin_")) {
-      try {
-        const r = await runLi({ data: { approvalId: id } });
-        if (r.ok) toast.success("Done on LinkedIn."); else toast.warning("LinkedIn finished with a problem — see the chat.");
-        if (r.threadId) qc.invalidateQueries({ queryKey: ["messages", r.threadId] });
-      } catch (e) {
-        toast.error(e instanceof Error ? e.message : "LinkedIn couldn't complete that");
-      }
-      await qc.invalidateQueries({ queryKey: ["approvals"] });
-      setBusyId(null);
-      return;
-    }
-    if (decision === "approved" && (payload as { kind?: string } | null)?.kind === "x_post") {
-      try {
-        const r = await runX({ data: { approvalId: id } });
-        if (r.ok) toast.success("Posted on X."); else toast.warning("X finished with a problem — see the X Agent chat.");
-        if (r.threadId) qc.invalidateQueries({ queryKey: ["messages", r.threadId] });
-      } catch (e) { toast.error(e instanceof Error ? e.message : "X couldn't post that"); }
-      await qc.invalidateQueries({ queryKey: ["approvals"] });
-      setBusyId(null);
-      return;
-    }
-    if (decision === "approved" && (payload as { kind?: string } | null)?.kind === "civi_suggestion") {
-      const p = payload as { thread: string; prompt: string };
-      navigate({ to: "/chat/$threadId", params: { threadId: p.thread } });
-      toast.success("Civi is on it.");
-      try { await runSend({ data: { threadId: p.thread, content: p.prompt } }); } catch (e) { toast.error(e instanceof Error ? e.message : "Civi couldn't start that"); }
-      qc.invalidateQueries({ queryKey: ["messages", p.thread] });
-      await qc.invalidateQueries({ queryKey: ["approvals"] });
-      setBusyId(null);
-      return;
-    }
-    if (decision === "approved" && (payload as { kind?: string } | null)?.kind?.startsWith("fb_")) {
-      try {
-        const r = await runFb({ data: { approvalId: id } });
-        toast.success(r.started ? "Civi is doing it in the Facebook browser now." : "Approved — Civi will do it right after its current browser task.");
-      } catch (e) {
-        toast.error(e instanceof Error ? e.message : "Couldn't start that on Facebook");
-      }
-      await qc.invalidateQueries({ queryKey: ["approvals"] });
-      qc.invalidateQueries({ queryKey: ["browser_session"] });
-      setBusyId(null);
-      return;
-    }
-    if (browserSessionId) {
-      await supabase.from("browser_sessions")
-        .update(decision === "approved" ? { agent_status: "driving", submit_approved: true } : { agent_status: "stopped" })
-        .eq("id", browserSessionId);
-      qc.invalidateQueries({ queryKey: ["browser_session", browserSessionId] });
-    }
-    if (main && u.user) {
-      await supabase.from("messages").insert({
-        thread_id: main.id,
-        user_id: u.user.id,
-        role: "assistant",
-        content: decision === "approved"
-          ? `✅ You approved: **${title}**. I'll get started on it.`
-          : `🚫 You declined: **${title}**. I won't take that action — tell me if you'd like a different approach.`,
-      });
-      qc.invalidateQueries({ queryKey: ["messages", main.id] });
-    }
-    await qc.invalidateQueries({ queryKey: ["approvals"] });
-    setBusyId(null);
-    toast.success(decision === "approved" ? "Approved — Civi will take it from here." : "Declined — Civi won't act on it.");
   }
 
   const card = (a: NonNullable<typeof approvals.data>[number]) => {
-    const { Icon, label } = APPROVAL_TYPE[a.action_type] ?? APPROVAL_TYPE["other"]!;
+    const { Icon, label } = APPROVAL_TYPE[a.action_type] ?? APPROVAL_TYPE["other"] ?? { Icon: Sparkles, label: "Action" };
     return (
       <SwipeToIgnore key={a.id} onIgnore={() => ignore(a.id)} disabled={a.status !== 'pending' || busyId !== null}><div className="rounded-2xl border bg-card p-4 shadow-soft">
         <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
@@ -807,17 +755,29 @@ function ApprovalsPanel() {
           {a.status === 'pending' && <Button variant="ghost" size="icon" className="ml-auto h-7 w-7" aria-label={`Ignore ${a.title}`} title="Ignore" disabled={busyId !== null} onClick={() => ignore(a.id)}><X className="h-3.5 w-3.5" /></Button>}
           {a.status !== "pending" && (
             <span className={`ml-auto rounded-full px-2 py-0.5 ${a.status === "approved" ? "bg-secondary text-foreground" : "bg-secondary text-muted-foreground line-through"}`}>
-              {a.status}
+              {a.status === "approved" ? approvalStateLabel(a.run_state, a.payload) : a.status}
             </span>
           )}
         </div>
         <div className="mt-2 font-medium">{a.title}</div>
         {a.details && <p className="mt-1 text-sm text-muted-foreground">{a.details}</p>}
+        {a.approval_mode === 'always' && <p className="mt-2 text-xs text-muted-foreground">Always approved for this action and account</p>}
+        {a.run_error && <p className="mt-2 text-sm text-destructive">{a.run_error}</p>}
+        {busyId === a.id && <p role="status" className="mt-2 flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" />{approvalKind(a.payload).includes('post') ? 'Posting…' : 'Working…'}</p>}
         {a.status === "pending" && (
           <div className="mt-3 flex gap-2">
-            <Button size="sm" disabled={busyId === a.id} onClick={() => respond(a.id, "approved", a.title, a.browser_session_id, a.payload)} className="rounded-full">
-              <Check className="h-4 w-4" /> Approve
-            </Button>
+            <div className="flex items-center">
+              <Button size="sm" disabled={busyId !== null} onClick={() => respond(a.id, "approved", a.title, a.browser_session_id, a.payload)} className="rounded-l-full rounded-r-none">
+                <Check className="h-4 w-4" /> Approve
+              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild><Button size="sm" disabled={busyId !== null} className="rounded-l-none rounded-r-full border-l border-primary-foreground/30 px-2" aria-label={`Approval options for ${a.title}`}><ChevronDown className="h-4 w-4" /></Button></DropdownMenuTrigger>
+                <DropdownMenuContent align="start">
+                  <DropdownMenuItem onSelect={() => respond(a.id, 'approved', a.title, a.browser_session_id, a.payload, 'once')}>Approve one time</DropdownMenuItem>
+                  <DropdownMenuItem disabled={!approvalKind(a.payload)} onSelect={() => respond(a.id, 'approved', a.title, a.browser_session_id, a.payload, 'always')}>Always approve this action</DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
             <Button size="sm" variant="outline" disabled={busyId === a.id} onClick={() => respond(a.id, "declined", a.title, a.browser_session_id, a.payload)} className="rounded-full">
               <X className="h-4 w-4" /> Decline
             </Button>
@@ -830,8 +790,15 @@ function ApprovalsPanel() {
   return (
     <div className="flex-1 overflow-y-auto px-3 pb-4">
       <p className="px-3 pb-3 text-sm text-muted-foreground">
-        Civi asks before any outreach, booking or payment. Review and decide here.
+        Review actions or grant ongoing approval for an action on this account.
       </p>
+      {(preferences.data?.length ?? 0) > 0 && <div className="mb-4 border-b pb-3">
+        <h3 className="mb-2 text-xs font-semibold text-muted-foreground">Always approved</h3>
+        {preferences.data?.map((p) => <div key={p.id} className="flex items-center justify-between gap-2 text-sm"><span>{p.label}</span><Button variant="ghost" size="icon" aria-label={`Stop always approving ${p.label}`} title="Ask each time" onClick={async () => {
+          const { error } = await supabase.from('approval_preferences').delete().eq('id', p.id);
+          if (error) toast.error(error.message); else { toast('Civi will ask each time'); qc.invalidateQueries({ queryKey: ['approval_preferences'] }); }
+        }}><X className="h-4 w-4" /></Button></div>)}
+      </div>}
       <div className="space-y-2.5">
         {pending.map(card)}
         {pending.length === 0 && (

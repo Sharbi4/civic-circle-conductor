@@ -246,6 +246,20 @@
       "when": 1794371632786,
       "tag": "0034_allow_ignored_approval_status",
       "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1794371788111,
+      "tag": "0035_approval_preferences_and_execution_outcomes",
+      "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1794371890268,
+      "tag": "0036_link_browser_approval_completion",
+      "breakpoints": true
     }
   ]
 }

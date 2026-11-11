@@ -330,7 +330,11 @@ For multi-step objectives, show a visible task plan with statuses (Done / Workin
       await supabase.from("memories").insert(facts.map((content) => ({ user_id: userId, content })));
     }
     if (approvalRows.length) {
-      const { error: apErr } = await supabase.from("approvals").insert(approvalRows);
+      const { data: savedApprovals, error: apErr } = await supabase.from("approvals").insert(approvalRows).select("id, payload");
+      if (savedApprovals) {
+        const { applyStandingApprovals } = await import("./approvals.server");
+        await applyStandingApprovals(supabase, userId, savedApprovals);
+      }
       if (apErr) console.error("Failed to queue approvals", apErr.message);
     }
     if (resourceRows.length) {

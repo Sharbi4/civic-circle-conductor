@@ -250,10 +250,35 @@ export type Database = {
         }
         Relationships: []
       }
+      approval_preferences: {
+        Row: {
+          created_at: string
+          id: string
+          label: string
+          scope_key: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          label: string
+          scope_key: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          label?: string
+          scope_key?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       approvals: {
         Row: {
           action_type: string
           activity_id: string | null
+          approval_mode: string | null
           browser_session_id: string | null
           created_at: string
           details: string
@@ -261,6 +286,9 @@ export type Database = {
           id: string
           payload: Json | null
           resolved_at: string | null
+          run_error: string | null
+          run_finished_at: string | null
+          run_state: string | null
           status: string
           title: string
           user_id: string
@@ -268,6 +296,7 @@ export type Database = {
         Insert: {
           action_type: string
           activity_id?: string | null
+          approval_mode?: string | null
           browser_session_id?: string | null
           created_at?: string
           details?: string
@@ -275,6 +304,9 @@ export type Database = {
           id?: string
           payload?: Json | null
           resolved_at?: string | null
+          run_error?: string | null
+          run_finished_at?: string | null
+          run_state?: string | null
           status?: string
           title: string
           user_id: string
@@ -282,6 +314,7 @@ export type Database = {
         Update: {
           action_type?: string
           activity_id?: string | null
+          approval_mode?: string | null
           browser_session_id?: string | null
           created_at?: string
           details?: string
@@ -289,6 +322,9 @@ export type Database = {
           id?: string
           payload?: Json | null
           resolved_at?: string | null
+          run_error?: string | null
+          run_finished_at?: string | null
+          run_state?: string | null
           status?: string
           title?: string
           user_id?: string
@@ -335,6 +371,7 @@ export type Database = {
       }
       browser_sessions: {
         Row: {
+          active_approval_id: string | null
           agent_status: string
           connect_url: string | null
           created_at: string
@@ -358,6 +395,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          active_approval_id?: string | null
           agent_status?: string
           connect_url?: string | null
           created_at?: string
@@ -381,6 +419,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          active_approval_id?: string | null
           agent_status?: string
           connect_url?: string | null
           created_at?: string

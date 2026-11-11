@@ -175,11 +175,12 @@ function parseMarker<T>(text: string, name: string): T | null {
 /** Starts the next approved task waiting for this browser, if any. */
 export async function startNextQueued(supabase: SupabaseLike, id: string): Promise<boolean> {
   const { data: r } = await supabase.from("browser_sessions").select("queue, status").eq("id", id).maybeSingle();
-  const q = (Array.isArray(r?.queue) ? r.queue : []) as { goal: string }[];
+  const q = (Array.isArray(r?.queue) ? r.queue : []) as { goal: string; approvalId?: string }[];
   if (!q.length || r?.status !== "running") return false;
   const [next, ...rest] = q;
-  await retargetSession(supabase, id, next!.goal);
-  await supabase.from("browser_sessions").update({ queue: rest, submit_approved: true }).eq("id", id);
+  if (!next) return false;
+  await retargetSession(supabase, id, next.goal);
+  await supabase.from("browser_sessions").update({ queue: rest, submit_approved: true, active_approval_id: next.approvalId ?? null }).eq("id", id);
   return true;
 }
 
@@ -214,7 +215,7 @@ export async function runAgentStep(supabase: any, userId: string, sessionRowId: 
 
     const { data: row, error } = await supabase
       .from("browser_sessions")
-      .select("id, thread_id, goal, task, status, agent_status, steps, submit_approved, connect_url")
+      .select("id, thread_id, goal, task, status, agent_status, steps, submit_approved, connect_url, active_approval_id")
       .eq("id", sessionRowId).maybeSingle();
     if (error || !row) throw new Error("Browser session not found");
     if (row.status !== "running" || row.agent_status !== "driving" || !row.connect_url) {
@@ -241,7 +242,13 @@ export async function runAgentStep(supabase: any, userId: string, sessionRowId: 
     const post = (content: string) =>
       supabase.from("messages").insert({ thread_id: row.thread_id, user_id: userId, role: "assistant", content });
 
+    const finishApproval = async (state: string, error: string | null = null) => {
+      if (!row.active_approval_id) return;
+      await supabase.from('approvals').update({ run_state: state, run_error: error, run_finished_at: new Date().toISOString() }).eq('id', row.active_approval_id).eq('user_id', userId);
+      await supabase.from('browser_sessions').update({ active_approval_id: null }).eq('id', row.id);
+    };
     if (current.length >= MAX_STEPS) {
+      await finishApproval('needs_review', 'The browser paused before completion could be confirmed.');
       await save({ agent_status: "done" }, { action: "done", note: "Reached the step limit — paused so you can take over." });
       await post(`⏸️ I paused the browser task **${goal}** after ${MAX_STEPS} steps. Take over in the browser, or tell me how to continue.`);
       return { agentStatus: "done" };
@@ -273,6 +280,7 @@ export async function runAgentStep(supabase: any, userId: string, sessionRowId: 
             VENDOR_SCOUT_BROWSER,
             "List fb_groups most relevant to the mission first; skip groups already joined earlier in this browser.",
             "When the goal says it is APPROVED by the organizer, you may use submit on the Join / Post button that completes it.",
+            "For an approved action, use done only after the page confirms completion. Include a visible confirmation or resulting object link in summary. If success cannot be verified, use handoff instead. Never claim success from merely clicking Submit.",
             "Never invent contact details. Never ask the organizer to paste passwords or codes in chat.",
           ].join("\n"),
           input: [{
@@ -321,6 +329,7 @@ export async function runAgentStep(supabase: any, userId: string, sessionRowId: 
         return { agentStatus: "needs_user" };
       }
       if (a.action === "done") {
+        await finishApproval("succeeded");
         const summary = String(a.summary ?? "");
         const groups = parseMarker<{ name: string; url: string }[]>(summary, "fb_groups") ?? [];
         const page = parseMarker<{ url: string; post_text: string }>(summary, "fb_page");
@@ -351,7 +360,13 @@ export async function runAgentStep(supabase: any, userId: string, sessionRowId: 
           if (await startNextQueued(supabase, row.id)) return { agentStatus: "driving" };
           return { agentStatus: "done" };
         }
-        if (fbRows.length) await supabase.from("approvals").insert(fbRows);
+        if (fbRows.length) {
+          const { data: savedApprovals } = await supabase.from("approvals").insert(fbRows).select('id, payload');
+          if (savedApprovals) {
+            const { applyStandingApprovals } = await import('./approvals.server');
+            await applyStandingApprovals(supabase, userId, savedApprovals);
+          }
+        }
         await save({ agent_status: "done" }, { action: "done", note: `Finished: ${cleanSummary.replace(/\s+/g, " ").slice(0, 400)}` });
         await post(`${goal.startsWith("NOTIFICATION CHECK") ? "🔔 **New on Facebook**" : `✅ Browser task finished: **${goal}**`}\n\n${cleanSummary}${fbRows.length ? `\n\n📥 I put ${fbRows.length} request${fbRows.length > 1 ? "s" : ""} in your **Approvals** inbox — ${groups.length ? `one per group to join` : ""}${groups.length && page ? " and " : ""}${page ? "the Page update post" : ""}. Approve the ones you want and I'll do them one by one in this browser.` : ""}`);
         if (await startNextQueued(supabase, row.id)) {
@@ -376,6 +391,7 @@ export async function runAgentStep(supabase: any, userId: string, sessionRowId: 
       return { agentStatus: "driving" };
     } catch (e) {
       console.error("Browser agent step failed", e);
+      await finishApproval("failed", "Browser connection failed. Check the page before trying again.");
       await save({ agent_status: "failed" }, { action: "error", note: "Lost connection to the browser — the session may have expired." });
       return { agentStatus: "failed" };
     }
@@ -421,8 +437,12 @@ export const runFacebookApproval = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) => z.object({ approvalId: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
-    const { supabase } = context;
-    const { data: ap } = await supabase.from("approvals").select("status, payload").eq("id", data.approvalId).maybeSingle();
+    const { executeApproval } = await import("./approvals.server");
+    return executeApproval(context.supabase, context.userId, data.approvalId, () => executeFacebookApproval(context.supabase, context.userId, data.approvalId));
+  });
+
+export async function executeFacebookApproval(supabase: SupabaseLike, userId: string, approvalId: string) {
+    const { data: ap } = await supabase.from("approvals").select("status, payload").eq("id", approvalId).maybeSingle();
     if (!ap || ap.status !== "approved") throw new Error("This action isn't approved.");
     const p = ap.payload as { kind: string; session: string; name?: string; url: string; text?: string };
     const { data: row } = await supabase.from("browser_sessions").select("id, status, agent_status, queue").eq("id", p.session).maybeSingle();
@@ -430,9 +450,10 @@ export const runFacebookApproval = createServerFn({ method: "POST" })
     const goal = p.kind === "fb_join_group"
       ? `APPROVED by the organizer: join the Facebook group "${p.name}". Open ${p.url}, click Join group (use submit for that button). If it asks membership questions, answer briefly and honestly from our mission, then submit. If anything needs the organizer (e.g. agreeing to rules personally), use handoff. Then done.`
       : `APPROVED by the organizer: post this update on our organization's Facebook Page (${p.url}), posting as the Page, not the personal profile. Switch to the Page if needed, open "Create post", type exactly this text:\n${p.text}\nthen click Post (use submit for that button). Then done.`;
-    const q = [...(Array.isArray(row.queue) ? row.queue : []), { goal }];
+    const q = [...(Array.isArray(row.queue) ? row.queue : []), { goal, approvalId }];
     await supabase.from("browser_sessions").update({ queue: q }).eq("id", row.id);
     const busy = ["driving", "awaiting_approval", "needs_user"].includes(row.agent_status ?? "");
     const started = busy ? false : await startNextQueued(supabase, row.id);
+    await supabase.from("approvals").update({ run_state: "queued", run_error: null }).eq("id", approvalId).eq("user_id", userId);
     return { started, queued: q.length };
-  });
+}

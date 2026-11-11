@@ -1,0 +1,2 @@
+ALTER TABLE public.browser_sessions ADD COLUMN IF NOT EXISTS active_approval_id uuid;
+COMMENT ON COLUMN public.browser_sessions.active_approval_id IS 'Approval associated with the currently executing queued browser task.';
