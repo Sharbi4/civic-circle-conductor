@@ -526,6 +526,15 @@ function ChatWindow({ threadId }: { threadId: string }) {
     voice.play(last.id, last.content);
   }, [msgs.data, autoRead, busy]);
 
+  const runRef = useRef(0);
+  function stopReply() {
+    runRef.current++;
+    setPending([]);
+    setBusy(false);
+    toast("Stopped. Send a new message whenever you're ready.");
+    setTimeout(() => inputRef.current?.focus(), 0);
+  }
+
   async function submit(text: string) {
     const typed = text.trim();
     if ((!typed && !attachment) || busy || uploading) return;
@@ -536,8 +545,10 @@ function ChatWindow({ threadId }: { threadId: string }) {
     setInput("");
     setPending([{ id: "p", role: "user", content }]);
     setBusy(true);
+    const run = ++runRef.current;
     try {
       await send({ data: { threadId, content } });
+      if (run !== runRef.current) { qc.invalidateQueries({ queryKey: ["messages", threadId] }); return; }
       qc.invalidateQueries({ queryKey: ["documents"] });
       await Promise.all([
         qc.invalidateQueries({ queryKey: ["messages", threadId] }),
@@ -545,12 +556,12 @@ function ChatWindow({ threadId }: { threadId: string }) {
         qc.invalidateQueries({ queryKey: ["memories"] }),
       ]);
     } catch (e) {
+      if (run !== runRef.current) return;
       toast.error(e instanceof Error ? e.message : "Something went wrong");
       setInput(content);
       await qc.invalidateQueries({ queryKey: ["messages", threadId] });
     } finally {
-      setPending([]);
-      setBusy(false);
+      if (run === runRef.current) { setPending([]); setBusy(false); }
     }
   }
 
@@ -722,6 +733,12 @@ function ChatWindow({ threadId }: { threadId: string }) {
             {rec === "recording" && <span className="absolute inset-0 animate-ping rounded-full bg-accent/40" />}
             {rec === "working" ? <Loader2 className="h-5 w-5 animate-spin" /> : <Mic className="relative h-5 w-5" />}
           </button>
+          {busy ? (
+            <button type="button" onClick={stopReply} aria-label="Stop" title="Stop Civi's reply"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-glow transition-colors hover:bg-primary/90">
+              <Square className="h-4 w-4 fill-current" />
+            </button>
+          ) : (
           <button
             type="submit"
             aria-label="Send"
@@ -730,6 +747,7 @@ function ChatWindow({ threadId }: { threadId: string }) {
           >
             <ArrowUp className="h-5 w-5" />
           </button>
+          )}
         </div>
       </form>
       </PinnedBrowser.Provider>
