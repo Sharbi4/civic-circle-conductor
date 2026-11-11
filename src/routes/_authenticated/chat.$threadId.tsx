@@ -482,7 +482,7 @@ function ChatWindow({ threadId }: { threadId: string }) {
     refetchInterval: 15000,
   });
   const all = [...(msgs.data ?? []), ...pending];
-  useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [all.length, busy]);
+  useEffect(() => { const sc = endRef.current?.closest(".overflow-y-auto"); if (sc) { stickRef.current = true; sc.scrollTo({ top: sc.scrollHeight, behavior: "smooth" }); } }, [all.length, busy]);
   useEffect(() => { inputRef.current?.focus(); }, [busy]);
 
   const voice = useVoice();
@@ -554,6 +554,27 @@ function ChatWindow({ threadId }: { threadId: string }) {
     }
   }
 
+  const composerRef = useRef<HTMLFormElement>(null);
+  const [composerH, setComposerH] = useState(160);
+  const stickRef = useRef(true);
+  useEffect(() => {
+    const el = composerRef.current; const content = endRef.current?.parentElement;
+    const sc = endRef.current?.closest(".overflow-y-auto");
+    if (!el || !content || !sc) return;
+    // Track whether the user is reading the newest messages; keep them pinned there as things above the composer grow.
+    const onScroll = () => { stickRef.current = sc.scrollHeight - sc.scrollTop - sc.clientHeight < 200; };
+    sc.addEventListener("scroll", onScroll, { passive: true });
+    const ro = new ResizeObserver(() => {
+      setComposerH(el.offsetHeight);
+      if (stickRef.current) requestAnimationFrame(() => { sc.scrollTop = sc.scrollHeight; });
+    });
+    ro.observe(el); ro.observe(content);
+    return () => { ro.disconnect(); sc.removeEventListener("scroll", onScroll); };
+  }, []);
+  useEffect(() => {
+    const sc = endRef.current?.closest(".overflow-y-auto");
+    if (sc && stickRef.current) sc.scrollTop = sc.scrollHeight;
+  }, [composerH]);
   return (
     <>
       <PinnedBrowser.Provider value={pinned.data?.id ?? null}>
@@ -566,7 +587,7 @@ function ChatWindow({ threadId }: { threadId: string }) {
             </div>
           </div>
         )}
-        <div className="mx-auto w-full max-w-3xl px-5 pb-40 pt-8">
+        <div className="mx-auto w-full max-w-3xl px-5 pt-8">
           {all.length === 0 && !msgs.isLoading && (
             <div className="flex flex-col items-center pt-14 text-center">
               <div className="flex h-16 w-16 items-center justify-center rounded-full bg-accent text-accent-foreground shadow-soft">
@@ -644,10 +665,11 @@ function ChatWindow({ threadId }: { threadId: string }) {
               </div>
             )}
           </div>
-          <div ref={endRef} />
+          <div ref={endRef} aria-hidden style={{ height: composerH + 24 }} />
         </div>
       </div>
       <form
+        ref={composerRef}
         onSubmit={(e) => { e.preventDefault(); submit(input); }}
         className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-background via-background to-transparent px-4 pb-5 pt-8"
       >
