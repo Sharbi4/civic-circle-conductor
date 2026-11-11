@@ -123,12 +123,16 @@ export const getEventbriteStatus = createServerFn({ method: "GET" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data, error } = await supabaseAdmin
       .from("connector_connections")
-      .select("account_name, updated_at")
+      .select("account_name, access_token_ciphertext")
       .eq("user_id", context.userId)
       .eq("connector", "eventbrite")
       .maybeSingle();
     if (error) throw error;
-    return { connected: !!data, accountName: data?.account_name ?? null };
+    if (!data) return { connected: false, accountName: null, profilePhoto: null };
+    const { decryptToken } = await import('@/lib/tokenCrypto.server');
+    const { readEventbriteProfile } = await import('./eventbriteProfile.server');
+    const profile = await readEventbriteProfile(decryptToken(data.access_token_ciphertext)).catch(() => null);
+    return { connected: true, accountName: profile?.accountName ?? data.account_name, profilePhoto: profile?.profilePhoto ?? null };
   });
 
 export const disconnectEventbrite = createServerFn({ method: "POST" })

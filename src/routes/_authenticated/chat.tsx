@@ -9,6 +9,7 @@ import { TasksPanel } from "@/components/tasks/TasksPanel";
 import { AccountPanel } from "@/components/account/AccountPanel";
 import { LinkedInAvatar } from '@/components/account/LinkedInAvatar';
 import { XAvatar } from '@/components/account/XAvatar';
+import { EventbriteAvatar } from '@/components/account/EventbriteAvatar';
 import { SwipeToIgnore } from '@/components/SwipeToIgnore';
 import { takeDiscoveryAction } from "@/lib/discovery.functions";
 import { discoveryIdeas } from "@/lib/discovery.shared";
@@ -274,7 +275,7 @@ function EventbriteConnectorRow() {
   const qc = useQueryClient();
   const navigate = useNavigate();
   const [busy, setBusy] = useState(false);
-  const status = useQuery({ queryKey: ["eventbrite-status"], queryFn: () => getEventbriteStatus() });
+  const status = useQuery({ queryKey: ["eventbrite-status"], queryFn: () => getEventbriteStatus(), staleTime: 300_000 });
 
   function waitForOAuth(popup: Window) {
     return new Promise<string>((resolve, reject) => {
@@ -370,7 +371,7 @@ function EventbriteConnectorRow() {
       </div>
       {connected && (
         <div className="mt-1.5 flex items-center justify-between text-xs text-muted-foreground">
-          <span className="truncate">{status.data?.accountName}</span>
+          <span className="flex min-w-0 items-center gap-2"><EventbriteAvatar /><span className="truncate">{status.data?.accountName}</span></span>
           <button onClick={disconnect} disabled={busy} className="ml-2 shrink-0 underline hover:text-foreground">
             Disconnect
           </button>

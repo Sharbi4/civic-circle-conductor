@@ -1,4 +1,5 @@
 # Civi Meet roadmap
+- [x] Add Eventbrite member avatars to the connection row and shared account fallback, preserving organization logos.
 - [x] Wire X account photos into the X connection row and shared account avatar (LinkedIn first, X fallback), without replacing organization logos.
 - [x] Wire LinkedIn member photos to account avatars without replacing organization logos; 14 focused tests pass and signed-in phone/desktop fallback verified. Real photo display awaits successful LinkedIn reconnect after publishing.
 - [x] Fix X / Eventbrite / LinkedIn connect windows losing their link back to Civi Meet ("window closed before finishing").
