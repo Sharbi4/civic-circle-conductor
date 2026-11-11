@@ -142,5 +142,12 @@ export async function executeEventbriteApproval(supabase: SupabaseClient<Databas
         content: `🎉 Created **${p.title}** on Eventbrite as a draft.${coverOnListing ? `\n\n${p.cover_image ? "Your photo is the cover on the Eventbrite listing:" : "Cover image on the Eventbrite listing:"}${cover?.url ? `\n\n![Event cover](${cover.url})` : ""}` : cover ? "\n\n(I uploaded the cover, but Eventbrite didn't attach it — add it from the event's Images section on Eventbrite.)" : `\n\n(I couldn't ${p.cover_image ? "upload your photo" : "make a cover image"} this time — you can add one on Eventbrite.)`}\n\n- [Review & publish it on Eventbrite](https://www.eventbrite.com/myevent?eid=${ev.id})\n- Public page (live after you publish): ${ev.url}${rsvpId ? `\n- 📋 RSVP sign-up with the event details: [open it](/p/${rsvpId}) · share link https://civimeet.com/p/${rsvpId} (replies show under **Polls**)` : ""}`,
       });
     }
+    // The event exists — automatically start the launch chain (LinkedIn event, Facebook event, share posts,
+    // calendar link, group outreach) with per-step tasks and connect/skip prompts for missing platforms.
+    const { startEventLaunchChain } = await import("@/lib/eventLaunch.server");
+    await startEventLaunchChain(supabase, userId, {
+      title: p.title, start: p.start, end: p.end, timezone: p.timezone, location: p.location,
+      description: p.description, url: ev.url as string, rsvpId, threadId: threadId ?? null,
+    });
     return { eventId: ev.id as string, url: ev.url as string, threadId };
 }

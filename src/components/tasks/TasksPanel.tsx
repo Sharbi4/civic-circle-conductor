@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { CalendarDays, Check, ChevronDown, ChevronRight, Plus, Sparkles, Target, Trash2 } from "lucide-react";
+import { CalendarDays, Check, ChevronDown, ChevronRight, MessagesSquare, Plus, Sparkles, Target, Trash2 } from "lucide-react";
+import { Link } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
-type Task = { id: string; goal_id: string | null; kind: string; title: string; due_date: string | null; done: boolean; created_by: string; created_at: string; repeat?: string | null; scheduled_for?: string | null; last_error?: string | null };
+type Task = { id: string; goal_id: string | null; kind: string; title: string; due_date: string | null; done: boolean; created_by: string; created_at: string; repeat?: string | null; scheduled_for?: string | null; last_error?: string | null; thread_id?: string | null };
 
 const today = () => new Date().toISOString().slice(0, 10);
 function dueLabel(d: string) {
@@ -146,6 +147,12 @@ function Row({ t, onUpdate, onRemove, bold }: { t: Task; onUpdate: (id: string, 
         </div>
       </div>
       <div className="flex shrink-0 gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 max-md:opacity-60">
+        {t.thread_id && (
+          <Link to="/chat/$threadId" params={{ threadId: t.thread_id }} aria-label="View progress in chat" title="View progress in chat"
+            className="grid place-items-center rounded-full p-1 text-primary hover:bg-background/60">
+            <MessagesSquare className="h-3.5 w-3.5" />
+          </Link>
+        )}
         <button aria-label="Set due date" title="Due date" onClick={() => setDateOpen(true)} className="rounded-full p-1 hover:bg-background/60"><CalendarDays className="h-3.5 w-3.5" /></button>
         {t.due_date && <button aria-label="Clear due date" title="Clear date" onClick={() => onUpdate(t.id, { due_date: null })} className="rounded-full p-1 text-xs hover:bg-background/60">×</button>}
         <button aria-label="Delete" title="Delete" onClick={() => onRemove(t)} className="rounded-full p-1 hover:bg-background/60"><Trash2 className="h-3.5 w-3.5" /></button>

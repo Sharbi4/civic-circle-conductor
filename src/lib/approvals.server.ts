@@ -42,6 +42,40 @@ export async function executeApproval<T extends { ok?: boolean; started?: boolea
 }
 
 export async function dispatchApproval(db: Db, userId: string, id: string, payload: unknown) {
+  try {
+    const result = await runApprovalDispatch(db, userId, id, payload);
+    await recordLaunchProgress(db, userId, payload, null);
+    return result;
+  } catch (error) {
+    await recordLaunchProgress(db, userId, payload, error);
+    throw error;
+  }
+}
+
+/** Marks an event-launch-chain task done (or failed) when its queued approval executes, and reports progress in chat. */
+async function recordLaunchProgress(db: Db, userId: string, payload: unknown, error: unknown) {
+  try {
+    const taskId = (payload as { launch_task_id?: unknown } | null)?.launch_task_id;
+    if (typeof taskId !== 'string' || !taskId) return;
+    if (error) {
+      await db.from('tasks').update({ last_error: 'Step failed — see Approvals for details' }).eq('id', taskId).eq('user_id', userId);
+      return;
+    }
+    await db.from('tasks').update({ done: true, done_at: new Date().toISOString(), last_error: null }).eq('id', taskId).eq('user_id', userId);
+    const { data: task } = await db.from('tasks').select('title, goal_id, thread_id').eq('id', taskId).maybeSingle();
+    if (!task?.thread_id) return;
+    let line = `✅ Launch step done: **${task.title}**.`;
+    if (task.goal_id) {
+      const { data: sibs } = await db.from('tasks').select('done').eq('goal_id', task.goal_id);
+      const total = sibs?.length ?? 0;
+      const doneN = (sibs ?? []).filter((s) => s.done).length;
+      if (total) line = `✅ Launch step done: **${task.title}** — ${doneN}/${total} launch steps complete.${doneN === total ? ' 🎉 The launch chain is finished!' : ''}`;
+    }
+    await db.from('messages').insert({ thread_id: task.thread_id, user_id: userId, role: 'assistant', content: line });
+  } catch (e) { console.error('Launch progress update failed', e); }
+}
+
+async function runApprovalDispatch(db: Db, userId: string, id: string, payload: unknown) {
   const kind = approvalKind(payload);
   if (kind === 'venue_call') {
     const { executeVenueCall } = await import('./calling.server');
