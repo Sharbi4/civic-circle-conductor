@@ -798,6 +798,8 @@ function ApprovalsPanel() {
       const kind = approvalKind(payload);
       if (kind.startsWith('fb_')) {
         toast('Queued — waiting for Facebook to finish');
+      } else if (kind === 'venue_call') {
+        toast('Call initiated — not a booking confirmation');
       } else if (browserSessionId) {
         const { error } = await supabase.from('browser_sessions').update({ agent_status: 'driving', submit_approved: true, active_approval_id: id }).eq('id', browserSessionId);
         if (error) throw error;

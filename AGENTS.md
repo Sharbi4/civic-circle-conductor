@@ -39,6 +39,7 @@ use the editor.
 - LinkedIn uses explicitly chosen direct per-user OAuth with server-only single-use owner-bound state and encrypted tokens; API calls use api.linkedin.com and authenticated image PUTs preserve LinkedIn's exact allowed upload URL, because the managed proxy cannot route the media host. Standing permissions bind to the direct connection revision; never publish without the approved image.
 - LinkedIn authorization failures expose safe actionable messages to the initiating window and log only stage, status and allowlisted error codes; why: diagnose failures without leaking OAuth codes, tokens or provider response details.
 - Shared scheduler/recovery/report callbacks process owner-scoped durable task runs with database claims, atomic completion and a provider-start boundary; unknown outcomes require review rather than replay to avoid duplicated work.
+- Availability calls reuse one-time owner-scoped approvals and a dedicated safety-scoped ElevenLabs agent per call; persist the initiation boundary and never redial unknown outcomes, because shared voice-agent configuration and call initiation must not grant booking or payment authority.
 - Retired activity and usage schema remains preserved but unused by the chat-centered app; keep applied migration history intact so rollback never destroys organization data.
 - Thread read timestamps and assistant-message timestamps persist unread state per owner; ignored approvals are retained without executing actions, so dismissing is not approval or deletion.
 

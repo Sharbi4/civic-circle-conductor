@@ -43,6 +43,10 @@ export async function executeApproval<T extends { ok?: boolean; started?: boolea
 
 export async function dispatchApproval(db: Db, userId: string, id: string, payload: unknown) {
   const kind = approvalKind(payload);
+  if (kind === 'venue_call') {
+    const { executeVenueCall } = await import('./calling.server');
+    return executeApproval(db, userId, id, () => executeVenueCall(db, userId, id));
+  }
   if (kind.startsWith('linkedin_')) {
     const { executeLinkedinApproval } = await import('./linkedinApproval.server');
     return executeApproval(db, userId, id, () => executeLinkedinApproval(db, userId, id));
