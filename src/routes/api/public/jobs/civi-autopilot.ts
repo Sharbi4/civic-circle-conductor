@@ -3,7 +3,9 @@ import { authenticateCronRequest } from "@/integrations/supabase/cron-auth";
 
 const MAX_DRIVE = 3; // browser sessions stepped per run
 const MAX_REVIEW = 3; // orgs reviewed per run
-const REVIEW_EVERY_MIN = 30;
+const REVIEW_EVERY_MIN = 5; // check every 5 min; only acts when something changed (or every 30 min)
+const QUIET_REVIEW_MIN = 30;
+const MAX_LEARN = 4; // orgs learned from per run
 const IDLE_CHAT_SEC = 45; // if the chat page hasn't stepped recently, drive in the background
 
 export const Route = createFileRoute("/api/public/jobs/civi-autopilot")({
@@ -15,6 +17,7 @@ export const Route = createFileRoute("/api/public/jobs/civi-autopilot")({
         const { supabaseAdmin: db } = await import("@/integrations/supabase/client.server");
         const { runAgentStep, startNextQueued, retargetSession } = await import("@/lib/browser.functions");
         const { generateSuggestions } = await import("@/lib/suggestions.server");
+        const { learnAboutOrg } = await import("@/lib/learn.server");
         const out: Record<string, unknown>[] = [];
 
         // 1) Keep driving browsers that still have work, even with the chat closed.
@@ -47,15 +50,47 @@ export const Route = createFileRoute("/api/public/jobs/civi-autopilot")({
           out.push({ notif: b.id });
         }
 
-        // 3) Every 30 minutes: review chats and act per the org's autonomy level.
+        // 2b) Every 5 minutes, for every org: learn new durable facts from fresh activity into memory.
+        {
+          const { data: all } = await db.from("organizations").select("user_id").limit(200);
+          let learned = 0;
+          for (const o of all ?? []) {
+            if (learned >= MAX_LEARN) break;
+            const { data: st } = await db.from("autopilot_state").select("last_learn_at, paused_reason").eq("user_id", o.user_id).maybeSingle();
+            if (st?.paused_reason) continue;
+            if (st?.last_learn_at && st.last_learn_at > new Date(Date.now() - 5 * 60_000).toISOString()) continue;
+            const since = st?.last_learn_at ?? null;
+            const { count } = await db.from("messages").select("id", { count: "exact", head: true }).eq("user_id", o.user_id).gt("created_at", since ?? "1970-01-01");
+            const stamp = new Date().toISOString();
+            await db.from("autopilot_state").upsert({ user_id: o.user_id, last_learn_at: stamp }, { onConflict: "user_id" });
+            if (!count) continue;
+            learned++;
+            try { out.push({ learned: o.user_id, facts: await learnAboutOrg(db, o.user_id, since) }); }
+            catch (e) {
+              const msg = String(e);
+              if (/402|403|payment|permission/i.test(msg)) await db.from("autopilot_state").update({ paused_reason: msg.slice(0, 200) }).eq("user_id", o.user_id);
+              out.push({ learn: o.user_id, error: msg.slice(0, 200) });
+            }
+          }
+        }
+
+        // 3) Every 5 minutes: review chats and act per the org's autonomy level.
         const due = new Date(Date.now() - REVIEW_EVERY_MIN * 60_000).toISOString();
         const { data: orgs } = await db.from("organizations").select("user_id, autonomy").neq("autonomy", "manual").limit(50);
         let reviewed = 0;
         for (const org of orgs ?? []) {
           if (reviewed >= MAX_REVIEW) break;
-          const { data: st } = await db.from("autopilot_state").select("last_review_at, lease_until, paused_reason").eq("user_id", org.user_id).maybeSingle();
+          const { data: st } = await db.from("autopilot_state").select("last_review_at, lease_until, paused_reason, last_top").eq("user_id", org.user_id).maybeSingle();
           if (st?.paused_reason) continue;
           if (st?.last_review_at && st.last_review_at > due) continue;
+          // Between quiet reviews, only act when something new happened (messages, approvals, form replies).
+          if (st?.last_review_at && st.last_review_at > new Date(Date.now() - QUIET_REVIEW_MIN * 60_000).toISOString()) {
+            const [m, a] = await Promise.all([
+              db.from("messages").select("id", { count: "exact", head: true }).eq("user_id", org.user_id).gt("created_at", st.last_review_at),
+              db.from("approvals").select("id", { count: "exact", head: true }).eq("user_id", org.user_id).gt("created_at", st.last_review_at),
+            ]);
+            if (!m.count && !a.count) continue;
+          }
           const now = new Date().toISOString();
           if (st?.lease_until && st.lease_until > now) continue;
           await db.from("autopilot_state").upsert({ user_id: org.user_id, lease_until: new Date(Date.now() + 5 * 60_000).toISOString(), last_review_at: st?.last_review_at ?? null }, { onConflict: "user_id" });
@@ -65,7 +100,7 @@ export const Route = createFileRoute("/api/public/jobs/civi-autopilot")({
             if (!main) continue;
             const items = await generateSuggestions(db, org.user_id, main.id, true);
             const top = items[0];
-            if (top) {
+            if (top && top.label !== st?.last_top) {
               if (org.autonomy === "assisted") {
                 await db.from("approvals").insert({ user_id: org.user_id, action_type: "other", title: `Civi suggests: ${top.label}`, details: top.prompt, payload: { kind: "civi_suggestion", thread: main.id, prompt: top.prompt } });
               } else {
@@ -79,7 +114,7 @@ export const Route = createFileRoute("/api/public/jobs/civi-autopilot")({
                   content: `🤖 **Auto mode check-in** — next move: **${top.label}**.${note}\n\n${note ? "" : `${top.prompt}\n\n`}[[choices: ${items.slice(0, 3).map((i) => i.label.replace(/[|\]]/g, "")).join(" | ")}]]` });
               }
             }
-            await db.from("autopilot_state").update({ last_review_at: new Date().toISOString(), lease_until: null }).eq("user_id", org.user_id);
+            await db.from("autopilot_state").update({ last_review_at: new Date().toISOString(), lease_until: null, last_top: top?.label ?? st?.last_top ?? null }).eq("user_id", org.user_id);
             out.push({ review: org.user_id, mode: org.autonomy, top: top?.label ?? null });
           } catch (e) {
             const msg = String(e);

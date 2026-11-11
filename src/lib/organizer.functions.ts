@@ -57,7 +57,7 @@ export const sendOrganizerMessage = createServerFn({ method: "POST" })
     const [{ data: org }, { data: history }, { data: memories }] = await Promise.all([
       supabase.from("organizations").select("name, mission, linkedin_org_id, address, logo_url, contact_name, contact_email, contact_phone, website, letterhead_skipped").eq("user_id", userId).maybeSingle(),
       supabase.from("messages").select("role, content").eq("thread_id", data.threadId).order("created_at").limit(60),
-      supabase.from("memories").select("content").order("created_at", { ascending: false }).limit(40),
+      supabase.from("memories").select("content").order("created_at", { ascending: false }).limit(80),
     ]);
 
     const { data: openTasks } = await supabase.from("tasks").select("id, goal_id, kind, title, due_date, done").order("due_date", { ascending: true, nullsFirst: false }).limit(80);

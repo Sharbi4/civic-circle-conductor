@@ -85,22 +85,28 @@ export type Database = {
       }
       autopilot_state: {
         Row: {
+          last_learn_at: string | null
           last_notif_check: string | null
           last_review_at: string | null
+          last_top: string | null
           lease_until: string | null
           paused_reason: string | null
           user_id: string
         }
         Insert: {
+          last_learn_at?: string | null
           last_notif_check?: string | null
           last_review_at?: string | null
+          last_top?: string | null
           lease_until?: string | null
           paused_reason?: string | null
           user_id: string
         }
         Update: {
+          last_learn_at?: string | null
           last_notif_check?: string | null
           last_review_at?: string | null
+          last_top?: string | null
           lease_until?: string | null
           paused_reason?: string | null
           user_id?: string
@@ -343,18 +349,21 @@ export type Database = {
           content: string
           created_at: string
           id: string
+          source: string
           user_id: string
         }
         Insert: {
           content: string
           created_at?: string
           id?: string
+          source?: string
           user_id: string
         }
         Update: {
           content?: string
           created_at?: string
           id?: string
+          source?: string
           user_id?: string
         }
         Relationships: []

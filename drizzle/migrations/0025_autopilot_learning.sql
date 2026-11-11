@@ -1,0 +1,2 @@
+ALTER TABLE public.autopilot_state ADD COLUMN IF NOT EXISTS last_learn_at timestamptz, ADD COLUMN IF NOT EXISTS last_top text;
+ALTER TABLE public.memories ADD COLUMN IF NOT EXISTS source text NOT NULL DEFAULT 'chat';
