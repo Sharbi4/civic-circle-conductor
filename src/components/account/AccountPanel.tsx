@@ -26,7 +26,7 @@ export function AccountPanel() {
   const dirty = !!o.data && (logo !== o.data.logo_url || LETTERHEAD_FIELDS.some((f) => (vals[f.k] ?? "").trim() !== String(d[f.k] ?? "")));
 
   async function save() {
-    if (!vals.name?.trim()) { toast.error("Organization name can't be empty"); return; }
+    if (!vals["name"]?.trim()) { toast.error("Organization name can't be empty"); return; }
     setSaving(true);
     const { data: u } = await supabase.auth.getUser();
     const upd = Object.fromEntries(LETTERHEAD_FIELDS.map((f) => [f.k, vals[f.k]?.trim().slice(0, 200) || null]));
