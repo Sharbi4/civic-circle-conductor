@@ -139,7 +139,7 @@ export const Route = createFileRoute("/api/public/jobs/civi-autopilot")({
           if (!claimed?.length || !thread) continue;
           // Run it now: Civi does the work in the chat as this org only. Posts/payments it drafts still queue their own approval.
           try {
-            const { runOrganizer } = await import("@/lib/organizer.functions");
+            const { runOrganizer } = await import("@/lib/organizer.server");
             const { scopedDb } = await import("@/lib/scopedDb.server");
             await runOrganizer(scopedDb(db, t.user_id), t.user_id, { threadId: thread,
               content: `⏰ Scheduled task (${t.repeat}): ${t.run_prompt ?? t.title}\n\n(This ran automatically on schedule. Do it now: draft and queue everything for approval in this message without asking questions. Next run ${next}.)` });
