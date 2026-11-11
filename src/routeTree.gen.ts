@@ -29,6 +29,7 @@ import { Route as ApiPublicJobsCiviAutopilotRouteImport } from './routes/api/pub
 import { Route as ApiPublicJobsCommunityScoutRouteImport } from './routes/api/public/jobs/community-scout'
 import { Route as ApiPublicJobsDailyReportsRouteImport } from './routes/api/public/jobs/daily-reports'
 import { Route as ApiPublicMetaDataDeletionRouteImport } from './routes/api/public/meta/data-deletion'
+import { Route as ApiPublicOauthLinkedinReturnRouteImport } from './routes/api/public/oauth/linkedin/return'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -138,6 +139,12 @@ const ApiPublicMetaDataDeletionRoute =
     path: '/api/public/meta/data-deletion',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicOauthLinkedinReturnRoute =
+  ApiPublicOauthLinkedinReturnRouteImport.update({
+    id: '/api/public/oauth/linkedin/return',
+    path: '/api/public/oauth/linkedin/return',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -159,6 +166,7 @@ export interface FileRoutesByFullPath {
   '/api/public/jobs/community-scout': typeof ApiPublicJobsCommunityScoutRoute
   '/api/public/jobs/daily-reports': typeof ApiPublicJobsDailyReportsRoute
   '/api/public/meta/data-deletion': typeof ApiPublicMetaDataDeletionRoute
+  '/api/public/oauth/linkedin/return': typeof ApiPublicOauthLinkedinReturnRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -179,6 +187,7 @@ export interface FileRoutesByTo {
   '/api/public/jobs/community-scout': typeof ApiPublicJobsCommunityScoutRoute
   '/api/public/jobs/daily-reports': typeof ApiPublicJobsDailyReportsRoute
   '/api/public/meta/data-deletion': typeof ApiPublicMetaDataDeletionRoute
+  '/api/public/oauth/linkedin/return': typeof ApiPublicOauthLinkedinReturnRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -202,6 +211,7 @@ export interface FileRoutesById {
   '/api/public/jobs/community-scout': typeof ApiPublicJobsCommunityScoutRoute
   '/api/public/jobs/daily-reports': typeof ApiPublicJobsDailyReportsRoute
   '/api/public/meta/data-deletion': typeof ApiPublicMetaDataDeletionRoute
+  '/api/public/oauth/linkedin/return': typeof ApiPublicOauthLinkedinReturnRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -225,6 +235,7 @@ export interface FileRouteTypes {
     | '/api/public/jobs/community-scout'
     | '/api/public/jobs/daily-reports'
     | '/api/public/meta/data-deletion'
+    | '/api/public/oauth/linkedin/return'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -245,6 +256,7 @@ export interface FileRouteTypes {
     | '/api/public/jobs/community-scout'
     | '/api/public/jobs/daily-reports'
     | '/api/public/meta/data-deletion'
+    | '/api/public/oauth/linkedin/return'
   id:
     | '__root__'
     | '/'
@@ -267,6 +279,7 @@ export interface FileRouteTypes {
     | '/api/public/jobs/community-scout'
     | '/api/public/jobs/daily-reports'
     | '/api/public/meta/data-deletion'
+    | '/api/public/oauth/linkedin/return'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -286,6 +299,7 @@ export interface RootRouteChildren {
   ApiPublicJobsCommunityScoutRoute: typeof ApiPublicJobsCommunityScoutRoute
   ApiPublicJobsDailyReportsRoute: typeof ApiPublicJobsDailyReportsRoute
   ApiPublicMetaDataDeletionRoute: typeof ApiPublicMetaDataDeletionRoute
+  ApiPublicOauthLinkedinReturnRoute: typeof ApiPublicOauthLinkedinReturnRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -430,6 +444,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicMetaDataDeletionRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/oauth/linkedin/return': {
+      id: '/api/public/oauth/linkedin/return'
+      path: '/api/public/oauth/linkedin/return'
+      fullPath: '/api/public/oauth/linkedin/return'
+      preLoaderRoute: typeof ApiPublicOauthLinkedinReturnRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -476,6 +497,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicJobsCommunityScoutRoute: ApiPublicJobsCommunityScoutRoute,
   ApiPublicJobsDailyReportsRoute: ApiPublicJobsDailyReportsRoute,
   ApiPublicMetaDataDeletionRoute: ApiPublicMetaDataDeletionRoute,
+  ApiPublicOauthLinkedinReturnRoute: ApiPublicOauthLinkedinReturnRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

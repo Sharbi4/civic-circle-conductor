@@ -474,15 +474,12 @@ function LinkedInConnectorRow() {
         if (poll !== undefined) window.clearInterval(poll);
       };
       const onMessage = (event: MessageEvent) => {
-        // The OAuth popup can land on the published domain while the opener is
-        // the preview (LinkedIn allows only one redirect URI), so accept our
-        // own app origins rather than only this window's origin.
-        if (event.origin !== window.location.origin || event.source !== popup) return;
+        if (event.origin !== 'https://civimeet.com' || event.source !== popup) return;
         const type = event.data?.type;
         if (event.data?.connectorId !== "linkedin") return;
-        if (type !== "appUserConnectorOAuthComplete" && type !== "appUserConnectorOAuthFailed") return;
+        if (type !== "civiLinkedInOAuthComplete" && type !== "civiLinkedInOAuthFailed") return;
         cleanup();
-        if (type === "appUserConnectorOAuthComplete" && typeof event.data?.code === "string") resolve(event.data.code);
+        if (type === "civiLinkedInOAuthComplete" && typeof event.data?.state === "string") resolve(event.data.state);
         else { popup.close(); reject(new Error("LinkedIn connection failed.")); }
       };
       window.addEventListener("message", onMessage);
@@ -502,8 +499,8 @@ function LinkedInConnectorRow() {
       const { authorizationUrl } = await startLinkedInConnect();
       const completion = waitForOAuth(popup);
       popup.location.href = authorizationUrl;
-      const code = await completion;
-      const result = await completeLinkedInConnect({ data: { code } });
+      const state = await completion;
+      const result = await completeLinkedInConnect({ data: { state } });
       await Promise.all([
         qc.invalidateQueries({ queryKey: ["linkedin-status"] }),
         qc.invalidateQueries({ queryKey: ["threads"] }),
@@ -542,7 +539,7 @@ function LinkedInConnectorRow() {
           <span className="badge-premium rounded-full px-2.5 py-0.5 text-xs font-semibold">Connected</span>
         ) : (
           <Button size="sm" variant="outline" disabled={busy} onClick={connect} className="h-7 rounded-full px-3 text-xs">
-            {busy ? "Connecting…" : "Connect"}
+            {busy ? "Connecting…" : status.data?.needsReconnect ? "Reconnect" : "Connect"}
           </Button>
         )}
       </div>
@@ -554,6 +551,8 @@ function LinkedInConnectorRow() {
           </button>
         </div>
       )}
+      {status.data?.needsReconnect && <p className="mt-2 text-xs text-muted-foreground">Reconnect LinkedIn for direct photo publishing.</p>}
+      {status.data?.configured === false && <p className="mt-2 text-xs text-muted-foreground">LinkedIn app credentials are needed to finish setup.</p>}
       {connected && <LinkedInPageField current={status.data?.orgPageId ?? ""} />}
     </div>
   );

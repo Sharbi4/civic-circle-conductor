@@ -267,6 +267,13 @@
       "when": 1794372060449,
       "tag": "0037_scout_discovery_action_ideas",
       "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1794373167889,
+      "tag": "0038_linkedin_direct_oauth_state",
+      "breakpoints": true
     }
   ]
 }

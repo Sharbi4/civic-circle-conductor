@@ -2,7 +2,6 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 import { z } from "zod";
 import { buildCoverBytes, loadEventImage } from "@/lib/eventCover.server";
-const GATEWAY = "https://connector-gateway.lovable.dev";
 const SCOPES = ["openid", "profile", "w_member_social"];
 const EVENT_SCOPES = ["r_events", "rw_events"];
 // Company-page permissions: required to organize events under and post as a LinkedIn page.
@@ -61,12 +60,11 @@ export async function executeLinkedinApproval(supabase: SupabaseClient<Database>
     if (!ap || ap.status !== "approved") throw new Error("This action isn't approved.");
     const kind = (ap.payload as { kind?: string } | null)?.kind;
 
-    const { getConnectionForUser } = await import("@/lib/appUserConnections.server");
-    const { callAsAppUser, appUserReconnectRequired } = await import("@/integrations/lovable/appUserConnector");
-    const c = await getConnectionForUser(userId, "linkedin");
-    if (!c) throw new Error("LinkedIn isn't connected — connect it in the Connectors tab.");
-    const call = (path: string, init?: RequestInit, scopes = SCOPES) =>
-      callAsAppUser({ gatewayBaseUrl: GATEWAY, connectionAPIKey: c.key, connectorId: "linkedin", path, ...(init ? { init } : {}), requiredScopes: scopes });
+    const { getDirectLinkedInConnection, createDirectLinkedInTransport } = await import('./linkedinDirect.server');
+    const c = await getDirectLinkedInConnection(userId);
+    if (!c) throw new Error('Post not published — reconnect LinkedIn in Connectors to enable direct photo uploads. Your draft and photo are retained.');
+    const transport = createDirectLinkedInTransport(c.token);
+    const call = (path: string, init?: RequestInit, _scopes = SCOPES) => transport.call(path, init);
     const EVENT_ALL = [...SCOPES, ...EVENT_SCOPES];
     const ORG_ALL = [...EVENT_ALL, ...ORG_SCOPES];
     const rest = (path: string, method: string, body?: unknown, extra: Record<string, string> = {}, scopes: string[] = EVENT_ALL) =>
@@ -76,7 +74,7 @@ export async function executeLinkedinApproval(supabase: SupabaseClient<Database>
         ...(body ? { body: JSON.stringify(body) } : {}),
       }, scopes);
     const fail = async (res: Response, what: string) => {
-      if (await appUserReconnectRequired(res)) throw new Error("Your LinkedIn access needs to be renewed — reconnect LinkedIn.");
+      if (res.status === 401) throw new Error("Your LinkedIn access needs to be renewed — reconnect LinkedIn.");
       const body = await res.text();
       console.error(`LinkedIn ${what} failed [${res.status}]: ${body}`);
       let msg = "";
@@ -86,7 +84,7 @@ export async function executeLinkedinApproval(supabase: SupabaseClient<Database>
 
     const { uploadLinkedInImage } = await import("@/lib/linkedinUpload.server");
     const putUpload = (uploadUrl: string, photo: { bytes: Uint8Array<ArrayBuffer>; type: string }, scopes = SCOPES) =>
-      uploadLinkedInImage(uploadUrl, photo, (path, init) => call(path, init, scopes));
+      uploadLinkedInImage(uploadUrl, photo, transport.upload);
 
     const me = await call("/v2/userinfo");
     if (!me.ok) await fail(me, "look up your profile");

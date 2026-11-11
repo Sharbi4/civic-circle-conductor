@@ -606,6 +606,45 @@ export type Database = {
         }
         Relationships: []
       }
+      linkedin_oauth_states: {
+        Row: {
+          account_name: string | null
+          created_at: string
+          expires_at: string
+          id: string
+          opener_origin: string
+          redirect_uri: string
+          state_hash: string
+          status: string
+          token_ciphertext: string | null
+          user_id: string
+        }
+        Insert: {
+          account_name?: string | null
+          created_at?: string
+          expires_at?: string
+          id?: string
+          opener_origin: string
+          redirect_uri: string
+          state_hash: string
+          status?: string
+          token_ciphertext?: string | null
+          user_id: string
+        }
+        Update: {
+          account_name?: string | null
+          created_at?: string
+          expires_at?: string
+          id?: string
+          opener_origin?: string
+          redirect_uri?: string
+          state_hash?: string
+          status?: string
+          token_ciphertext?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       memories: {
         Row: {
           content: string

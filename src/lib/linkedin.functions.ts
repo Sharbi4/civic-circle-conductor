@@ -3,44 +3,24 @@ import { getRequest } from "@tanstack/react-start/server";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
-const GATEWAY = "https://connector-gateway.lovable.dev";
-const SCOPES = ["openid", "profile", "w_member_social"];
-const EVENT_SCOPES = ["r_events", "rw_events"];
-// Company-page permissions: required to organize events under and post as a LinkedIn page.
-const ORG_SCOPES = ["rw_organization_admin", "w_organization_social", "r_organization_social"];
-const CONNECT_SCOPES = [...SCOPES, ...EVENT_SCOPES, ...ORG_SCOPES];
-const LI_VERSION = "202609";
-
 export const startLinkedInConnect = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const clientKey = process.env["LINKEDIN_APP_USER_CONNECTOR_CLIENT_API_KEY"];
-    if (!clientKey) throw new Error("LinkedIn isn't set up yet.");
     const request = getRequest();
     if (!request) throw new Error("LinkedIn connect must start from an app request.");
     const url = new URL(request.url);
     const sandboxHost = url.hostname === "localhost" ? request.headers.get("x-forwarded-host") : null;
-    const returnUrl = new URL("/api/oauth/linkedin/return", sandboxHost ? `https://${sandboxHost}` : url.origin).toString();
-    const { authorizeAppUserOAuth } = await import("@/integrations/lovable/appUserConnector");
-    const { authorizationUrl } = await authorizeAppUserOAuth({
-      gatewayBaseUrl: GATEWAY, connectorId: "linkedin", appUserId: context.userId,
-      clientAPIKey: clientKey, returnUrl, credentialsConfiguration: { scopes: CONNECT_SCOPES },
-    });
-    return { authorizationUrl };
+    const { startDirectLinkedIn } = await import('./linkedinDirect.server');
+    const { data: org } = await context.supabase.from('organizations').select('linkedin_org_id').eq('user_id', context.userId).maybeSingle();
+    return startDirectLinkedIn(context.userId, sandboxHost ? `https://${sandboxHost}` : url.origin, Boolean(org?.linkedin_org_id));
   });
 
 export const completeLinkedInConnect = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) => z.object({ code: z.string().min(1) }).parse(d))
+  .inputValidator((d) => z.object({ state: z.string().regex(/^[a-f0-9]{64}$/) }).parse(d))
   .handler(async ({ data, context }) => {
-    const { exchangeAppUserOAuthCode, callAsAppUser } = await import("@/integrations/lovable/appUserConnector");
-    const { saveConnectionKeyForUser } = await import("@/lib/appUserConnections.server");
-    const { connectionAPIKey, connectorId } = await exchangeAppUserOAuthCode(GATEWAY, data.code);
-    if (connectorId !== "linkedin") throw new Error("LinkedIn connect returned the wrong connector");
-    const me = await callAsAppUser({ gatewayBaseUrl: GATEWAY, connectionAPIKey, connectorId, path: "/v2/userinfo", requiredScopes: SCOPES });
-    const profile = me.ok ? ((await me.json()) as { name?: string }) : {};
-    const accountName = profile.name ?? "LinkedIn account";
-    await saveConnectionKeyForUser(context.userId, connectorId, connectionAPIKey, accountName);
+    const { completeDirectLinkedIn } = await import('./linkedinDirect.server');
+    const { accountName } = await completeDirectLinkedIn(context.userId, data.state);
 
     const { supabase, userId } = context;
     const { data: existing } = await supabase.from("threads").select("id").eq("kind", "side").eq("title", "LinkedIn Agent").maybeSingle();
@@ -60,23 +40,23 @@ export const completeLinkedInConnect = createServerFn({ method: "POST" })
 export const getLinkedInStatus = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const { getConnectionForUser } = await import("@/lib/appUserConnections.server");
-    const c = await getConnectionForUser(context.userId, "linkedin");
+    const { getDirectLinkedInConnection, directLinkedInConfigured } = await import('./linkedinDirect.server');
+    const { linkedInTokenUsable } = await import('./linkedinDirect.shared');
+    const { getConnectionForUser } = await import('./appUserConnections.server');
+    const c = await getDirectLinkedInConnection(context.userId);
+    const legacy = c ? null : await getConnectionForUser(context.userId, 'linkedin');
     const { data: org } = await context.supabase.from("organizations").select("linkedin_org_id").eq("user_id", context.userId).maybeSingle();
-    return { connected: !!c, accountName: c?.accountName ?? null, orgPageId: org?.linkedin_org_id ?? null };
+    const connected = Boolean(c && linkedInTokenUsable(c.token));
+    return { connected, needsReconnect: Boolean(legacy || (c && !connected)), configured: directLinkedInConfigured(), accountName: c?.accountName ?? legacy?.accountName ?? null, orgPageId: org?.linkedin_org_id ?? null };
   });
 
 export const disconnectLinkedIn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const { getConnectionForUser, deleteConnectionForUser } = await import("@/lib/appUserConnections.server");
-    const { disconnectAppUser } = await import("@/integrations/lovable/appUserConnector");
-    const c = await getConnectionForUser(context.userId, "linkedin");
-    if (c) {
-      try { await disconnectAppUser({ gatewayBaseUrl: GATEWAY, connectionAPIKey: c.key, connectorId: "linkedin" }); }
-      catch (e) { console.error("LinkedIn disconnect", e); }
-      await deleteConnectionForUser(context.userId, "linkedin");
-    }
+    const { disconnectDirectLinkedIn } = await import('./linkedinDirect.server');
+    const { deleteConnectionForUser } = await import('./appUserConnections.server');
+    await disconnectDirectLinkedIn(context.userId);
+    await deleteConnectionForUser(context.userId, 'linkedin');
     return { ok: true };
   });
 

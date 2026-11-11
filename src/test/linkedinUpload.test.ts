@@ -16,7 +16,7 @@ describe("LinkedIn photo transfer", () => {
     expect(attempt).toBeDefined();
     if (!attempt) throw new Error("Upload was not called");
     const [path, init] = attempt;
-    expect(path).toBe("/dms-uploads/photo?sync=1&signature=test");
+    expect(path).toBe("https://www.linkedin.com/dms-uploads/photo?sync=1&signature=test");
     expect(init.method).toBe("PUT");
     const transferred = await new Promise<ArrayBuffer>((resolve, reject) => {
       const reader = new FileReader();

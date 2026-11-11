@@ -37,8 +37,10 @@ export async function runOrganizer(supabase: SupabaseClient<Database>, userId: s
       } catch (e) { console.error("Eventbrite event list failed", e); ebEventsBlock = "Couldn't load the event list right now."; }
     }
 
-    const { data: liConn } = await supabaseAdmin.from("app_user_connections")
-      .select("account_name").eq("user_id", userId).eq("connector_id", "linkedin").maybeSingle();
+    const { getDirectLinkedInConnection } = await import('./linkedinDirect.server');
+    const { linkedInTokenUsable } = await import('./linkedinDirect.shared');
+    const directLinkedIn = await getDirectLinkedInConnection(userId);
+    const liConn = directLinkedIn && linkedInTokenUsable(directLinkedIn.token) ? { account_name: directLinkedIn.accountName } : null;
 
     const { data: xConn } = await supabaseAdmin.from("app_user_connections")
       .select("account_name").eq("user_id", userId).eq("connector_id", "x").maybeSingle();

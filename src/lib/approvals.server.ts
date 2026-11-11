@@ -17,7 +17,7 @@ export async function getApprovalScope(db: Db, userId: string, payload: unknown)
   const { supabaseAdmin } = await import('@/integrations/supabase/client.server');
   const connection = connector === 'eventbrite'
     ? await supabaseAdmin.from('connector_connections').select('id, updated_at').eq('user_id', userId).eq('connector', connector).maybeSingle()
-    : await supabaseAdmin.from('app_user_connections').select('id, updated_at').eq('user_id', userId).eq('connector_id', connector).maybeSingle();
+    : await supabaseAdmin.from('app_user_connections').select('id, updated_at').eq('user_id', userId).eq('connector_id', connector === 'linkedin' ? 'linkedin_direct' : connector).maybeSingle();
   if (connection.error) throw connection.error;
   if (!connection.data) return null;
   const { data: org } = await db.from('organizations').select('linkedin_org_id').eq('user_id', userId).maybeSingle();

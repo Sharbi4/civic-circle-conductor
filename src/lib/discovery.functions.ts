@@ -14,12 +14,19 @@ export const takeDiscoveryAction = createServerFn({ method: 'POST' })
     const idea = discoveryIdeas(finding.ideas, finding.summary)[data.ideaIndex];
     if (!idea) throw new Error('This idea is no longer available.');
     if (idea.connector !== 'internal') {
+      if (idea.connector === 'linkedin') {
+        const { getDirectLinkedInConnection } = await import('./linkedinDirect.server');
+        const { linkedInTokenUsable } = await import('./linkedinDirect.shared');
+        const connection = await getDirectLinkedInConnection(context.userId);
+        if (!connection || !linkedInTokenUsable(connection.token)) return { needsConnection: idea.connector, threadId: null };
+      } else {
       const { supabaseAdmin } = await import('@/integrations/supabase/client.server');
       const connection = idea.connector === 'eventbrite'
         ? await supabaseAdmin.from('connector_connections').select('id').eq('user_id', context.userId).eq('connector', idea.connector).maybeSingle()
         : await supabaseAdmin.from('app_user_connections').select('id').eq('user_id', context.userId).eq('connector_id', idea.connector).maybeSingle();
       if (connection.error) throw connection.error;
       if (!connection.data) return { needsConnection: idea.connector, threadId: null };
+      }
     }
     const agent = idea.connector === 'eventbrite' ? 'Eventbrite Agent' : idea.connector === 'linkedin' ? 'LinkedIn Agent' : 'X Agent';
     let query = db.from('threads').select('id').eq('user_id', context.userId);
