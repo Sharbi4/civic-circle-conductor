@@ -3,8 +3,9 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import type React from "react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { MessageCircle, Plus, Plug, LogOut, Pin, Brain, Inbox, Megaphone, CalendarCheck, CreditCard, Sparkles, Check, X, Compass, Trash2, KeyRound, Mic, FileText, ImagePlus, BarChart3, Menu } from "lucide-react";
+import { MessageCircle, Plus, Plug, LogOut, Pin, Brain, Inbox, Megaphone, CalendarCheck, CreditCard, Sparkles, Check, X, Compass, Trash2, KeyRound, Mic, FileText, ImagePlus, BarChart3, Menu, ListChecks } from "lucide-react";
 import { PollsPanel } from "@/components/polls/PollsPanel";
+import { TasksPanel } from "@/components/tasks/TasksPanel";
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -102,7 +103,7 @@ function Sidebar({ orgName, mobileOpen, onClose }: { orgName: string; mobileOpen
   const navigate = useNavigate();
   const params = useParams({ strict: false }) as { threadId?: string };
   useEffect(() => { onClose(); }, [params.threadId]);
-  const [tab, setTab] = useState<"chats" | "connectors" | "memory" | "approvals" | "scout" | "logins" | "documents" | "polls">("chats");
+  const [tab, setTab] = useState<"chats" | "connectors" | "memory" | "approvals" | "scout" | "logins" | "documents" | "polls" | "tasks">("chats");
   const approvals = useApprovals();
   const pendingCount = approvals.data?.filter((a) => a.status === "pending").length ?? 0;
   const main = threads.data?.find((t) => t.kind === "main");
@@ -160,6 +161,7 @@ function Sidebar({ orgName, mobileOpen, onClose }: { orgName: string; mobileOpen
         <div className="font-display mb-3 text-xl font-bold text-primary">C</div>
         {railBtn("chats", MessageCircle, "Chats")}
         {railBtn("approvals", Inbox, "Approvals", pendingCount)}
+        {railBtn("tasks", ListChecks, "Goals & tasks")}
         {railBtn("connectors", Plug, "Connectors")}
         {railBtn("documents", FileText, "Documents")}
         {railBtn("polls", BarChart3, "Polls & feedback")}
@@ -238,6 +240,7 @@ function Sidebar({ orgName, mobileOpen, onClose }: { orgName: string; mobileOpen
         {tab === "logins" && <LoginsPanel />}
         {tab === "documents" && <DocumentsPanel />}
         {tab === "polls" && <PollsPanel />}
+        {tab === "tasks" && <TasksPanel />}
       </aside>
     </div>
   );
