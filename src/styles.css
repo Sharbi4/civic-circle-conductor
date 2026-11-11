@@ -39,6 +39,11 @@
   --color-user-bubble-foreground: var(--user-bubble-foreground);
   --color-rail: var(--rail);
   --color-live: var(--live);
+  --color-sticky-sun: var(--sticky-sun);
+  --color-sticky-sky: var(--sticky-sky);
+  --color-sticky-mint: var(--sticky-mint);
+  --color-sticky-rose: var(--sticky-rose);
+  --color-sticky-ink: var(--sticky-ink);
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
   --color-chart-3: var(--chart-3);
@@ -55,6 +60,11 @@
 }
 
 :root {
+  --sticky-sun: oklch(0.95 0.08 95);
+  --sticky-sky: oklch(0.93 0.05 230);
+  --sticky-mint: oklch(0.93 0.06 160);
+  --sticky-rose: oklch(0.93 0.05 15);
+  --sticky-ink: oklch(0.28 0.03 260);
   --radius: 0.875rem;
   --background: oklch(0.99 0.004 85);
   --foreground: oklch(0.2 0.02 255);

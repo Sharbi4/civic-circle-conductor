@@ -59,3 +59,4 @@ use the editor.
 - Browser research limits trigger a read-only progress summary and actionable recommendation instead of a generic takeover request; why: bounded automation must still hand useful evidence back to the organizer.
 - LinkedIn browser tasks, session starts, retargets and direct navigation are blocked through shared routing guards; why: LinkedIn work uses the existing owner-bound API connection rather than browser authentication.
 - Event chats: threads kind 'event' + event_date, one linked Event goal; [[event_chat]] marker updates them; why: events are the central unit.
+- Event overview page (/events/$goalId) stores organizer-entered venue/budget/team/vendors/suggestions in owner-only event_profiles keyed by the event goal, and ideas in sticky_notes; the organizer prompt reads that profile as source of truth so user-found venues stop venue searches.

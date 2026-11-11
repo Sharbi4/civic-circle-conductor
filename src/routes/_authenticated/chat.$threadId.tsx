@@ -647,6 +647,7 @@ function ChatWindow({ threadId }: { threadId: string }) {
               <CalendarHeart className="h-4 w-4 shrink-0 text-primary" />
               <span className="truncate font-semibold">{thread.title}</span>
               <span className="shrink-0 text-muted-foreground">· {thread.event_date ? new Date(thread.event_date + "T12:00:00").toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric", year: "numeric" }) : "Date TBD"}</span>
+              <EventOverviewLink threadId={thread.id} />
             </div>
           </div>
         )}
@@ -833,4 +834,10 @@ function useVoice() {
     } catch (e) { setSpeakingId(null); toast.error(e instanceof Error ? e.message : "Couldn't play voice"); }
   }
   return { play, speakingId };
+}
+
+function EventOverviewLink({ threadId }: { threadId: string }) {
+  const g = useQuery({ queryKey: ["event-goal", threadId], queryFn: async () => (await supabase.from("tasks").select("id").eq("thread_id", threadId).eq("kind", "goal").order("created_at").limit(1).maybeSingle()).data });
+  if (!g.data) return null;
+  return <Link to="/events/$goalId" params={{ goalId: g.data.id }} className="ml-auto inline-flex shrink-0 items-center gap-1 rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary hover:bg-primary/20"><Maximize2 className="h-3 w-3" /> Event overview</Link>;
 }

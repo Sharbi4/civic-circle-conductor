@@ -19,6 +19,7 @@ import { Route as PIdRouteImport } from './routes/p.$id'
 import { Route as AuthenticatedChatIndexRouteImport } from './routes/_authenticated/chat.index'
 import { Route as AuthenticatedChatThreadIdRouteImport } from './routes/_authenticated/chat.$threadId'
 import { Route as AuthenticatedDocumentsIdRouteImport } from './routes/_authenticated/documents.$id'
+import { Route as AuthenticatedEventsGoalIdRouteImport } from './routes/_authenticated/events.$goalId'
 import { Route as ApiOauthEventbriteReturnRouteImport } from './routes/api/oauth/eventbrite/return'
 import { Route as ApiOauthGoogle_mailReturnRouteImport } from './routes/api/oauth/google_mail/return'
 import { Route as ApiOauthLinkedinReturnRouteImport } from './routes/api/oauth/linkedin/return'
@@ -81,6 +82,12 @@ const AuthenticatedDocumentsIdRoute =
   AuthenticatedDocumentsIdRouteImport.update({
     id: '/documents/$id',
     path: '/documents/$id',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedEventsGoalIdRoute =
+  AuthenticatedEventsGoalIdRouteImport.update({
+    id: '/events/$goalId',
+    path: '/events/$goalId',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 const ApiOauthEventbriteReturnRoute =
@@ -162,6 +169,7 @@ export interface FileRoutesByFullPath {
   '/p/$id': typeof PIdRoute
   '/chat/$threadId': typeof AuthenticatedChatThreadIdRoute
   '/documents/$id': typeof AuthenticatedDocumentsIdRoute
+  '/events/$goalId': typeof AuthenticatedEventsGoalIdRoute
   '/chat/': typeof AuthenticatedChatIndexRoute
   '/api/oauth/eventbrite/return': typeof ApiOauthEventbriteReturnRoute
   '/api/oauth/google_mail/return': typeof ApiOauthGoogle_mailReturnRoute
@@ -184,6 +192,7 @@ export interface FileRoutesByTo {
   '/p/$id': typeof PIdRoute
   '/chat/$threadId': typeof AuthenticatedChatThreadIdRoute
   '/documents/$id': typeof AuthenticatedDocumentsIdRoute
+  '/events/$goalId': typeof AuthenticatedEventsGoalIdRoute
   '/chat': typeof AuthenticatedChatIndexRoute
   '/api/oauth/eventbrite/return': typeof ApiOauthEventbriteReturnRoute
   '/api/oauth/google_mail/return': typeof ApiOauthGoogle_mailReturnRoute
@@ -209,6 +218,7 @@ export interface FileRoutesById {
   '/p/$id': typeof PIdRoute
   '/_authenticated/chat/$threadId': typeof AuthenticatedChatThreadIdRoute
   '/_authenticated/documents/$id': typeof AuthenticatedDocumentsIdRoute
+  '/_authenticated/events/$goalId': typeof AuthenticatedEventsGoalIdRoute
   '/_authenticated/chat/': typeof AuthenticatedChatIndexRoute
   '/api/oauth/eventbrite/return': typeof ApiOauthEventbriteReturnRoute
   '/api/oauth/google_mail/return': typeof ApiOauthGoogle_mailReturnRoute
@@ -234,6 +244,7 @@ export interface FileRouteTypes {
     | '/p/$id'
     | '/chat/$threadId'
     | '/documents/$id'
+    | '/events/$goalId'
     | '/chat/'
     | '/api/oauth/eventbrite/return'
     | '/api/oauth/google_mail/return'
@@ -256,6 +267,7 @@ export interface FileRouteTypes {
     | '/p/$id'
     | '/chat/$threadId'
     | '/documents/$id'
+    | '/events/$goalId'
     | '/chat'
     | '/api/oauth/eventbrite/return'
     | '/api/oauth/google_mail/return'
@@ -280,6 +292,7 @@ export interface FileRouteTypes {
     | '/p/$id'
     | '/_authenticated/chat/$threadId'
     | '/_authenticated/documents/$id'
+    | '/_authenticated/events/$goalId'
     | '/_authenticated/chat/'
     | '/api/oauth/eventbrite/return'
     | '/api/oauth/google_mail/return'
@@ -388,6 +401,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDocumentsIdRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/events/$goalId': {
+      id: '/_authenticated/events/$goalId'
+      path: '/events/$goalId'
+      fullPath: '/events/$goalId'
+      preLoaderRoute: typeof AuthenticatedEventsGoalIdRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/api/oauth/eventbrite/return': {
       id: '/api/oauth/eventbrite/return'
       path: '/api/oauth/eventbrite/return'
@@ -491,11 +511,13 @@ const AuthenticatedChatRouteWithChildren =
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedChatRoute: typeof AuthenticatedChatRouteWithChildren
   AuthenticatedDocumentsIdRoute: typeof AuthenticatedDocumentsIdRoute
+  AuthenticatedEventsGoalIdRoute: typeof AuthenticatedEventsGoalIdRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedChatRoute: AuthenticatedChatRouteWithChildren,
   AuthenticatedDocumentsIdRoute: AuthenticatedDocumentsIdRoute,
+  AuthenticatedEventsGoalIdRoute: AuthenticatedEventsGoalIdRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =

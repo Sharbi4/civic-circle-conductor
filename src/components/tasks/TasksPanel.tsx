@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { CalendarDays, Check, ChevronDown, ChevronRight, MessagesSquare, Plus, Target, Trash2 } from "lucide-react";
+import { CalendarDays, Check, ChevronDown, ChevronRight, Maximize2, MessagesSquare, Plus, Target, Trash2 } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -94,6 +94,8 @@ export function TasksPanel() {
                 {isOpen ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
               </button>
               <Row t={g} onUpdate={update} onRemove={remove} bold />
+              <Link to="/events/$goalId" params={{ goalId: g.id }} aria-label="Open event overview" title="Open event overview"
+                className="shrink-0 rounded-full p-1 text-muted-foreground hover:bg-secondary hover:text-primary"><Maximize2 className="h-3 w-3" /></Link>
             </div>
             <div className="ml-7 flex items-center gap-1.5 pb-0.5">
               <div className="h-1 flex-1 overflow-hidden rounded-full bg-secondary"><div className="h-full rounded-full bg-primary transition-all" style={{ width: `${pct}%` }} /></div>

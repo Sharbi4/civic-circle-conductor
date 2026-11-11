@@ -59,6 +59,12 @@ export async function runOrganizer(supabase: SupabaseClient<Database>, userId: s
     const liveResearch = wantsEvent
       ? formatHits(await perplexitySearch([`${data.content.slice(0, 150)} Tucson Arizona`, "food trucks caterers for community events Tucson", "community event venues Tucson Arizona"], 4).catch(() => []), 10)
       : "";
+    let eventProfileLine = "";
+    {
+      const { data: eg } = await supabase.from("tasks").select("id").eq("thread_id", data.threadId).eq("kind", "goal").order("created_at").limit(1).maybeSingle();
+      const { data: ep } = eg ? await supabase.from("event_profiles").select("venue, venue_details, venue_status, budget, spent, budget_notes, staff, contacts, vendors").eq("goal_id", eg.id).maybeSingle() : { data: null };
+      if (ep) eventProfileLine = `EVENT OVERVIEW (entered by the organizer on the event page — treat as the source of truth; if a venue is marked booked, do not search for another): ${JSON.stringify(ep).slice(0, 3000)}`;
+    }
     const [{ data: org }, { data: history }, { data: memories }] = await Promise.all([
       supabase.from("organizations").select("name, mission, linkedin_org_id, address, logo_url, contact_name, contact_email, contact_phone, website, letterhead_skipped").eq("user_id", userId).maybeSingle(),
       supabase.from("messages").select("role, content").eq("thread_id", data.threadId).order("created_at", { ascending: false }).limit(60),
@@ -133,6 +139,7 @@ For multi-step objectives, show a visible task plan with statuses (Done / Workin
       `Live browser: you can open a real web browser that the user watches live inside the chat. When the user asks you to browse the web or a task genuinely needs live browsing (researching vendors on a site, checking event listings, looking at a page), add a final line exactly like: [[browse: <what you will do in the browser>]] and tell the user you're opening a live browser they can watch and take over. The browse task is your goal: you will drive the browser yourself step by step (navigate sites like Eventbrite, search, fill forms), the user watches each step and can take over anytime, and before submitting any form, message, booking or payment you pause for their approval in the Approvals inbox. Write the browse goal specifically (site, search terms, what to fill in). Never claim results before the browser task reports back.`,
       `Be concise, decisive and practical. Use markdown with short headings and bullets.`,
       `When you learn a durable fact about the organization (audiences, goals, dates, voice, contacts), add a final line exactly like: [[remember: <fact>]]. Only for new facts.`,
+      eventProfileLine,
       memories?.length ? `Organization memory:\n- ${memories.map((m) => m.content).join("\n- ")}` : "",
       thread.kind === "event"
         ? `This is an EVENT CHAT for "${thread.title}"${thread.event_date ? ` on ${thread.event_date}` : " (date not set yet)"}. Everything here works this one event to completion, following its Event goal checklist in order: ${EVENT_STEPS.map((t, i) => `${i + 1}) ${t}`).join("; ")}. Use connected APIs for Eventbrite, LinkedIn, X, email and the RSVP/feedback forms; the live browser only for the venue booking page, Facebook and Instagram. When a step is finished, mark its task done. As soon as the name or date is decided or changes, add [[event_chat: {"title":"<event name>","date":"YYYY-MM-DD"}]] so the chat and its Event goal tile update.`

@@ -514,6 +514,65 @@ export type Database = {
         }
         Relationships: []
       }
+      event_profiles: {
+        Row: {
+          budget: number | null
+          budget_notes: string
+          contacts: Json
+          goal_id: string
+          spent: number | null
+          staff: Json
+          suggestions: Json
+          suggestions_at: string | null
+          updated_at: string
+          user_id: string
+          vendors: Json
+          venue: string
+          venue_details: string
+          venue_status: string
+        }
+        Insert: {
+          budget?: number | null
+          budget_notes?: string
+          contacts?: Json
+          goal_id: string
+          spent?: number | null
+          staff?: Json
+          suggestions?: Json
+          suggestions_at?: string | null
+          updated_at?: string
+          user_id: string
+          vendors?: Json
+          venue?: string
+          venue_details?: string
+          venue_status?: string
+        }
+        Update: {
+          budget?: number | null
+          budget_notes?: string
+          contacts?: Json
+          goal_id?: string
+          spent?: number | null
+          staff?: Json
+          suggestions?: Json
+          suggestions_at?: string | null
+          updated_at?: string
+          user_id?: string
+          vendors?: Json
+          venue?: string
+          venue_details?: string
+          venue_status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_profiles_goal_id_fkey"
+            columns: ["goal_id"]
+            isOneToOne: true
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       focus_areas: {
         Row: {
           city: string
@@ -1017,6 +1076,41 @@ export type Database = {
           username?: string
         }
         Relationships: []
+      }
+      sticky_notes: {
+        Row: {
+          color: string
+          created_at: string
+          goal_id: string | null
+          id: string
+          text: string
+          user_id: string
+        }
+        Insert: {
+          color?: string
+          created_at?: string
+          goal_id?: string | null
+          id?: string
+          text: string
+          user_id: string
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          goal_id?: string | null
+          id?: string
+          text?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sticky_notes_goal_id_fkey"
+            columns: ["goal_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       suggestions: {
         Row: {
