@@ -104,7 +104,7 @@ async function reviewOrganization(db: Db, userId: string, threadId: string) {
   if (top) {
     const { data: last } = await db.from('autopilot_state').select('last_top').eq('user_id',userId).maybeSingle();
     if (last?.last_top !== top.label) {
-      await db.from('approvals').insert({ user_id:userId, action_type:'other', title:`Civi suggests: ${top.label}`, details:top.prompt, payload:{ kind:'civi_suggestion',thread:threadId,prompt:top.prompt } });
+      await db.from('approvals').insert({ user_id:userId, thread_id:threadId, action_type:'other', title:`Civi suggests: ${top.label}`, details:top.prompt, payload:{ kind:'civi_suggestion',thread:threadId,prompt:top.prompt } });
       await db.from('autopilot_state').upsert({ user_id:userId,last_top:top.label,last_review_at:new Date().toISOString() });
     }
   }

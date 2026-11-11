@@ -1,0 +1,2 @@
+ALTER TABLE public.approvals ADD COLUMN IF NOT EXISTS thread_id uuid REFERENCES public.threads(id) ON DELETE SET NULL;
+CREATE INDEX IF NOT EXISTS approvals_thread_pending_idx ON public.approvals (thread_id) WHERE status = 'pending';

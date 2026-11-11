@@ -280,7 +280,7 @@ For multi-step objectives, show a visible task plan with statuses (Done / Workin
       try {
         const { callRequestSchema } = await import('./calling.shared');
         const payload = callRequestSchema.parse({ ...JSON.parse(call[1] ?? '{}'), thread: data.threadId, kind: 'venue_call' });
-        const { error } = await supabase.from('approvals').insert({ user_id: userId, action_type: 'outreach', title: `Call ${payload.recipient} — availability`, details: `${payload.to}\n${payload.brief}\nResearch only; no binding booking or payment.`, payload });
+        const { error } = await supabase.from('approvals').insert({ user_id: userId, thread_id: data.threadId, action_type: 'outreach', title: `Call ${payload.recipient} — availability`, details: `${payload.to}\n${payload.brief}\nResearch only; no binding booking or payment.`, payload });
         if (error) throw error;
         text = text.replace(call[0], '\nAvailability call queued in Approvals. No call has been placed yet.');
       } catch { text = text.replace(call[0], '\nCall not queued: a verified business phone number and specific calling brief are required.'); }
@@ -351,7 +351,7 @@ For multi-step objectives, show a visible task plan with statuses (Done / Workin
       await supabase.from("memories").insert(facts.map((content) => ({ user_id: userId, content })));
     }
     if (approvalRows.length) {
-      const { data: savedApprovals, error: apErr } = await supabase.from("approvals").insert(approvalRows).select("id, payload");
+      const { data: savedApprovals, error: apErr } = await supabase.from("approvals").insert(approvalRows.map((r) => ({ ...r, thread_id: data.threadId }))).select("id, payload");
       if (savedApprovals) {
         const { applyStandingApprovals } = await import("./approvals.server");
         await applyStandingApprovals(supabase, userId, savedApprovals);

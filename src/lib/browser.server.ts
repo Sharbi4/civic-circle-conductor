@@ -245,7 +245,7 @@ export async function runAgentStep(supabase: any, userId: string, sessionRowId: 
       const why = a.reason ? ` — ${a.reason}` : "";
       if (a.action === "request_approval") {
         const { data: ap } = await supabase.from("approvals").insert({
-          user_id: userId, action_type: "booking", title: a.title, details: a.details, browser_session_id: row.id,
+          user_id: userId, thread_id: row.thread_id, action_type: "booking", title: a.title, details: a.details, browser_session_id: row.id,
         }).select("id").single();
         await save({ agent_status: "awaiting_approval" }, { action: "approval", note: `Waiting for approval: ${a.title}` });
         await post(`🛑 The form for **${goal}** is filled in and ready. Before I submit, please review it in the **Approvals** inbox:\n\n**${a.title}** — ${a.details}${ap ? "" : ""}`);
@@ -276,11 +276,11 @@ export async function runAgentStep(supabase: any, userId: string, sessionRowId: 
         const cleanSummary = summary.replace(/\n?\[\[vendors:[\s\S]+?\]\]\]?/g, "").replace(/\n?\[\[fb_(?:groups|page):[\s\S]+?\]\]\]?/g, "").trim();
         const fbRows = [
           ...groups.filter((g) => g?.url?.startsWith("https://www.facebook.com/groups/") && g.name).slice(0, 10).map((g) => ({
-            user_id: userId, action_type: "outreach", title: `Join Facebook group: ${g.name.slice(0, 120)}`,
+            user_id: userId, thread_id: row.thread_id, action_type: "outreach", title: `Join Facebook group: ${g.name.slice(0, 120)}`,
             details: g.url, payload: { kind: "fb_join_group", session: row.id, name: g.name.slice(0, 120), url: g.url },
           })),
           ...(page?.url?.startsWith("https://www.facebook.com/") && page.post_text ? [{
-            user_id: userId, action_type: "outreach", title: "Post a Page update on Facebook",
+            user_id: userId, thread_id: row.thread_id, action_type: "outreach", title: "Post a Page update on Facebook",
             details: page.post_text.slice(0, 2000), payload: { kind: "fb_page_post", session: row.id, url: page.url, text: page.post_text.slice(0, 2000) },
           }] : []),
         ];

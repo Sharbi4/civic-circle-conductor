@@ -290,6 +290,7 @@ export type Database = {
           run_finished_at: string | null
           run_state: string | null
           status: string
+          thread_id: string | null
           title: string
           user_id: string
         }
@@ -308,6 +309,7 @@ export type Database = {
           run_finished_at?: string | null
           run_state?: string | null
           status?: string
+          thread_id?: string | null
           title: string
           user_id: string
         }
@@ -326,6 +328,7 @@ export type Database = {
           run_finished_at?: string | null
           run_state?: string | null
           status?: string
+          thread_id?: string | null
           title?: string
           user_id?: string
         }
@@ -335,6 +338,13 @@ export type Database = {
             columns: ["activity_id"]
             isOneToOne: false
             referencedRelation: "activities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "approvals_thread_id_fkey"
+            columns: ["thread_id"]
+            isOneToOne: false
+            referencedRelation: "threads"
             referencedColumns: ["id"]
           },
         ]

@@ -21,6 +21,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { EventbriteDraftControls } from '@/components/EventbriteDraftControls';
 import { AgentPreparing } from '@/components/AgentPreparing';
+import { PendingApprovalsBar } from '@/components/PendingApprovalsBar';
 import { refreshVenueCalls } from '@/lib/calling.functions';
 
 export const Route = createFileRoute("/_authenticated/chat/$threadId")({
@@ -712,6 +713,7 @@ function ChatWindow({ threadId }: { threadId: string }) {
         onSubmit={(e) => { e.preventDefault(); submit(input); }}
         className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-background via-background to-transparent px-4 pb-5 pt-8"
       >
+        <PendingApprovalsBar threadId={threadId} />
         {attachment && (
           <div className="mx-auto mb-2 flex max-w-3xl items-center gap-3 rounded-2xl border bg-card p-2 shadow-soft">
             <img src={attachment.preview} alt="Attached picture" className="h-14 w-14 rounded-xl object-cover" />
