@@ -1,6 +1,7 @@
 import type { AgentAction } from "@/lib/browserAgent.server";
 import { VENDOR_SCOUT_BROWSER } from "@/lib/eventPlaybook";
 import { browserNeedsProgressReport, BROWSER_PROGRESS_INSTRUCTIONS } from "./browserProgress.shared";
+import { needsCallFollowUp, CALL_FOLLOW_UP_NOTE } from "./callFollowUp.shared";
 import { isLinkedInBrowserTask, isLinkedInUrl, LINKEDIN_API_ONLY } from "./linkedinRouting.shared";
 const GATEWAY = "https://connector-gateway.lovable.dev/udc_browserbase";
 
@@ -297,6 +298,18 @@ export async function runAgentStep(supabase: any, userId: string, sessionRowId: 
         }
         await save({ agent_status: "done" }, { action: "done", note: `Finished: ${cleanSummary.replace(/\s+/g, " ").slice(0, 400)}` });
         await post(`${progressReport ? "🔎 **Research checkpoint — next steps**" : goal.startsWith("NOTIFICATION CHECK") ? "🔔 **New on Facebook**" : `✅ Browser task finished: **${goal}**`}\n\n${cleanSummary}${fbRows.length ? `\n\n📥 I put ${fbRows.length} request${fbRows.length > 1 ? "s" : ""} in your **Approvals** inbox — ${groups.length ? `one per group to join` : ""}${groups.length && page ? " and " : ""}${page ? "the Page update post" : ""}. Approve the ones you want and I'll do them one by one in this browser.` : ""}`);
+        // Phone fallback: when venue research ends without confirmed booking details,
+        // hand the findings back to the organizer so it proposes the approved call
+        // (venue_call marker → Approvals card → real call on approval → chat report).
+        if (needsCallFollowUp(goal, cleanSummary)) {
+          try {
+            const { runOrganizer } = await import("./organizer.server");
+            await runOrganizer(supabase, userId, {
+              threadId: row.thread_id,
+              content: `[Research finished — continue automatically] Goal: ${goal}\n\nFindings:\n${cleanSummary.replace(/\[\[choices:[\s\S]*?\]\]/g, "").trim()}\n\nOnline booking details were not confirmed. Apply your phone-fallback rule now: summarize what was verified, and if the findings include the venue's official booking phone number from a cited source, propose the one-time approved availability call with the venue_call marker so it appears in Approvals. If no verified number was found, state exactly what is still missing. ${CALL_FOLLOW_UP_NOTE}`,
+            });
+          } catch (e) { console.error("Call follow-up failed", e); }
+        }
         if (await startNextQueued(supabase, row.id)) {
           if (goal.startsWith("APPROVED")) await post(`▶️ On to the next approved task in the browser…`);
           return { agentStatus: "driving" };

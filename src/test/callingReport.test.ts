@@ -37,6 +37,7 @@ describe("owner-scoped completed call synchronization", () => {
     expect(operations).toContainEqual({ table: "approvals", action: "eq:user_id", value: owner });
     expect(operations).toContainEqual({ table: "threads", action: "eq:user_id", value: owner });
     expect(operations.find((o) => o.table === "messages" && o.action === "insert")?.value).toEqual(expect.objectContaining({ id: owner, user_id: owner, thread_id: thread, content: expect.stringContaining("quote is $300") }));
+    expect(operations.find((o) => o.table === "approvals" && o.action === "update")?.value).toEqual(expect.objectContaining({ run_state: "succeeded", payload: expect.objectContaining({ call_state: "done" }) }));
   });
   it("does not retrieve a call when its chat does not belong to the caller", async () => {
     const fetcher = vi.fn(); vi.stubGlobal("fetch", fetcher);

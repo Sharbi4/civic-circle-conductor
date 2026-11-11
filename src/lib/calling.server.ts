@@ -33,7 +33,7 @@ export async function syncVenueCalls(db: SupabaseClient<Database>, userId: strin
       // Reusing this approval's UUID makes report insertion idempotent across chat and job refreshes.
       const { error: insertError } = await db.from("messages").insert({ id: call.id, user_id: userId, thread_id: parsed.data.thread, role: "assistant", content: `**Call report — ${safeCallText(parsed.data.recipient)}**\n\n${report.text}\n\nNo binding reservation or payment was authorized. Review availability, written terms and the exact cost before approving booking or secure checkout.` });
       if (insertError && insertError.code !== "23505") throw new Error("Could not save the call report.");
-      const { error: saveError } = await db.from("approvals").update({ payload: { ...payload, call_state: report.state, reported_at: new Date().toISOString() } }).eq("id", call.id).eq("user_id", userId).eq("payload->>call_state", "initiated");
+      const { error: saveError } = await db.from("approvals").update({ payload: { ...payload, call_state: report.state, reported_at: new Date().toISOString() }, run_state: report.state === "done" ? "succeeded" : "failed", run_finished_at: new Date().toISOString(), run_error: report.state === "failed" ? "The calling service reports this call failed. Availability is not confirmed; no automatic redial was made." : null }).eq("id", call.id).eq("user_id", userId).eq("payload->>call_state", "initiated");
       if (saveError) throw new Error("Could not save completed call status.");
       completed++;
     } catch { unavailable++; }
