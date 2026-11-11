@@ -12,6 +12,16 @@ vi.mock('@/integrations/supabase/client.server', () => ({
 afterEach(() => { vi.unstubAllGlobals(); vi.unstubAllEnvs(); vi.restoreAllMocks(); });
 
 describe('LinkedIn callback failure diagnosis', () => {
+  it('reports the failing token validation stage without logging a returned token', async () => {
+    vi.stubEnv('LINKEDIN_DIRECT_CLIENT_ID', 'fixture-client');
+    vi.stubEnv('LINKEDIN_DIRECT_CLIENT_SECRET', 'fixture-secret');
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({ access_token: 'private-token-fixture', expires_in: '5184000' }))));
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const response = await handleDirectLinkedInCallback(new Request(`https://civimeet.com/api/public/oauth/linkedin/return?state=${'b'.repeat(64)}&code=fixture-code`));
+    expect(await response.text()).toContain('LinkedIn returned an unexpected authorization response');
+    expect(JSON.stringify(log.mock.calls)).toContain('stage=token_validation');
+    expect(JSON.stringify(log.mock.calls)).not.toContain('private-token-fixture');
+  });
   it('identifies rejected app credentials without revealing credentials or the provider body', async () => {
     vi.stubEnv('LINKEDIN_DIRECT_CLIENT_ID', 'fixture-client');
     vi.stubEnv('LINKEDIN_DIRECT_CLIENT_SECRET', 'fixture-secret');

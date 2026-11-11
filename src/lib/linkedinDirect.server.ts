@@ -82,9 +82,12 @@ export async function handleDirectLinkedInCallback(request: Request): Promise<Re
   if (error || !row || !validLinkedInOrigin(row.opener_origin)) return new Response('LinkedIn connection failed: authorization expired or was already used.', { status: 400 });
   let success = false;
   let message = 'LinkedIn authorization was declined or did not return a code.';
+  let stage = 'consent';
   try {
     if (!code || query.has('error')) throw new Error(message);
+    stage = 'credentials';
     const { id, secret } = credentials();
+    stage = 'token_exchange';
     const response = await fetch('https://www.linkedin.com/oauth/v2/accessToken', {
       method: 'POST', redirect: 'error', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({ grant_type: 'authorization_code', code, redirect_uri: row.redirect_uri, client_id: id, client_secret: secret }),
@@ -102,24 +105,40 @@ export async function handleDirectLinkedInCallback(request: Request): Promise<Re
       if (reason === 'invalid_grant') throw new Error(`LinkedIn authorization expired or was already used [${response.status}]. Start a new connection attempt.`);
       throw new Error(`LinkedIn authorization failed [${response.status}]. Please try a new connection attempt.`);
     }
+    stage = 'token_validation';
     const received = z.object({ access_token: z.string().min(1), expires_in: z.number().positive(), scope: z.string().optional() }).parse(await response.json());
     const token: DirectToken = { accessToken: received.access_token, expiresAt: new Date(Date.now() + received.expires_in * 1000).toISOString(), scopes: received.scope?.split(' ') ?? LINKEDIN_SCOPES };
+    stage = 'profile_request';
     const profile = await createDirectLinkedInTransport(token).call('/v2/userinfo');
     if (!profile.ok) {
       console.error(`LinkedIn OAuth profile confirmation failed [${profile.status}]`);
       throw new Error(`LinkedIn profile confirmation failed [${profile.status}]. Check that OpenID Connect is enabled with openid and profile permissions, then reconnect.`);
     }
+    stage = 'profile_validation';
     const identity = z.object({ sub: z.string().min(1), name: z.string().optional() }).parse(await profile.json());
-    const { error: saved } = await supabaseAdmin.from('linkedin_oauth_states').update({ status: 'complete', token_ciphertext: encryptConnectionKey(JSON.stringify(token)), account_name: identity.name ?? 'LinkedIn account' }).eq('id', row.id).eq('status', 'exchanging');
+    stage = 'token_encryption';
+    const ciphertext = encryptConnectionKey(JSON.stringify(token));
+    stage = 'authorization_storage';
+    const { error: saved } = await supabaseAdmin.from('linkedin_oauth_states').update({ status: 'complete', token_ciphertext: ciphertext, account_name: identity.name ?? 'LinkedIn account' }).eq('id', row.id).eq('status', 'exchanging');
     if (saved) throw new Error('Could not save LinkedIn authorization. Please reconnect.');
     success = true;
     message = 'LinkedIn authorized. Return to Civi Meet to finish connecting.';
   } catch (error) {
     // Never log OAuth responses or callback URLs: they can contain credentials.
-    console.error('LinkedIn OAuth callback did not complete.');
-    if (error instanceof Error && !error.message.includes('[') && !error.message.startsWith('Could not') && !error.message.startsWith('LinkedIn authorization was')) {
-      message = 'LinkedIn connection could not be completed. Please reconnect.';
-    } else if (error instanceof Error) message = error.message;
+    console.error(`LinkedIn OAuth callback did not complete stage=${stage} category=${error instanceof z.ZodError ? 'invalid_response' : 'operation_failed'}`);
+    const stageMessages: Record<string, string> = {
+      credentials: 'Civi Meet could not load its LinkedIn app credentials. They must be saved and published.',
+      token_exchange: 'Civi Meet could not finish the LinkedIn authorization exchange. Please try a new connection attempt.',
+      token_validation: 'LinkedIn returned an unexpected authorization response. Your connection was not saved.',
+      profile_request: 'Civi Meet could not confirm your LinkedIn profile. Your connection was not saved.',
+      profile_validation: 'LinkedIn returned an unexpected profile response. Your connection was not saved.',
+      token_encryption: 'LinkedIn authorized your account, but Civi Meet could not securely store the connection. No post was published.',
+      authorization_storage: 'LinkedIn authorized your account, but Civi Meet could not save the connection. No post was published.',
+    };
+    // Preserve only deliberately authored errors, never arbitrary exception messages.
+    const safeError = error instanceof Error && !(error instanceof z.ZodError)
+      && /^(LinkedIn (rejected|authorization (failed|expired|was)|profile confirmation failed)|Could not save LinkedIn authorization)/.test(error.message);
+    message = safeError ? error.message : stageMessages[stage] ?? 'LinkedIn connection could not be completed. Please reconnect.';
     await supabaseAdmin.from('linkedin_oauth_states').update({ status: 'failed', token_ciphertext: null }).eq('id', row.id);
   }
   const result = JSON.stringify({ type: success ? 'civiLinkedInOAuthComplete' : 'civiLinkedInOAuthFailed', connectorId: 'linkedin', state: success ? state : null, message }).replace(/</g, '\\u003c');
