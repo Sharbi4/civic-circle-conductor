@@ -75,7 +75,15 @@ function AttachedImage({ path, role }: { path: string; role: string }) {
 
 const CHOICES_MARKER = /\[\[choices:\s*([^\]]+)\]\]/;
 
-function MessageBody({ content }: { content: string }) {
+function flattenText(node: React.ReactNode): string {
+  if (node == null || typeof node === "boolean") return "";
+  if (typeof node === "string" || typeof node === "number") return String(node);
+  if (Array.isArray(node)) return node.map(flattenText).join("");
+  if (typeof node === "object" && "props" in node) return flattenText((node.props as { children?: React.ReactNode }).children);
+  return "";
+}
+
+function MessageBody({ content, onAction }: { content: string; onAction?: ((text: string) => void) | undefined }) {
   const eventId = content.match(/\[\[eventbrite_draft:(\d+)\]\]/)?.[1] ?? content.match(/https:\/\/www\.eventbrite\.com\/myevent\?eid=(\d+)/)?.[1];
   content = content.replace(/\[\[eventbrite_draft:\d+\]\]/g, '');
   type Part = { kind: "text"; text: string } | { kind: "browser"; id: string; task: string } | { kind: "image"; role: string; path: string } | { kind: "doc"; id: string; title: string; dkind: string };
@@ -96,7 +104,14 @@ function MessageBody({ content }: { content: string }) {
       {parts.map((p, i) =>
         p.kind === "text" ? (
           <div key={i} className="prose-chat leading-relaxed">
-            <ReactMarkdown>{p.text}</ReactMarkdown>
+            <ReactMarkdown components={onAction ? {
+              strong: ({ children }) => (
+                <button type="button" onClick={() => onAction(flattenText(children))}
+                  className="cursor-pointer rounded-full bg-primary/10 px-2 py-0.5 font-semibold text-primary transition-colors hover:bg-primary/20">
+                  {children}
+                </button>
+              ),
+            } : undefined}>{p.text}</ReactMarkdown>
           </div>
         ) : p.kind === "doc" ? (
           <DocCard key={i} id={p.id} title={p.title} kind={p.dkind} />
@@ -670,7 +685,8 @@ function ChatWindow({ threadId }: { threadId: string }) {
               ) : (
                 <div key={m.id} id={`msg-${m.id}`} className="rounded-3xl">
                   <div className="max-w-[92%] rounded-3xl bg-bubble px-6 py-4">
-                    <MessageBody content={m.content.replace(CHOICES_MARKER, "").replace(/\[\[(form_library|letterhead_check)\]\]/g, "").trim()} />
+                    <MessageBody content={m.content.replace(CHOICES_MARKER, "").replace(/\[\[(form_library|letterhead_check)\]\]/g, "").trim()}
+                      onAction={m.content.includes("What would you like me to do") ? (t) => submit(`${t} — yes, do the one you just suggested.`) : undefined} />
                     {m.content.includes("[[letterhead_check]]") && m.id === all[all.length - 1]?.id && <LetterheadPrompt onDone={() => submit("Letterhead details are saved — go ahead and create the document.")} onSkipped={() => submit("Skip the missing letterhead details for now and create the document using only the details already provided. Do not ask for letterhead details again this session.")} />}
                     {m.content.includes("[[form_library]]") && m.id === all[all.length - 1]?.id && <FormLibrary logo={orgQ.data?.logo_url} orgName={orgQ.data?.name} onDone={(t) => submit(t)} />}
                   </div>
