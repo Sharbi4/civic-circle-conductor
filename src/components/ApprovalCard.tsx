@@ -2,7 +2,7 @@ import { useState, type ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { ArrowUpRight, CalendarCheck, Check, ChevronDown, Facebook, Globe, Linkedin, Loader2, Megaphone, Phone, Sparkles, Twitter, X } from "lucide-react";
+import { ArrowUpRight, CalendarCheck, Check, ChevronDown, CreditCard, Facebook, Globe, Linkedin, Loader2, Megaphone, Phone, Sparkles, Twitter, X } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { decideApproval } from "@/lib/approvals.functions";
@@ -24,22 +24,22 @@ export type ApprovalRow = {
   thread_id?: string | null;
 };
 
-function kindMeta(payload: unknown, actionType: string): { Icon: typeof Sparkles; label: string } {
+function kindMeta(payload: unknown, actionType: string): { Icon: typeof Sparkles; label: string; tile: string } {
   const kind = approvalKind(payload);
-  if (kind.startsWith("linkedin_")) return { Icon: Linkedin, label: "LinkedIn" };
-  if (kind === "x_post") return { Icon: Twitter, label: "X" };
-  if (kind.startsWith("eventbrite_")) return { Icon: CalendarCheck, label: "Eventbrite" };
-  if (kind === "venue_call") return { Icon: Phone, label: "Phone call" };
-  if (kind.startsWith("fb_")) return { Icon: Facebook, label: "Facebook" };
-  if (kind === "civi_suggestion") return { Icon: Sparkles, label: "Suggestion" };
-  if (actionType === "payment") return { Icon: Sparkles, label: "Payment" };
-  if (actionType === "booking") return { Icon: CalendarCheck, label: "Booking" };
-  if (actionType === "outreach") return { Icon: Megaphone, label: "Outreach" };
-  return { Icon: Globe, label: "Action" };
+  if (kind.startsWith("linkedin_")) return { Icon: Linkedin, label: "LinkedIn", tile: "bg-primary/10 text-primary" };
+  if (kind === "x_post") return { Icon: Twitter, label: "X", tile: "bg-accent/10 text-accent" };
+  if (kind.startsWith("eventbrite_")) return { Icon: CalendarCheck, label: "Eventbrite", tile: "bg-accent/10 text-accent" };
+  if (kind === "venue_call") return { Icon: Phone, label: "Phone call", tile: "bg-primary/10 text-primary" };
+  if (kind.startsWith("fb_")) return { Icon: Facebook, label: "Facebook", tile: "bg-primary/10 text-primary" };
+  if (kind === "civi_suggestion") return { Icon: Sparkles, label: "Suggestion", tile: "bg-accent/10 text-accent" };
+  if (actionType === "payment") return { Icon: CreditCard, label: "Payment", tile: "bg-destructive/10 text-destructive" };
+  if (actionType === "booking") return { Icon: CalendarCheck, label: "Booking", tile: "bg-accent/10 text-accent" };
+  if (actionType === "outreach") return { Icon: Megaphone, label: "Outreach", tile: "bg-accent/10 text-accent" };
+  return { Icon: Globe, label: "Action", tile: "bg-secondary text-muted-foreground" };
 }
 
 /** Leading photo for an approval: storage paths are signed; https URLs render directly. */
-function ApprovalPhoto({ path, alt }: { path: string; alt: string }) {
+function ApprovalPhoto({ path, alt, fallback }: { path: string; alt: string; fallback: ReactNode }) {
   const isHttp = /^https:\/\//.test(path);
   const signed = useQuery({
     queryKey: ["event-image", path],
@@ -55,7 +55,7 @@ function ApprovalPhoto({ path, alt }: { path: string; alt: string }) {
   });
   const url = isHttp ? path : signed.data;
   const [failed, setFailed] = useState(false);
-  if (failed) return <span className="grid h-14 w-14 shrink-0 place-items-center rounded-xl border bg-secondary" aria-hidden><Sparkles className="h-6 w-6 text-accent" /></span>;
+  if (failed) return <span className="grid h-14 w-14 shrink-0 place-items-center rounded-xl border bg-secondary" aria-hidden>{fallback}</span>;
   if (!url) return <span className="h-14 w-14 animate-pulse rounded-xl bg-muted" aria-hidden />;
   return <img src={url} alt={alt} onError={() => setFailed(true)} className="h-14 w-14 shrink-0 rounded-xl border object-cover" />;
 }
@@ -66,7 +66,7 @@ export function ApprovalCard({ approval: a, onIgnore, extra, threadTitle }: { ap
   const runDecision = useServerFn(decideApproval);
   const [busy, setBusy] = useState(false);
   const kind = approvalKind(a.payload);
-  const { Icon, label } = kindMeta(a.payload, a.action_type);
+  const { Icon, label, tile } = kindMeta(a.payload, a.action_type);
   const image = approvalImage(a.payload);
   const pending = a.status === "pending";
 
@@ -109,9 +109,9 @@ export function ApprovalCard({ approval: a, onIgnore, extra, threadTitle }: { ap
     <div className="rounded-2xl border bg-card p-3 shadow-soft">
       <div className="flex items-start gap-3">
         {image ? (
-          <ApprovalPhoto path={image} alt={`Photo for ${a.title}`} />
+          <ApprovalPhoto path={image} alt={`Photo for ${a.title}`} fallback={<Icon className={`h-7 w-7 ${tile.split(" ")[1] ?? "text-accent"}`} />} />
         ) : (
-          <span className="grid h-14 w-14 shrink-0 place-items-center rounded-xl border bg-secondary"><Icon className="h-6 w-6 text-accent" /></span>
+          <span className={`grid h-14 w-14 shrink-0 place-items-center rounded-xl border ${tile}`}><Icon className="h-7 w-7" /></span>
         )}
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
