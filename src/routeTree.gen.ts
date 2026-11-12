@@ -32,6 +32,7 @@ import { Route as ApiPublicJobsCiviAutopilotRouteImport } from './routes/api/pub
 import { Route as ApiPublicJobsCommunityScoutRouteImport } from './routes/api/public/jobs/community-scout'
 import { Route as ApiPublicJobsDailyReportsRouteImport } from './routes/api/public/jobs/daily-reports'
 import { Route as ApiPublicMetaDataDeletionRouteImport } from './routes/api/public/meta/data-deletion'
+import { Route as LovableEmailTransactionalPreviewRouteImport } from './routes/lovable/email/transactional/preview'
 import { Route as ApiPublicOauthLinkedinReturnRouteImport } from './routes/api/public/oauth/linkedin/return'
 
 const IndexRoute = IndexRouteImport.update({
@@ -159,6 +160,12 @@ const ApiPublicMetaDataDeletionRoute =
     path: '/api/public/meta/data-deletion',
     getParentRoute: () => rootRouteImport,
   } as any)
+const LovableEmailTransactionalPreviewRoute =
+  LovableEmailTransactionalPreviewRouteImport.update({
+    id: '/lovable/email/transactional/preview',
+    path: '/lovable/email/transactional/preview',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicOauthLinkedinReturnRoute =
   ApiPublicOauthLinkedinReturnRouteImport.update({
     id: '/api/public/oauth/linkedin/return',
@@ -189,6 +196,7 @@ export interface FileRoutesByFullPath {
   '/api/public/jobs/community-scout': typeof ApiPublicJobsCommunityScoutRoute
   '/api/public/jobs/daily-reports': typeof ApiPublicJobsDailyReportsRoute
   '/api/public/meta/data-deletion': typeof ApiPublicMetaDataDeletionRoute
+  '/lovable/email/transactional/preview': typeof LovableEmailTransactionalPreviewRoute
   '/api/public/oauth/linkedin/return': typeof ApiPublicOauthLinkedinReturnRoute
 }
 export interface FileRoutesByTo {
@@ -213,6 +221,7 @@ export interface FileRoutesByTo {
   '/api/public/jobs/community-scout': typeof ApiPublicJobsCommunityScoutRoute
   '/api/public/jobs/daily-reports': typeof ApiPublicJobsDailyReportsRoute
   '/api/public/meta/data-deletion': typeof ApiPublicMetaDataDeletionRoute
+  '/lovable/email/transactional/preview': typeof LovableEmailTransactionalPreviewRoute
   '/api/public/oauth/linkedin/return': typeof ApiPublicOauthLinkedinReturnRoute
 }
 export interface FileRoutesById {
@@ -240,6 +249,7 @@ export interface FileRoutesById {
   '/api/public/jobs/community-scout': typeof ApiPublicJobsCommunityScoutRoute
   '/api/public/jobs/daily-reports': typeof ApiPublicJobsDailyReportsRoute
   '/api/public/meta/data-deletion': typeof ApiPublicMetaDataDeletionRoute
+  '/lovable/email/transactional/preview': typeof LovableEmailTransactionalPreviewRoute
   '/api/public/oauth/linkedin/return': typeof ApiPublicOauthLinkedinReturnRoute
 }
 export interface FileRouteTypes {
@@ -267,6 +277,7 @@ export interface FileRouteTypes {
     | '/api/public/jobs/community-scout'
     | '/api/public/jobs/daily-reports'
     | '/api/public/meta/data-deletion'
+    | '/lovable/email/transactional/preview'
     | '/api/public/oauth/linkedin/return'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -291,6 +302,7 @@ export interface FileRouteTypes {
     | '/api/public/jobs/community-scout'
     | '/api/public/jobs/daily-reports'
     | '/api/public/meta/data-deletion'
+    | '/lovable/email/transactional/preview'
     | '/api/public/oauth/linkedin/return'
   id:
     | '__root__'
@@ -317,6 +329,7 @@ export interface FileRouteTypes {
     | '/api/public/jobs/community-scout'
     | '/api/public/jobs/daily-reports'
     | '/api/public/meta/data-deletion'
+    | '/lovable/email/transactional/preview'
     | '/api/public/oauth/linkedin/return'
   fileRoutesById: FileRoutesById
 }
@@ -339,6 +352,7 @@ export interface RootRouteChildren {
   ApiPublicJobsCommunityScoutRoute: typeof ApiPublicJobsCommunityScoutRoute
   ApiPublicJobsDailyReportsRoute: typeof ApiPublicJobsDailyReportsRoute
   ApiPublicMetaDataDeletionRoute: typeof ApiPublicMetaDataDeletionRoute
+  LovableEmailTransactionalPreviewRoute: typeof LovableEmailTransactionalPreviewRoute
   ApiPublicOauthLinkedinReturnRoute: typeof ApiPublicOauthLinkedinReturnRoute
 }
 
@@ -505,6 +519,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicMetaDataDeletionRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/lovable/email/transactional/preview': {
+      id: '/lovable/email/transactional/preview'
+      path: '/lovable/email/transactional/preview'
+      fullPath: '/lovable/email/transactional/preview'
+      preLoaderRoute: typeof LovableEmailTransactionalPreviewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/oauth/linkedin/return': {
       id: '/api/public/oauth/linkedin/return'
       path: '/api/public/oauth/linkedin/return'
@@ -562,6 +583,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicJobsCommunityScoutRoute: ApiPublicJobsCommunityScoutRoute,
   ApiPublicJobsDailyReportsRoute: ApiPublicJobsDailyReportsRoute,
   ApiPublicMetaDataDeletionRoute: ApiPublicMetaDataDeletionRoute,
+  LovableEmailTransactionalPreviewRoute: LovableEmailTransactionalPreviewRoute,
   ApiPublicOauthLinkedinReturnRoute: ApiPublicOauthLinkedinReturnRoute,
 }
 export const routeTree = rootRouteImport

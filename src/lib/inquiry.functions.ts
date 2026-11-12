@@ -12,7 +12,14 @@ export const submitInfoRequest = createServerFn({ method: "POST" })
   .inputValidator((d) => schema.parse(d))
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { error } = await supabaseAdmin.from("info_requests").insert({ ...data, phone: data.phone || null, message: data.message || null });
-    if (error) { console.error(error); throw new Error("Couldn't send your request. Please try again."); }
+    const { data: row, error } = await supabaseAdmin.from("info_requests").insert({ ...data, phone: data.phone || null, message: data.message || null }).select("id").single();
+    if (error || !row) { console.error(error); throw new Error("Couldn't send your request. Please try again."); }
+    try {
+      const { sendTemplateEmail } = await import("@/lib/email-templates/send-email");
+      await sendTemplateEmail("info-request-notification", "support@civimeet.com", {
+        templateData: data,
+        idempotencyKey: `info-request-notification-${row.id}`,
+      });
+    } catch (e) { console.error("info request email failed", e); }
     return { ok: true };
   });
