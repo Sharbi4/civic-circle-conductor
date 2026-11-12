@@ -83,3 +83,11 @@
 - [x] Choice buttons on summaries show raw **asterisks**
 - [x] Approve a real action from Approvals, confirm it lands in the right chat, show the chat history (routing confirmed; Gmail itself needs Reconnect — Google expired its access)
 - [x] Documents are always complete (no thin outlines/placeholders) and always have a picture (real matching photo or labeled Civi illustration); demo documents redone
+
+## Demo-critical fixes (Elle, Nov 12)
+- [x] Internal continuation prompts (research hand-back, phone-fallback/venue_call instructions) are hidden system turns, never visible user messages
+- [x] Browser reads PDFs/Word files it opens, uses their facts and flags conflicts with the event (e.g. closed on the event's day)
+- [x] Research summaries answer the actual goal (vendors → named vendors with links, prices, contacts); no venue template; never "no findings" after reading pages
+- [x] Markers for venue, contacts and vendors write to the event page from chat and browser research
+- [x] Markdown tables render in chat
+- [x] Skipped steps show "Skipped — draft ready" in What Civi has done; View links for X and LinkedIn posts

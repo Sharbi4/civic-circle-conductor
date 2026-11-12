@@ -59,3 +59,6 @@ use the editor.
 - Event chats: threads kind 'event' + event_date, one linked Event goal; [[event_chat]] marker updates them; why: events are the central unit.
 - Event page data lives in owner-only event_profiles/sticky_notes keyed by goal; organizer prompt treats it as truth.
 - Live-browser web searches go to DuckDuckGo (Google search URLs and verification pages are rewritten) and repeated pages/searches are re-asked once; why: Google blocks automated browsers and loops waste the step budget.
+- Automatic instruction turns (research hand-backs, plan steps, resumes, scheduled runs) are saved as role 'system' via runOrganizer({hidden:true}) and filtered by isHiddenTurn; why: the model needs them but the organizer must never see them as their own messages.
+- Browser-opened PDFs/Word files are read server-side (unpdf/fflate, falling back to an in-page fetch) and their facts plus event conflicts are stored as step notes; why: the browser shows no text for documents and booking facts live in them.
+- Research results reach the event page through event_venue/event_contact/event_vendor markers parsed by eventPage.shared and merged (never un-booking) by eventPage.server, from both chat replies and browser summaries; why: the event page must reflect what research found.

@@ -9,13 +9,14 @@ import { DOCUMENT_STANDARD } from "@/lib/documentStandards";
 import { perplexitySearch, formatHits } from "@/lib/research.server";
 import { openBrowserSession, retargetSession, closeOtherBrowsers } from "@/lib/browser.server";
 import { isLinkedInBrowserTask, LINKEDIN_API_ONLY } from "./linkedinRouting.shared";
+import { HIDDEN_ROLE } from "./chatVisibility.shared";
 
 const MODEL = "openai/gpt-6.1-terra";
 /**
  * Runs one organizer turn: saves the user message, generates Civi's reply, and applies its markers.
  * Used by the chat (as the signed-in user) and by the scheduler (with a client scoped to one org's user id).
  */
-export async function runOrganizer(supabase: SupabaseClient<Database>, userId: string, data: { threadId: string; content: string; planStepId?: string }) {
+export async function runOrganizer(supabase: SupabaseClient<Database>, userId: string, data: { threadId: string; content: string; planStepId?: string; hidden?: boolean }) {
   {
 
     const { data: thread, error: tErr } = await supabase
@@ -23,7 +24,7 @@ export async function runOrganizer(supabase: SupabaseClient<Database>, userId: s
     if (tErr || !thread) throw new Error("Chat not found");
 
     const { error: insErr } = await supabase.from("messages").insert({
-      thread_id: data.threadId, user_id: userId, role: "user", content: data.content,
+      thread_id: data.threadId, user_id: userId, role: data.hidden ? HIDDEN_ROLE : "user", content: data.content,
     });
     if (insErr) throw new Error(insErr.message);
 
@@ -163,12 +164,12 @@ All Google actions wait for approval.`,
       `EVENTBRITE AGENT (when this chat is the Eventbrite Agent or the request is about Eventbrite): what the connection can do directly — create events as drafts with a cover image ([[eventbrite_event: ...]]), update and list the organizer's events. For anything it can't do (messaging attendees, ticket types/promo codes, check-in, payouts, reports, publishing settings, editing the event page design, or if a connection action fails), say so in one line and offer to do it in the live browser on eventbrite.com with [[browse: ...]]. Saved Eventbrite login: ${ebLogin ? "YES" : "NO"}. Before browsing: if an Eventbrite login is saved, say you'll sign in with it; if not, tell them you'll open the Eventbrite sign-in page so they can type their email and password using "Take over" (never ask for passwords or codes in chat), and offer: "Want me to save your Eventbrite login securely so I can sign in next time? Add it under the key icon → Saved logins." with [[choices: Open browser & I'll sign in | Save my login first | Not now]]. Submissions, publishing and payments in the browser still pause for approval.`,
       ...(ebConn ? [`THEIR EVENTBRITE EVENTS (live from Eventbrite, current and upcoming):\n${ebEventsBlock}\nNEVER ask "which event?" with an open question when events are listed here — when they want to promote, update, RSVP-link or review an event, name the likely one(s) and offer them as buttons, e.g. [[choices: <Event A> (Sat Nov 21) | <Event B> (Dec 5) | A different event]]. With exactly one upcoming event, assume it and proceed ("I'll promote **X** on Sat Nov 21 — here are the drafts"). For promotion, immediately draft posts for every connected platform with the event link, then offer a reminder schedule. If none are listed, offer to create one.`] : []),
       `Live browser: you can open a real web browser that the user watches live inside the chat. When the user asks you to browse the web or a task genuinely needs live browsing (researching vendors on a site, checking event listings, looking at a page), add a final line exactly like: [[browse: <what you will do in the browser>]] and tell the user you're opening a live browser they can watch and take over. The browse task is your goal: you will drive the browser yourself step by step (navigate sites like Eventbrite, search, fill forms), the user watches each step and can take over anytime, and before submitting any form, message, booking or payment you pause for their approval in the Approvals inbox. Write the browse goal specifically (site, search terms, what to fill in). Never claim results before the browser task reports back.`,
-      `Be concise, decisive and practical. Use markdown with short headings and bullets.`,
+      `Be concise, decisive and practical. Use markdown with short headings and bullets, and a markdown table whenever you compare options (vendors, venues, prices, dates).`,
       `When you learn a durable fact about the organization (audiences, goals, dates, voice, contacts), add a final line exactly like: [[remember: <fact>]]. Only for new facts.`,
       eventProfileLine,
       memories?.length ? `Organization memory:\n- ${memories.map((m) => m.content).join("\n- ")}` : "",
       thread.kind === "event"
-        ? `This is an EVENT CHAT for "${thread.title}"${thread.event_date ? ` on ${thread.event_date}` : " (date not set yet)"}. Everything here works this one event to completion through its EVENT PLAN: ${EVENT_STEPS.map((t, i) => `${i + 1}) ${t}`).join("; ")}. The app runs the plan: each step starts as soon as what it waits for is finished (so the X post, LinkedIn post, Facebook Page post and email invites run side by side once the Eventbrite or RSVP link exists), reminders run 7 days and 1 day before, and the recap, feedback poll and thank-you email run the day after. Steps for channels that aren't connected are skipped with a ready-to-paste draft. Queue each step's action with its marker — the step finishes when that action really goes out. Use [[task_done: <id>]] only for steps finished without an approval (date and budget locked, venue confirmed booked). Use connected APIs for Eventbrite, LinkedIn, X, email and the RSVP/feedback forms; the live browser only for the venue booking page and the organization's Facebook Page — never for personal messages or group invitations. As soon as the name or date is decided or changes, add [[event_chat: {"title":"<event name>","date":"YYYY-MM-DD"}]] so the chat and its Event goal tile update. EVENT PAGE SYNC: whenever the organizer picks or confirms a venue, budget or expected turnout (including choosing one of your proposed options), add [[event_details: {"venue":"<place name and address>","venue_details":"<permit/rental notes>","budget":<top of the budget as a number>,"budget_note":"<e.g. $150–250 estimate>","headcount":<expected turnout as a number>}]] with only the fields that are known, so the event page shows the same plan as this chat. Add "venue_booked": true only once the venue is confirmed booked.`
+        ? `This is an EVENT CHAT for "${thread.title}"${thread.event_date ? ` on ${thread.event_date}` : " (date not set yet)"}. Everything here works this one event to completion through its EVENT PLAN: ${EVENT_STEPS.map((t, i) => `${i + 1}) ${t}`).join("; ")}. The app runs the plan: each step starts as soon as what it waits for is finished (so the X post, LinkedIn post, Facebook Page post and email invites run side by side once the Eventbrite or RSVP link exists), reminders run 7 days and 1 day before, and the recap, feedback poll and thank-you email run the day after. Steps for channels that aren't connected are skipped with a ready-to-paste draft. Queue each step's action with its marker — the step finishes when that action really goes out. Use [[task_done: <id>]] only for steps finished without an approval (date and budget locked, venue confirmed booked). Use connected APIs for Eventbrite, LinkedIn, X, email and the RSVP/feedback forms; the live browser only for the venue booking page and the organization's Facebook Page — never for personal messages or group invitations. As soon as the name or date is decided or changes, add [[event_chat: {"title":"<event name>","date":"YYYY-MM-DD"}]] so the chat and its Event goal tile update. EVENT PAGE SYNC: whenever the organizer picks or confirms a venue, budget or expected turnout (including choosing one of your proposed options), add [[event_details: {"venue":"<place name and address>","venue_details":"<permit/rental notes>","budget":<top of the budget as a number>,"budget_note":"<e.g. $150–250 estimate>","headcount":<expected turnout as a number>}]] with only the fields that are known, so the event page shows the same plan as this chat. Add "venue_booked": true only once the venue is confirmed booked. EVENT PAGE RECORDS: whenever you or your research find a venue, a contact person or a vendor, write it to the event page in the same message with one marker per record (real details only, never invented): [[event_venue: {"name":"...","address":"street, city","terms":"capacity, fees, deposit, hours/closed days, rules"}]] · [[event_contact: {"name":"...","role":"e.g. venue booking coordinator","phone":"...","email":"..."}]] · [[event_vendor: {"name":"...","type":"e.g. taco truck","url":"https://...","price_range":"e.g. $12–15 per person, $500 minimum","status":"suggested|contacted|quoted|booked|declined"}]]. Leave out fields you don't know. Up to 10 vendors and 5 contacts per message.`
         : `${thread.kind === "side" ? `This is a side chat titled "${thread.title}".` : "This is the main organizer chat."} EVENT CHAT OFFER: when the organizer starts planning a specific event here, ask once "Want to make this an event chat?" with [[choices: Yes, make it an event chat | Keep chatting here]]. If they agree, add [[event_chat: {"title":"<event name or working title>","date":"YYYY-MM-DD or omit if unknown"}]] — the app turns it into an event chat (name + date) with its own Event goal checklist.`,
       `API FIRST, BROWSER LAST: for any platform with a connected API (Eventbrite, X, LinkedIn, Gmail, polls, documents, calls) ALWAYS use its API markers, never the browser. Do research from your own knowledge, memory, the resource directory and Community Scout rather than opening the browser. Use the live browser mainly for Facebook and Instagram (events, Page/profile/group posts, Messenger/DMs) and for sites with no API (e.g. a venue booking page).`,
       `OFFER A SCHEDULE: when the organizer asks for an action that naturally repeats (posts, reminders, volunteer calls, event promotion, check-ins, roundups, notification checks), after handling it ask once whether they'd like it on a schedule, suggesting a fitting cadence, e.g. [[choices: Every Monday | Every week before an event | Every month | Just this once]]. Skip it for one-off actions (a single event, a booking, a payment). If they pick a schedule, save a REAL scheduled task with the marker [[task: {"title":"Every Monday: X post — weekly events roundup","due":"<next run date YYYY-MM-DD>","repeat":"daily|weekly|biweekly|monthly","prompt":"the exact instruction you should follow each time, e.g. Draft this week's X roundup post of our upcoming events for approval"}]]. The scheduler runs it automatically on each due date: it puts a "Scheduled:" item in Approvals, and once they approve you carry it out in this chat (posts still get their own approval). Tell them that in one line and that they can change or stop it in Goals & tasks.`,
@@ -181,7 +182,8 @@ All Google actions wait for approval.`,
         instructions,
         input: [...(history ?? [])].reverse().map((m) => ({
           role: m.role === "assistant" ? ("assistant" as const) : ("user" as const),
-          content: m.content,
+          // Automatic hand-backs are Civi's own notes, not the organizer speaking.
+          content: m.role === HIDDEN_ROLE ? `[Internal note from Civi's own system — not written by the organizer; never quote it]\n${m.content}` : m.content,
         })),
       });
       for (const item of res.output ?? []) {
@@ -367,6 +369,17 @@ All Google actions wait for approval.`,
         }
       } catch (e) { console.error("event_details marker failed", e); }
     }
+    {
+      // Venue, contacts and vendors Civi found go straight onto the event page.
+      const { parseEventPageMarkers, stripEventPageMarkers } = await import("@/lib/eventPage.shared");
+      const marks = parseEventPageMarkers(text);
+      text = stripEventPageMarkers(text);
+      if (thread.kind === "event") {
+        const { applyEventPageMarkers } = await import("@/lib/eventPage.server");
+        const line = await applyEventPageMarkers(supabase, userId, data.threadId, marks);
+        if (line) text += `\n\n${line}`;
+      }
+    }
     const uuidRe = /^[0-9a-f-]{36}$/i;
     const taskRows = [...text.matchAll(/\[\[(task|goal):\s*(\{.+?\})\s*\]\]/gs)].slice(0, 10).flatMap((m) => {
       try {
@@ -496,7 +509,7 @@ All Google actions wait for approval.`,
     if (aErr) throw new Error(aErr.message);
 
     const patch: { updated_at: string; title?: string } = { updated_at: new Date().toISOString() };
-    if (thread.kind === "side" && thread.title === "New chat") patch.title = data.content.slice(0, 40);
+    if (!data.hidden && thread.kind === "side" && thread.title === "New chat") patch.title = data.content.slice(0, 40);
     await supabase.from("threads").update(patch).eq("id", data.threadId);
 
     return { content: clean, remembered: facts.length, pollIds, approvalsQueued: approvalRows.length + callsQueued };

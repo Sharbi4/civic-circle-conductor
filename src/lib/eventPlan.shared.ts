@@ -147,7 +147,7 @@ export function skipDraft(def: StepDef, ev: { title: string; date: string | null
 
 /** Check-ins the scheduler writes into a chat on Civi's behalf; they are not the organizer replying. */
 export function isAutomatedPrompt(content: string): boolean {
-  return /^\[(Plan step|Resume)\b/.test(content);
+  return /^\[(Plan step|Resume|Research finished)\b/.test(content);
 }
 
 /** The checklist rows a new event goal starts with. */

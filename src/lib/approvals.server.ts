@@ -34,6 +34,13 @@ export async function executeApproval<T extends { ok?: boolean; started?: boolea
     const state = executionOutcome(result);
     const { error: saved } = await db.from('approvals').update({ run_state: state, run_finished_at: state === 'queued' ? null : new Date().toISOString(), run_error: state === 'failed' ? 'The service did not complete this action. See the chat for details.' : null }).eq('id', id).eq('user_id', userId);
     if (saved) throw new Error('Could not save the outcome. Check the service before attempting another action.');
+    // Keep the link to what went out (post, event, doc) so the event page can offer "View".
+    const link = state === 'succeeded' ? resultLink(result) : null;
+    if (link) {
+      const { data: row } = await db.from('approvals').select('payload').eq('id', id).eq('user_id', userId).maybeSingle();
+      const payload = row?.payload && typeof row.payload === 'object' && !Array.isArray(row.payload) ? row.payload : {};
+      await db.from('approvals').update({ payload: { ...payload, result_url: link } }).eq('id', id).eq('user_id', userId);
+    }
     return result;
   } catch (error) {
     await db.from('approvals').update({ run_state: 'failed', run_error: error instanceof Error ? error.message : 'The action failed. Check the service before trying again.', run_finished_at: new Date().toISOString() }).eq('id', id).eq('user_id', userId);

@@ -3,7 +3,7 @@ import { formatAppTime } from "@/lib/appTimeZone";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, type ReactNode } from "react";
-import { ArrowLeft, Building2, CalendarDays, Check, CheckCircle2, CircleDollarSign, Lightbulb, MessagesSquare, Pin, Plus, RefreshCw, StickyNote, Store, Trash2, Users, Contact, XCircle, Clock, ImagePlus, RotateCcw, Loader2 } from "lucide-react";
+import { ArrowLeft, Building2, CalendarDays, Check, CheckCircle2, CircleDollarSign, Lightbulb, MessagesSquare, Pin, Plus, RefreshCw, StickyNote, Store, Trash2, Users, Contact, XCircle, Clock, ImagePlus, RotateCcw, Loader2, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
@@ -13,6 +13,7 @@ import { resetEventProgress, signedCover, uploadEventCover } from "@/lib/eventGo
 import { isEssentialsStep, sortSteps } from "@/lib/eventSteps.shared";
 import { StepStatus } from "@/components/tasks/StepStatus";
 import { EventEssentialsDialog } from "@/components/tasks/EventEssentialsDialog";
+import { actionForStep, actionStateLabel, resultUrlOf } from "@/lib/eventActivity.shared";
 
 export const Route = createFileRoute("/_authenticated/events/$goalId")({
   head: () => ({
@@ -29,7 +30,7 @@ export const Route = createFileRoute("/_authenticated/events/$goalId")({
 });
 
 type Profile = Database["public"]["Tables"]["event_profiles"]["Row"];
-type Person = { name: string; role?: string; phone?: string; email?: string; booked?: boolean };
+type Person = { name: string; role?: string; phone?: string; email?: string; booked?: boolean; url?: string; price?: string; status?: string | undefined };
 const STICKY = ["sun", "sky", "mint", "rose"] as const;
 const stickyBg: Record<string, string> = { sun: "bg-sticky-sun", sky: "bg-sticky-sky", mint: "bg-sticky-mint", rose: "bg-sticky-rose" };
 
@@ -96,10 +97,8 @@ function EventPage() {
   const suggestions = (p?.suggestions ?? []) as { title: string; detail: string }[];
   const budget = Number(p?.budget ?? 0), spent = Number(p?.spent ?? 0);
   const actions = [
-    ...approvals.filter((a) => a.status !== "pending" || a.run_state).map((a) => ({ id: a.id, text: a.title, state: a.run_state === "succeeded" ? "done" : a.run_state === "failed" ? "failed" : a.status === "declined" ? "declined" : a.status === "pending" ? "waiting" : "working", at: a.run_finished_at ?? a.resolved_at ?? a.created_at })),
-    ...steps.filter((s) => s.done && s.done_at).map((s) => s.step_state === "skipped"
-      ? { id: s.id, text: `Skipped: ${s.title}`, state: "skipped", at: s.done_at! }
-      : { id: s.id, text: `Completed: ${s.title}`, state: "done", at: s.done_at! }),
+    ...approvals.filter((a) => a.status !== "pending" || a.run_state).map((a) => ({ id: a.id, text: a.title, state: a.run_state === "succeeded" ? "done" : a.run_state === "failed" ? "failed" : a.status === "declined" ? "declined" : a.status === "pending" ? "waiting" : "working", at: a.run_finished_at ?? a.resolved_at ?? a.created_at, url: a.run_state === "succeeded" ? resultUrlOf(a.payload) : null })),
+    ...steps.filter((s) => s.done && s.done_at).map((s) => actionForStep(s)),
   ].sort((a, b) => b.at.localeCompare(a.at)).slice(0, 15);
 
   return (
@@ -191,7 +190,7 @@ function EventPage() {
                   <li key={a.id} className="relative">
                     <span className={`absolute -left-[21px] top-1 grid h-3 w-3 place-items-center rounded-full ${a.state === "done" ? "bg-primary" : a.state === "failed" ? "bg-destructive" : "bg-muted-foreground/40"}`} />
                     <p className="text-sm">{a.text}</p>
-                    <p className="text-xs text-muted-foreground">{a.state === "done" ? "Done" : a.state === "skipped" ? "Draft ready in the event chat" : a.state === "failed" ? "Didn't work" : a.state === "declined" ? "Declined" : a.state === "waiting" ? "Waiting for your OK" : "In progress"} · {formatAppTime(a.at)}</p>
+                    <p className="text-xs text-muted-foreground">{actionStateLabel(a.state)} · {formatAppTime(a.at)}{a.url && <> · <a href={a.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-0.5 font-medium text-primary hover:underline">View <ExternalLink className="h-3 w-3" /></a></>}</p>
                   </li>
                 ))}
               </ol>
@@ -267,10 +266,10 @@ function People({ list, fields, labels = {}, bookable, empty, onChange }: { list
         {list.map((x, i) => (
           <li key={i} className="group flex items-center gap-2 rounded-xl border bg-background/50 px-3 py-2">
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium">{x.name}{x.role && <span className="font-normal text-muted-foreground"> · {x.role}</span>}</p>
-              {(x.phone || x.email) && <p className="truncate text-xs text-muted-foreground">{[x.phone, x.email].filter(Boolean).join(" · ")}</p>}
+              <p className="truncate text-sm font-medium">{x.url ? <a href={x.url} target="_blank" rel="noopener noreferrer" className="hover:text-primary hover:underline">{x.name}</a> : x.name}{x.role && <span className="font-normal text-muted-foreground"> · {x.role}</span>}</p>
+              {(x.price || x.phone || x.email) && <p className="truncate text-xs text-muted-foreground">{[x.price, x.phone, x.email].filter(Boolean).join(" · ")}</p>}
             </div>
-            {bookable && <button onClick={() => onChange(list.map((y, j) => (j === i ? { ...y, booked: !y.booked } : y)))} className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs ${x.booked ? "bg-primary text-primary-foreground" : "border hover:bg-secondary"}`}>{x.booked ? "Booked" : "Not booked"}</button>}
+            {bookable && <button onClick={() => onChange(list.map((y, j) => (j === i ? { ...y, booked: !y.booked, status: y.booked ? (y.status === "booked" ? "suggested" : y.status) : "booked" } : y)))} className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs capitalize ${x.booked ? "bg-primary text-primary-foreground" : "border hover:bg-secondary"}`}>{x.booked ? "Booked" : x.status && x.status !== "booked" ? x.status : "Not booked"}</button>}
             <button aria-label="Remove" onClick={() => onChange(list.filter((_, j) => j !== i))} className="shrink-0 rounded-full p-1 text-muted-foreground opacity-0 transition group-hover:opacity-100 max-md:opacity-60"><XCircle className="h-3.5 w-3.5" /></button>
           </li>
         ))}

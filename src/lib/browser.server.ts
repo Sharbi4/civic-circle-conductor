@@ -1,6 +1,9 @@
 import type { AgentAction } from "@/lib/browserAgent.server";
 import { VENDOR_SCOUT_BROWSER } from "@/lib/eventPlaybook";
-import { browserNeedsProgressReport, BROWSER_PROGRESS_INSTRUCTIONS, searchFallbackUrl, isFacebookSecurityCheck, repeatedStep } from "./browserProgress.shared";
+import { browserNeedsProgressReport, searchFallbackUrl, isFacebookSecurityCheck, repeatedStep } from "./browserProgress.shared";
+import { goalSummaryRules, progressInstructions, fallbackSummary } from "./researchGoal.shared";
+import { isDocumentUrl } from "./documentRead.shared";
+import { parseEventPageMarkers, stripEventPageMarkers, type PagePerson } from "./eventPage.shared";
 import { needsCallFollowUp, CALL_FOLLOW_UP_NOTE } from "./callFollowUp.shared";
 import { isLinkedInBrowserTask, isLinkedInUrl, LINKEDIN_API_ONLY } from "./linkedinRouting.shared";
 const GATEWAY = "https://connector-gateway.lovable.dev/udc_browserbase";
@@ -189,6 +192,23 @@ export async function runAgentStep(supabase: any, userId: string, sessionRowId: 
           return { action: { action: "handoff", reason: "Facebook wants to confirm it's you with a quick security check. Tap into the browser, finish the check, then press Done — Civi, continue" } as AgentAction, note: "" };
         }
         if (isLinkedInUrl(state.url)) return { action: { action: "done", summary: LINKEDIN_API_ONLY } as AgentAction, note: "LinkedIn browser disabled" };
+        // A PDF or Word file shows no readable text in the browser: read the file itself and give the model its contents.
+        const { eventContext, readDocumentFacts, fetchDocumentText } = await import("./documentRead.server");
+        const ev = await eventContext(supabase as never, row.thread_id);
+        const viaPage = async (url: string): Promise<Uint8Array | null> => {
+          const b64 = await page.eval(`(async () => { try { const r = await fetch(${JSON.stringify(url)}, { credentials: 'include' }); if (!r.ok) return null; const b = new Uint8Array(await r.arrayBuffer()); if (b.length > 6000000) return null; let s = ''; for (let i = 0; i < b.length; i += 32768) s += String.fromCharCode.apply(null, b.subarray(i, i + 32768)); return btoa(s); } catch (e) { return null; } })()`) as string | null;
+          return b64 ? Uint8Array.from(atob(b64), (c) => c.charCodeAt(0)) : null;
+        };
+        const alreadyRead = (url: string) => steps.some((st) => typeof st.note === "string" && st.note.startsWith("Read ") && st.note.includes(url));
+        if (isDocumentUrl(state.url, state.contentType)) {
+          if (!alreadyRead(state.url)) {
+            const read = await readDocumentFacts(state.url, ev, viaPage);
+            if (read) return { action: null, note: "", docNote: read.note, conflicts: read.conflicts, docUrl: state.url };
+          } else {
+            const doc = await fetchDocumentText(state.url, viaPage).catch(() => null);
+            if (doc) state = { ...state, text: `${doc.kind} contents: ${doc.text.slice(0, 12000)}` };
+          }
+        }
         try {
           const host = new URL(state.url).hostname.replace(/^www\./, "");
           await supabase.from("browser_sessions").update({ site: host, signed_in: !state.hasPassword && !/login|checkpoint|two_step/.test(state.url) }).eq("id", row.id);
@@ -227,11 +247,14 @@ export async function runAgentStep(supabase: any, userId: string, sessionRowId: 
             "PUBLIC VENUES: for city, county, state, park, pavilion and community-center spaces, look first for the official rental application (often a PDF) and fee schedule; open them directly, copy the direct PDF link into your summary so Civi can fill it, list the submission method, and stay focused on the goal — skip unrelated pages and finish in as few steps as possible.",
             "EXTRACT, DON'T SKIM: on every official page you open, copy the exact facts (fees, capacity, hours, deposit, cancellation, booking method, phone, email) with the page URL into your notes before moving on, and open any rental application or form link to list its fields. Your done summary must cite those exact URLs and quoted facts — never say details were not retained.",
             "ACT HUMAN-LIKE: browse the way a real person would. Scroll through pages instead of jumping straight to buttons, open and read posts before commenting or inviting, vary your path (search, scroll, open a profile, come back), and take it one considered action at a time — never fire off a rapid sequence of posts, joins or invites. In groups, read the rules and recent posts first so every interaction fits the conversation.",
-            ...(progressReport ? [BROWSER_PROGRESS_INSTRUCTIONS] : []),
+            "DOCUMENTS: when a step note says you read a PDF or Word document, use its facts (capacity, fees, deposit, hours and closed days, rules, deadlines, contacts) in your work and summary, and call out every conflict with the event plainly (e.g. 'The venue is closed on Wednesdays — your event is Wednesday, Dec 9'). Never claim a document said something it didn't.",
+            goalSummaryRules(goal),
+            ...(ev ? [`EVENT PAGE: this browser is working on the event "${ev.title}". At the end of your done summary add one marker per real record you found, so it is saved to the event page: [[event_vendor: {"name":"...","type":"...","url":"https://...","price_range":"as listed","phone":"...","email":"...","status":"suggested"}]] for each vendor, [[event_contact: {"name":"...","role":"...","phone":"...","email":"..."}]] for each named contact person, and [[event_venue: {"name":"...","address":"...","terms":"capacity, fees, deposit, hours, rules"}]] for a venue that fits. Real details you saw only; leave out unknown fields.`] : []),
+            ...(progressReport ? [progressInstructions(goal)] : []),
           ].join("\n"),
           input: [{
             role: "user" as const,
-            content: `Goal: ${goal}\n\nSaved logins available for: ${savedSites}\n\nEarlier in this same browser (already done — don't redo, build on it):\n${earlier.map((s) => `- ${s.note}`).join("\n") || "(nothing yet)"}\n\nSteps so far on this goal:\n${current.map((s, i) => `${i + 1}. ${s.note}`).join("\n") || "(none)"}\n\nCurrent page state:\n${JSON.stringify(state)}${extra}`,
+            content: `Goal: ${goal}\n\n${ev ? `Event: ${JSON.stringify(ev)}\n\n` : ""}Saved logins available for: ${savedSites}\n\nEarlier in this same browser (already done — don't redo, build on it):\n${earlier.map((s) => `- ${s.note}`).join("\n") || "(nothing yet)"}\n\nSteps so far on this goal:\n${current.map((s, i) => `${i + 1}. ${s.note}`).join("\n") || "(none)"}\n\nCurrent page state:\n${JSON.stringify(state)}${extra}`,
           }],
         });
         const readAction = (r: Awaited<ReturnType<typeof ask>>) => {
@@ -244,7 +267,8 @@ export async function runAgentStep(supabase: any, userId: string, sessionRowId: 
         if (repeat) action = readAction(await ask(`\n\nYou just proposed ${repeat} — that was already done on this goal. Pick a different action: open the most relevant result, form or PDF you already found, or finish with done.`)) ?? action;
         if (action?.action === "navigate") { const alt = searchFallbackUrl(action.url); if (alt) action = { ...action, url: alt }; }
         if (action?.action === "navigate" && isLinkedInUrl(action.url)) return { action: { action: "done", summary: LINKEDIN_API_ONLY } as AgentAction, note: "LinkedIn browser disabled" };
-        if (progressReport && action?.action !== "done") return { action: { action: "done", summary: "**My recommendation:** lock in the strongest candidate from this search with a quick availability call, and keep the next-best option as backup.\n\n**The plan**\n1. Get the official booking contact for the top pick.\n2. Call to confirm the date, capacity and price — with your approval.\n3. Submit the rental application the same day it clears.\n\nNothing has been booked or paid yet.\n\n[[choices: Find booking contact | Prepare availability call | Compare alternatives]]" } as AgentAction, note: "Research checkpoint" };
+        if (progressReport && action?.action !== "done") action = readAction(await ask("\n\nYour browsing allowance is used up. Reply now with a done action that answers the goal from the steps and pages above.")) ?? action;
+        if (progressReport && action?.action !== "done") return { action: { action: "done", summary: fallbackSummary(goal, current.map((s) => String(s.note ?? ""))) } as AgentAction, note: "Research checkpoint" };
         if (!action) return { action: null, note: "" };
         if (action.action === "submit" && !row.submit_approved) {
           return { action: { action: "request_approval", title: "Submit form", details: action.reason ?? goal } satisfies AgentAction as AgentAction, note: "" };
@@ -258,11 +282,32 @@ export async function runAgentStep(supabase: any, userId: string, sessionRowId: 
           const note = await fillLogin(page, action.username_index, action.password_index, creds);
           return { action, note: `${note} (${creds.label})` };
         }
+        // Opening a PDF or Word link: read the file in the same step so its facts are in the notes.
+        let docTarget: string | null = action.action === "navigate" && isDocumentUrl(action.url) ? action.url : null;
+        if (action.action === "click") {
+          const href = await page.eval(`(() => { const e = document.querySelector('[data-civi-idx="${Number(action.index)}"]'); return e && e.href ? String(e.href) : null; })()`).catch(() => null) as string | null;
+          if (href && isDocumentUrl(href)) docTarget = href;
+        }
         const note = await perform(page, action);
-        return { action, note: action.action === "type" && note.startsWith("Filled") ? `Typed "${action.text.trim().slice(0, 80)}"` : note };
+        const shown = action.action === "type" && note.startsWith("Filled") ? `Typed "${action.text.trim().slice(0, 80)}"` : note;
+        if (docTarget && !alreadyRead(docTarget)) {
+          const read = await readDocumentFacts(docTarget, ev, viaPage);
+          if (read) return { action, note: shown, docNote: read.note, conflicts: read.conflicts, docUrl: docTarget };
+        }
+        return { action, note: shown };
       });
 
       const a = result.action;
+      const docRead = "docNote" in result && result.docNote ? result as { docNote: string; conflicts: string[]; docUrl: string } : null;
+      if (docRead?.conflicts.length) {
+        let name = "this document";
+        try { name = decodeURIComponent(new URL(docRead.docUrl).pathname.split("/").pop() || name); } catch { /* keep default */ }
+        await post(`⚠️ **Heads-up from [${name}](${docRead.docUrl})**\n\n${docRead.conflicts.map((c) => `- ${c}`).join("\n")}\n\nI'll keep this in mind for the plan.`);
+      }
+      if (!a && docRead) {
+        await save({}, { action: "read", note: docRead.docNote });
+        return { agentStatus: "driving" };
+      }
       if (!a) {
         await save({}, { action: "think", note: "Re-reading the page…" });
         return { agentStatus: "driving" };
@@ -298,7 +343,18 @@ export async function runAgentStep(supabase: any, userId: string, sessionRowId: 
           const fresh = vRows.filter((r) => !have.has(r.name.toLowerCase()));
           if (fresh.length) await supabase.from("resources").insert(fresh);
         }
-        const cleanSummary = summary.replace(/\n?\[\[vendors:[\s\S]+?\]\]\]?/g, "").replace(/\n?\[\[fb_(?:groups|page):[\s\S]+?\]\]\]?/g, "").trim();
+        let cleanSummary = stripEventPageMarkers(summary.replace(/\n?\[\[vendors:[\s\S]+?\]\]\]?/g, "").replace(/\n?\[\[fb_(?:groups|page):[\s\S]+?\]\]\]?/g, "")).trim();
+        {
+          // Research results for an event land on its event page too.
+          const marks = parseEventPageMarkers(summary);
+          const extra: PagePerson[] = vendors.filter((v) => v?.name && v.type !== "venue").slice(0, 10).map((v) => ({ name: v.name.slice(0, 120), role: v.details?.split("·")[0]?.trim().slice(0, 80) || undefined, url: v.url?.startsWith("https://") ? v.url : undefined, status: "suggested" }));
+          marks.vendors = [...marks.vendors, ...extra.filter((x) => !marks.vendors.some((m) => m.name.toLowerCase() === x.name.toLowerCase()))].map((x) => Object.fromEntries(Object.entries(x).filter(([, v]) => v !== undefined)) as PagePerson);
+          if (!goal.startsWith("NOTIFICATION CHECK")) {
+            const { applyEventPageMarkers } = await import("./eventPage.server");
+            const line = await applyEventPageMarkers(supabase as never, userId, row.thread_id, marks);
+            if (line) cleanSummary += `\n\n${line}`;
+          }
+        }
         const fbRows = [
           ...groups.filter((g) => g?.url?.startsWith("https://www.facebook.com/groups/") && g.name).slice(0, 10).map((g) => ({
             user_id: userId, thread_id: row.thread_id, action_type: "outreach", title: `Join Facebook group: ${g.name.slice(0, 120)}`,
@@ -330,6 +386,7 @@ export async function runAgentStep(supabase: any, userId: string, sessionRowId: 
           try {
             const { runOrganizer } = await import("./organizer.server");
             await runOrganizer(supabase, userId, {
+              hidden: true,
               threadId: row.thread_id,
               content: `[Research finished — continue automatically] Goal: ${goal}\n\nFindings:\n${cleanSummary.replace(/\[\[choices:[\s\S]*?\]\]/g, "").trim()}\n\nOnline booking details were not confirmed. Apply your phone-fallback rule now: summarize what was verified, and if the findings include the venue's official booking phone number from a cited source, propose the one-time approved availability call with the venue_call marker so it appears in Approvals. If no verified number was found, state exactly what is still missing. ${CALL_FOLLOW_UP_NOTE}`,
             });
@@ -353,7 +410,8 @@ export async function runAgentStep(supabase: any, userId: string, sessionRowId: 
         await save({ submit_approved: false }, { action: a.action, note: `${result.note}${why}` });
         return { agentStatus: "driving" };
       }
-      await save({}, { action: a.action, note: `${result.note}${why}` });
+      if (docRead) await supabase.from("browser_sessions").update({ steps: [...steps, { action: a.action, note: `${result.note}${why}` }, { action: "read", note: docRead.docNote }] }).eq("id", row.id);
+      else await save({}, { action: a.action, note: `${result.note}${why}` });
       return { agentStatus: "driving" };
     } catch (e) {
       console.error("Browser agent step failed", e);

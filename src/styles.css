@@ -227,6 +227,12 @@
 .prose-chat strong { font-weight: 700; }
 .prose-chat a { text-decoration: underline; color: var(--color-primary); }
 .prose-chat code { background: var(--color-muted); padding: 0 0.3rem; border-radius: 0.3rem; }
+.prose-chat .chat-table { margin: 0.6rem 0; max-width: 100%; overflow-x: auto; border: 1px solid var(--color-border); border-radius: 0.9rem; background: var(--color-card); }
+.prose-chat .chat-table table { width: 100%; border-collapse: collapse; font-size: 0.875rem; line-height: 1.4; }
+.prose-chat .chat-table th { text-align: left; font-weight: 600; background: var(--color-secondary); white-space: nowrap; }
+.prose-chat .chat-table th, .prose-chat .chat-table td { padding: 0.45rem 0.7rem; border-bottom: 1px solid var(--color-border); vertical-align: top; }
+.prose-chat .chat-table tr:last-child td { border-bottom: 0; }
+.prose-chat .chat-table td a { overflow-wrap: anywhere; }
 
 .doc-body { font-size: 0.95rem; line-height: 1.7; }
 .document-photo { display: block; width: 100%; max-height: 340px; object-fit: contain; margin: 0 0 1rem; }

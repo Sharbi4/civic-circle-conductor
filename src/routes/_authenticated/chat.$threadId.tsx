@@ -14,7 +14,8 @@ import { sendOrganizerMessage } from "@/lib/organizer.functions";
 import { endBrowserSession, browserAgentStep, setBrowserDriving, startFacebookSetup } from "@/lib/browser.functions";
 import { useThreads, useOrg } from "./chat";
 import { isScoutBriefing } from "@/lib/discovery.shared";
-import { isAutomatedPrompt, automatedPromptLabel } from "@/lib/eventPlan.shared";
+import { isHiddenTurn, hiddenTurnLabel } from "@/lib/chatVisibility.shared";
+import remarkGfm from "remark-gfm";
 import { ChatSearch } from "@/components/ChatSearch";
 import { FormLibrary } from "@/components/polls/FormLibrary";
 import { LetterheadCheck, shouldShowLetterheadReminder } from "@/components/LetterheadCheck";
@@ -107,7 +108,8 @@ function MessageBody({ content, onAction }: { content: string; onAction?: ((text
       {parts.map((p, i) =>
         p.kind === "text" ? (
           <div key={i} className="prose-chat leading-relaxed">
-            <ReactMarkdown components={{
+            <ReactMarkdown remarkPlugins={[remarkGfm]} components={{
+              table: ({ children }) => <div className="chat-table"><table>{children}</table></div>,
               a: ({ href, children }) => (
                 <a href={href} target="_blank" rel="noopener noreferrer" className="font-medium text-primary underline underline-offset-2">{children}</a>
               ),
@@ -527,7 +529,8 @@ function ChatWindow({ threadId }: { threadId: string }) {
       const { data, error } = await supabase
         .from("messages").select("id, role, content").eq("thread_id", threadId).order("created_at");
       if (error) throw error;
-      return (data as Msg[]).filter((m) => !isScoutBriefing(m.content));
+      // Automatic instruction turns stay out of the chat; a few leave a small "picked up" pill.
+      return (data as Msg[]).filter((m) => !isScoutBriefing(m.content) && (!isHiddenTurn(m) || hiddenTurnLabel(m.content) !== null));
     },
   });
 
@@ -700,9 +703,9 @@ function ChatWindow({ threadId }: { threadId: string }) {
           )}
           <div className="space-y-5">
             {all.map((m) =>
-              m.role === "user" && isAutomatedPrompt(m.content) ? (
+              isHiddenTurn(m) ? (
                 <div key={m.id} id={`msg-${m.id}`} className="flex justify-center">
-                  <span className="rounded-full bg-secondary px-3 py-1 text-xs text-muted-foreground">{automatedPromptLabel(m.content)}</span>
+                  <span className="rounded-full bg-secondary px-3 py-1 text-xs text-muted-foreground">{hiddenTurnLabel(m.content)}</span>
                 </div>
               ) : m.role === "user" ? (
                 <div key={m.id} id={`msg-${m.id}`} className="flex justify-end rounded-3xl">

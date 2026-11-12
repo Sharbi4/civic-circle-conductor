@@ -100,7 +100,7 @@ async function processQueuedRuns(db: Db, kind: 'scheduler' | 'recovery' | 'repor
       }
       else {
         const { runOrganizer } = await import('@/lib/organizer.server');
-        await runOrganizer(scopedDb(db, run.user_id), run.user_id, { threadId, content: `Scheduled task: ${task.run_prompt ?? task.title}\nDo the organizing work now. Prepare drafts and tasks; every public action still requires explicit approval.` });
+        await runOrganizer(scopedDb(db, run.user_id), run.user_id, { threadId, content: `Scheduled task: ${task.run_prompt ?? task.title}\nDo the organizing work now. Prepare drafts and tasks; every public action still requires explicit approval.`, hidden: true });
       }
       const next = task.job_kind === 'review' ? new Date(Date.now()+15*60000).toISOString() : task.job_kind==='scout' ? new Date(Date.now()+12*3600000).toISOString() : nextTaskOccurrence(task.scheduled_for ?? `${task.due_date ?? new Date().toISOString().slice(0,10)}T07:00:00Z`, task.repeat);
       const { error: taskError } = await db.rpc('finish_agent_task', { p_run:run.id,p_next:next ?? 'infinity' });

@@ -219,7 +219,7 @@ export async function runPlanStep(db: Db, userId: string, task: Task, threadId: 
   ].join("\n\n");
 
   const { runOrganizer } = await import("./organizer.server");
-  const res = await runOrganizer(db, userId, { threadId, content, planStepId: task.id });
+  const res = await runOrganizer(db, userId, { threadId, content, planStepId: task.id, hidden: true });
   const { data: after } = await db.from("tasks").select("done").eq("id", task.id).eq("user_id", userId).maybeSingle();
   if (after?.done) {
     await db.from("tasks").update({ step_state: "done", step_note: null }).eq("id", task.id).eq("user_id", userId);

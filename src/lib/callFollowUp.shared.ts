@@ -1,3 +1,4 @@
+import { researchKind } from "./researchGoal.shared";
 /**
  * Decides whether a finished browser research goal should hand back to the
  * organizer for the phone-fallback step (a proposed, approval-gated call).
@@ -5,7 +6,8 @@
  */
 export function needsCallFollowUp(goal: string, summary: string): boolean {
   if (goal.startsWith("NOTIFICATION CHECK") || goal.startsWith("APPROVED")) return false;
-  if (!/availab|book|venue|room|reservation/i.test(goal)) return false;
+  // Only venue goals hand back for a call; vendor or group searches never get the venue template.
+  if (researchKind(goal) !== "venue") return false;
   return !/confirmed available|is available|already booked|reservation confirmed|booking confirmed/i.test(summary);
 }
 

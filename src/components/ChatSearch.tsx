@@ -3,6 +3,7 @@ import { formatAppTime } from "@/lib/appTimeZone";
 import { useQuery } from "@tanstack/react-query";
 import { Search, X, Zap } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { isHiddenTurn } from "@/lib/chatVisibility.shared";
 
 const RANGES = [{ k: "all", label: "All", days: 0 }, { k: "1", label: "Today", days: 1 }, { k: "7", label: "7 days", days: 7 }, { k: "30", label: "30 days", days: 30 }] as const;
 
@@ -19,7 +20,7 @@ export function ChatSearch({ threadId, leadActions }: { threadId: string; leadAc
   }, []);
   const msgs = useQuery({
     queryKey: ["chat-search", threadId], enabled: open,
-    queryFn: async () => (await supabase.from("messages").select("id, role, content, created_at").eq("thread_id", threadId).order("created_at", { ascending: false }).limit(500)).data ?? [],
+    queryFn: async () => ((await supabase.from("messages").select("id, role, content, created_at").eq("thread_id", threadId).order("created_at", { ascending: false }).limit(500)).data ?? []).filter((m) => !isHiddenTurn(m)),
   });
   const leadOf = (c: string) => leadActions.find((a) => c.trim() === a.prompt)?.title;
   const results = useMemo(() => {
