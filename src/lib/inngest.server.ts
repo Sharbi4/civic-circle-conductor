@@ -1,6 +1,6 @@
 import { Inngest } from "inngest";
 import { serve } from "inngest/edge";
-import { BROWSER_STEPS_PER_WAKE, RUNS_PER_WAKE, SHARED_JOB_EVENT, WAKE_EVENT, type SharedJobKind } from "./background.shared";
+import { BROWSER_STEPS_PER_WAKE, RUNS_PER_WAKE, SCHEDULER_BACKUP_CRON, SHARED_JOB_EVENT, WAKE_EVENT, type SharedJobKind } from "./background.shared";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -20,13 +20,19 @@ export function inngestHandler() {
     {
       id: "shared-job",
       name: "Run a shared scheduled job",
-      triggers: [{ event: SHARED_JOB_EVENT }],
+      triggers: [{ event: SHARED_JOB_EVENT }, { cron: SCHEDULER_BACKUP_CRON }],
       retries: 0,
-      concurrency: [{ key: "event.data.kind", limit: 1 }],
+      concurrency: [{ limit: 1 }],
     },
     async ({ event, step }) => {
-      const kind = String((event.data as { kind?: unknown } | undefined)?.kind ?? "") as SharedJobKind;
+      // The cron trigger is the backup: it runs the scheduler only when the last tick didn't finish.
+      const backup = event.name === "inngest/scheduled.timer";
+      const kind = (backup ? "scheduler" : String((event.data as { kind?: unknown } | undefined)?.kind ?? "")) as SharedJobKind;
       if (!["scheduler", "recovery", "reports"].includes(kind)) return { skipped: "unknown job" };
+      if (backup) {
+        const stale = await step.run("check-scheduler", async () => (await import("./background.server")).schedulerIsStale());
+        if (!stale) return { skipped: "scheduler is up to date" };
+      }
       const bookkeeping = await step.run("bookkeeping", async () => {
         const { runSharedJob } = await import("./jobs.server");
         return runSharedJob(kind);

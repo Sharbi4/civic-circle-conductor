@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { browserIsUnattended, dailyReportIsQuiet, ownersToWake, reviewHasNews, sharedJobEventId, wakeEventId } from "@/lib/background.shared";
+import { browserIsUnattended, dailyReportIsQuiet, ownersToWake, reviewHasNews, schedulerNeedsBackup, sharedJobEventId, wakeEventId } from "@/lib/background.shared";
 
 const A = "aaaaaaaa-0000-4000-8000-000000000001";
 const B = "bbbbbbbb-0000-4000-8000-000000000002";
@@ -61,5 +61,15 @@ describe("shared jobs run once per slot in the background service", () => {
     expect(sharedJobEventId("scheduler", t)).toBe(sharedJobEventId("scheduler", t + 10 * 60_000));
     expect(sharedJobEventId("scheduler", t)).not.toBe(sharedJobEventId("scheduler", t + 15 * 60_000));
     expect(sharedJobEventId("scheduler", t)).not.toBe(sharedJobEventId("reports", t));
+  });
+});
+
+describe("the backup check only steps in when the scheduler missed a tick", () => {
+  const now = Date.UTC(2026, 10, 12, 20, 7, 0);
+  it("does nothing when the scheduler finished 7 minutes ago", () => {
+    expect(schedulerNeedsBackup(new Date(now - 7 * 60_000).toISOString(), now)).toBe(false);
+  });
+  it("runs the scheduler when the last finish was 22 minutes ago", () => {
+    expect(schedulerNeedsBackup(new Date(now - 22 * 60_000).toISOString(), now)).toBe(true);
   });
 });

@@ -4,5 +4,5 @@ import { authenticateCronRequest } from '@/integrations/supabase/cron-auth';
 export const Route = createFileRoute('/api/public/jobs/civi-autopilot')({ server: { handlers: { POST: async ({request}) => {
  const failure=await authenticateCronRequest(request); if(failure) return failure;
  const {startSharedJob} = await import('@/lib/background.server');
- return Response.json(await startSharedJob('scheduler'));
+ return startSharedJob('scheduler');
 } } } });

@@ -6,6 +6,15 @@ export const WAKE_EVENT = "civi/owner.work_due";
 /** Event that runs a shared job's bookkeeping (scheduler, recovery, reports) in the background service. */
 export const SHARED_JOB_EVENT = "civi/shared-job.due";
 export type SharedJobKind = "scheduler" | "recovery" | "reports";
+/** Backup check, 7 minutes after each scheduler tick, in case a tick never reached the background service. */
+export const SCHEDULER_BACKUP_CRON = "7-59/15 * * * *";
+/** The backup does nothing when the scheduler finished this recently. */
+export const SCHEDULER_FRESH_MS = 10 * 60_000;
+
+/** True when the backup check should run the scheduler because the last tick didn't finish recently. */
+export function schedulerNeedsBackup(lastCompletedAt: string | null, now = Date.now()): boolean {
+  return !lastCompletedAt || now - Date.parse(lastCompletedAt) > SCHEDULER_FRESH_MS;
+}
 /** Queued tasks one wake may run; the rest wait for the next sweep. */
 export const RUNS_PER_WAKE = 3;
 /** Browser steps one wake may drive; a browser that still has work continues on the next sweep. */

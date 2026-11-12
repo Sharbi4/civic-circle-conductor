@@ -26,6 +26,7 @@ export async function sendBackgroundEvents(events: { id: string; name: string; d
     method: "POST",
     headers: { Authorization: `Bearer ${lovableKey}`, "X-Connection-Api-Key": connectionKey, "Content-Type": "application/json" },
     body: JSON.stringify(events),
+    signal: AbortSignal.timeout(2000),
   });
   if (!res.ok) {
     const body = await res.text();
@@ -37,17 +38,29 @@ export async function sendBackgroundEvents(events: { id: string; name: string; d
 
 /**
  * Called by the managed schedules, whose HTTP call hangs up after about five seconds: hands the job to the
- * background service and answers at once. If the service can't be reached, runs the job inline as before.
+ * background service and answers at once. Running inline instead would be cut off partway and hold the job
+ * lock, so a failed hand-off is reported and the background backup check picks the scheduler up minutes later.
  */
-export async function startSharedJob(kind: SharedJobKind) {
-  try {
-    await sendBackgroundEvents([{ id: sharedJobEventId(kind), name: SHARED_JOB_EVENT, data: { kind } }]);
-    return { ok: true, handedOff: true };
-  } catch (e) {
-    console.error("Background hand-off failed, running inline", e instanceof Error ? e.message : e);
-    const { runSharedJob } = await import("./jobs.server");
-    return runSharedJob(kind);
+export async function startSharedJob(kind: SharedJobKind): Promise<Response> {
+  let lastError = "";
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try {
+      await sendBackgroundEvents([{ id: sharedJobEventId(kind), name: SHARED_JOB_EVENT, data: { kind } }]);
+      return Response.json({ ok: true, handedOff: true });
+    } catch (e) {
+      lastError = e instanceof Error ? e.message : String(e);
+      console.error(`Background hand-off for ${kind} failed (attempt ${attempt}): ${lastError}`);
+    }
   }
+  return Response.json({ ok: false, handedOff: false, error: lastError.slice(0, 300) }, { status: 502 });
+}
+
+/** Whether the backup check should run the scheduler now. */
+export async function schedulerIsStale(): Promise<boolean> {
+  const db = await admin();
+  const { data } = await db.from("agent_job_locks").select("last_completed_at").eq("name", "scheduler").maybeSingle();
+  const { schedulerNeedsBackup } = await import("./background.shared");
+  return schedulerNeedsBackup(data?.last_completed_at ?? null);
 }
 
 /**
