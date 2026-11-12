@@ -135,6 +135,25 @@ function Sidebar({ orgName, mobileOpen, onClose }: { orgName: string; mobileOpen
   const main = threads.data?.find((t) => t.kind === "main");
   const side = threads.data?.filter((t) => t.kind !== "main" && t.kind !== "event") ?? [];
   const events = threads.data?.filter((t) => t.kind === "event") ?? [];
+  const eventCovers = useQuery({
+    queryKey: ["event-covers", events.map((e) => e.id).join(",")],
+    enabled: events.length > 0,
+    staleTime: 60_000,
+    queryFn: async () => {
+      const { data: goals } = await supabase.from("tasks").select("id, thread_id").eq("kind", "goal").in("thread_id", events.map((e) => e.id));
+      const gids = (goals ?? []).map((g) => g.id);
+      if (!gids.length) return {} as Record<string, string>;
+      const { data: profs } = await supabase.from("event_profiles").select("goal_id, cover_path").in("goal_id", gids).not("cover_path", "is", null);
+      const out: Record<string, string> = {};
+      await Promise.all((profs ?? []).map(async (p) => {
+        const thread = goals?.find((g) => g.id === p.goal_id)?.thread_id;
+        if (!thread || !p.cover_path) return;
+        const { data } = await supabase.storage.from("event-images").createSignedUrl(p.cover_path, 3600);
+        if (data?.signedUrl) out[thread] = data.signedUrl;
+      }));
+      return out;
+    },
+  });
   const activeThread = threads.data?.find((t) => t.id === params.threadId);
   useEffect(() => {
     if (!activeThread || !isChatUnread(activeThread.latest_assistant_at, activeThread.last_read_at) || document.visibilityState !== 'visible') return;
@@ -146,7 +165,20 @@ function Sidebar({ orgName, mobileOpen, onClose }: { orgName: string; mobileOpen
     qc.invalidateQueries({ queryKey: ["threads"] });
   }
   async function deleteChat(id: string, title: string) {
-    if (!window.confirm(`Delete "${title}"? This can't be undone.`)) return;
+    const isEvent = threads.data?.find((t) => t.id === id)?.kind === "event";
+    if (!window.confirm(isEvent ? `Delete "${title}" and its event goal? This can't be undone.` : `Delete "${title}"? This can't be undone.`)) return;
+    if (isEvent) {
+      const { data: goals } = await supabase.from("tasks").select("id").eq("thread_id", id).eq("kind", "goal");
+      const ids = (goals ?? []).map((g) => g.id);
+      if (ids.length) {
+        await supabase.from("sticky_notes").delete().in("goal_id", ids);
+        await supabase.from("event_profiles").delete().in("goal_id", ids);
+        await supabase.from("tasks").delete().in("goal_id", ids);
+        await supabase.from("tasks").delete().in("id", ids);
+      }
+      await supabase.from("tasks").update({ thread_id: null }).eq("thread_id", id);
+      qc.invalidateQueries({ queryKey: ["tasks"] });
+    }
     const { error } = await supabase.from("threads").delete().eq("id", id);
     if (error) { toast.error(error.message); return; }
     await qc.invalidateQueries({ queryKey: ["threads"] });
@@ -250,7 +282,9 @@ function Sidebar({ orgName, mobileOpen, onClose }: { orgName: string; mobileOpen
                   {events.map((t) => (
                     <div key={t.id} className={`group flex items-center rounded-2xl ${params.threadId === t.id ? "bg-sidebar-accent" : "hover:bg-sidebar-accent"}`}>
                       <Link to="/chat/$threadId" params={{ threadId: t.id }} className="flex min-w-0 flex-1 items-center gap-2 px-3 py-2">
-                        <CalendarHeart className="h-4 w-4 shrink-0 text-primary" />
+                        {eventCovers.data?.[t.id]
+                          ? <img src={eventCovers.data[t.id]} alt="" className="h-9 w-9 shrink-0 rounded-lg object-cover" />
+                          : <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-primary/10"><CalendarHeart className="h-4 w-4 text-primary" /></span>}
                         <span className="min-w-0 flex-1">
                           <span className="block truncate">{t.title}</span>
                           <span className="block text-xs text-muted-foreground">{t.event_date ? new Date(t.event_date + "T12:00:00").toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) : "Date TBD"}</span>

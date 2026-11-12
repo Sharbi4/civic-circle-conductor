@@ -75,7 +75,7 @@ function EventPage() {
   const [uploading, setUploading] = useState(false);
   async function onCover(f: File | undefined) {
     if (!f) return; setUploading(true);
-    try { await uploadEventCover(goalId, f); qc.invalidateQueries({ queryKey: key }); qc.invalidateQueries({ queryKey: ["event-profiles", goalId] }); } catch { toast.error("Couldn't upload that photo"); } finally { setUploading(false); }
+    try { await uploadEventCover(goalId, f); qc.invalidateQueries({ queryKey: key }); qc.invalidateQueries({ queryKey: ["event-profiles", goalId] }); qc.invalidateQueries({ queryKey: ["event-covers"] }); } catch { toast.error("Couldn't upload that photo"); } finally { setUploading(false); }
   }
   async function reset() {
     if (!confirm("Reset progress? Every step goes back to not started.")) return;
