@@ -36,6 +36,7 @@ import { runOnboardingResearch, scanOrgProfile } from "@/lib/research.functions"
 import { transcribeSpeech } from "@/lib/voice.functions";
 import { writeAgentWelcome } from "@/lib/suggestions.functions";
 import { startXConnect, completeXConnect, getXStatus, disconnectX, runXApproval, X_WELCOME } from "@/lib/x.functions";
+import { startGoogleAppConnect, completeGoogleAppConnect, getGoogleAppStatus, disconnectGoogleApp } from "@/lib/googleApps.functions";
 import { startGmailConnect, completeGmailConnect, getGmailStatus, disconnectGmail } from "@/lib/gmail.functions";
 import { runFacebookApproval, startBrowserSession } from "@/lib/browser.functions";
 import { SiFacebook, SiNextdoor, SiX } from "react-icons/si";
@@ -298,6 +299,8 @@ function Sidebar({ orgName, mobileOpen, onClose }: { orgName: string; mobileOpen
                 <XConnectorRow key={c.id} />
               ) : c.id === "linkedin" ? (
                 <LinkedInConnectorRow key={c.id} />
+              ) : c.id === "google_calendar" || c.id === "google_drive" ? (
+                <GoogleAppConnectorRow key={c.id} connectorId={c.id} name={c.name} />
               ) : c.id === "gmail" ? (
                 <GmailConnectorRow key={c.id} />
               ) : (
@@ -865,6 +868,95 @@ function GmailConnectorRow() {
           <button onClick={disconnect} disabled={busy} className="ml-2 shrink-0 underline hover:text-foreground">
             Disconnect
           </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function GoogleAppConnectorRow({ connectorId, name }: { connectorId: "google_calendar" | "google_drive"; name: string }) {
+  const qc = useQueryClient();
+  const [busy, setBusy] = useState(false);
+  const key = ["google-app-status", connectorId];
+  const status = useQuery({ queryKey: key, queryFn: () => getGoogleAppStatus({ data: { connectorId } }), staleTime: 300_000 });
+
+  function waitForOAuth(popup: Window) {
+    return new Promise<string | null>((resolve, reject) => {
+      let channel: BroadcastChannel | undefined;
+      let closedAt = 0;
+      const cleanup = () => { window.removeEventListener("message", onMessage); channel?.close(); window.clearInterval(poll); };
+      const onMessage = (event: MessageEvent) => {
+        if (event.origin !== window.location.origin || event.data?.connectorId !== connectorId) return;
+        const type = event.data?.type;
+        if (type !== "appUserConnectorOAuthComplete" && type !== "appUserConnectorOAuthFailed") return;
+        cleanup();
+        if (type === "appUserConnectorOAuthComplete") resolve(typeof event.data?.code === "string" ? event.data.code : null);
+        else { popup.close(); reject(new Error(`${name} connection failed.`)); }
+      };
+      window.addEventListener("message", onMessage);
+      if (typeof BroadcastChannel !== "undefined") {
+        channel = new BroadcastChannel("civi-oauth");
+        channel.onmessage = (e) => onMessage(new MessageEvent("message", { data: e.data, origin: window.location.origin }));
+      }
+      const poll = window.setInterval(() => {
+        if (!popup.closed) return;
+        if (!closedAt) closedAt = Date.now();
+        if (Date.now() - closedAt < 90_000) return;
+        cleanup();
+        reject(new Error(`${name} window closed before finishing.`));
+      }, 500);
+    });
+  }
+
+  async function connect() {
+    setBusy(true);
+    const popup = window.open("", `civi-${connectorId}-oauth`, "width=600,height=720");
+    if (!popup) { setBusy(false); toast.error("Popup blocked — allow popups and try again."); return; }
+    try {
+      const { authorizationUrl } = await startGoogleAppConnect({ data: { connectorId, origin: window.location.origin } });
+      const completion = waitForOAuth(popup);
+      popup.location.href = authorizationUrl;
+      const code = await completion;
+      if (!code) throw new Error(`${name} didn't return access. Try again.`);
+      const result = await completeGoogleAppConnect({ data: { connectorId, code } });
+      await qc.invalidateQueries({ queryKey: key });
+      toast.success(`Connected to ${name} as ${result.accountName}`);
+    } catch (e) {
+      popup.close();
+      toast.error(e instanceof Error ? e.message : `${name} connection failed.`);
+    } finally { setBusy(false); }
+  }
+
+  async function disconnect() {
+    setBusy(true);
+    try {
+      await disconnectGoogleApp({ data: { connectorId } });
+      await qc.invalidateQueries({ queryKey: key });
+      toast.success(`${name} disconnected.`);
+    } catch (e) { toast.error(e instanceof Error ? e.message : "Disconnect failed."); }
+    finally { setBusy(false); }
+  }
+
+  const connected = status.data?.connected;
+  return (
+    <div className="rounded-2xl px-3 py-2.5 hover:bg-sidebar-accent">
+      <div className="flex items-center justify-between">
+        <span>{name}</span>
+        {status.isLoading ? (
+          <span className="rounded-full bg-secondary px-2 py-0.5 text-xs text-muted-foreground">…</span>
+        ) : connected ? (
+          <span className="badge-premium rounded-full px-2.5 py-0.5 text-xs font-semibold">Connected</span>
+        ) : (
+          <Button size="sm" variant="outline" disabled={busy} onClick={connect} className="h-7 rounded-full px-3 text-xs">
+            {busy ? "Connecting…" : status.data?.reconnectRequired ? "Reconnect" : "Connect"}
+          </Button>
+        )}
+      </div>
+      {status.data?.reconnectRequired && <p className="mt-1 text-xs text-muted-foreground">Your {name} access needs to be renewed.</p>}
+      {connected && (
+        <div className="mt-1.5 flex items-center justify-between text-xs text-muted-foreground">
+          <span className="truncate">{status.data?.accountName}</span>
+          <button onClick={disconnect} disabled={busy} className="ml-2 shrink-0 underline hover:text-foreground">Disconnect</button>
         </div>
       )}
     </div>

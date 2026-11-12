@@ -7,5 +7,7 @@ export const CONNECTORS = [
   { id: "x", name: "X" },
   { id: "nextdoor", name: "Nextdoor" },
   { id: "gmail", name: "Gmail" },
+  { id: "google_calendar", name: "Google Calendar" },
+  { id: "google_drive", name: "Google Drive" },
   { id: "tiktok", name: "TikTok" },
 ] as const;
