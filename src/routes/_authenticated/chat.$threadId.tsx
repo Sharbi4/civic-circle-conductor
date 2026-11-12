@@ -11,7 +11,8 @@ import { ArrowUp, ImagePlus, X, CalendarHeart, ExternalLink, Mail, Megaphone, Mo
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { sendOrganizerMessage } from "@/lib/organizer.functions";
-import { endBrowserSession, browserAgentStep, setBrowserDriving, startFacebookSetup } from "@/lib/browser.functions";
+import { endBrowserSession, browserAgentStep, setBrowserDriving, startFacebookSetup, checkBrowserSession } from "@/lib/browser.functions";
+import { showLiveFrame, endedBrowserMessage } from "@/lib/browserLive.shared";
 import { useThreads, useOrg } from "./chat";
 import { isScoutBriefing } from "@/lib/discovery.shared";
 import { isHiddenTurn, hiddenTurnLabel } from "@/lib/chatVisibility.shared";
@@ -182,9 +183,25 @@ function BrowserCard({ sessionRowId, task }: { sessionRowId: string; task: strin
     },
   });
 
+  // The provider closes cloud browsers on its own (time limit, lost connection). Ask it while the card is on
+  // screen, so a closed browser never shows the provider's raw "WebSocket disconnected" page.
+  const check = useServerFn(checkBrowserSession);
+  const rowOpen = session.data?.status === "running";
+  const liveness = useQuery({
+    queryKey: ["browser_alive", sessionRowId, session.data?.agent_status],
+    queryFn: async () => (await check({ data: { sessionRowId } })).alive,
+    enabled: rowOpen,
+    refetchInterval: 30_000,
+    refetchOnWindowFocus: true,
+    retry: false,
+  });
+  useEffect(() => {
+    if (liveness.data === false) qc.invalidateQueries({ queryKey: ["browser_session", sessionRowId] });
+  }, [liveness.data, sessionRowId, qc]);
+
   // The same browser can be handed new tasks; show the one it's working on now.
   const title = taskTitle(session.data?.goal) || task;
-  const running = session.data?.status === "running" && session.data.live_url;
+  const running = showLiveFrame(session.data, liveness.data);
   const agent = session.data?.agent_status ?? "idle";
   const [showSteps, setShowSteps] = useState(false);
   const [frameH, setFrameH] = useState(380);
@@ -384,7 +401,29 @@ function BrowserCard({ sessionRowId, task }: { sessionRowId: string; task: strin
           )}
         </>
       ) : (
-        <p className="border-t px-4 py-3 text-sm text-muted-foreground">This browser session has ended.</p>
+        <div className="flex flex-wrap items-center justify-between gap-2 border-t px-4 py-3">
+          <p className="text-sm text-muted-foreground">{endedBrowserMessage(session.data?.agent_status)}</p>
+          {steps.length > 0 && (
+            <button onClick={() => setShowSteps(true)} className="shrink-0 text-xs font-medium uppercase tracking-wide text-accent hover:underline">
+              See what Civi did
+            </button>
+          )}
+          {showSteps && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/40 p-4 backdrop-blur-sm" onClick={() => setShowSteps(false)}>
+              <div className="relative max-h-[80vh] w-full max-w-lg overflow-hidden rounded-2xl border bg-card/85 shadow-soft backdrop-blur-md" onClick={(e) => e.stopPropagation()}>
+                <div className="flex items-center justify-between border-b px-4 py-3">
+                  <p className="text-sm font-semibold">What Civi did</p>
+                  <button onClick={() => setShowSteps(false)} aria-label="Close" className="rounded-full p-1 hover:bg-secondary"><X className="h-4 w-4" /></button>
+                </div>
+                <ol className="max-h-[65vh] space-y-1.5 overflow-y-auto px-4 py-3 text-xs text-muted-foreground">
+                  {steps.map((st, i) => (
+                    <li key={i}><span className="font-semibold text-foreground">{i + 1}.</span> {friendlyStep(st.note)}</li>
+                  ))}
+                </ol>
+              </div>
+            </div>
+          )}
+        </div>
       )}
       <Dialog open={!!showFbSetup} onOpenChange={(o) => { if (!o) setFbDismissed(true); }}>
         <DialogContent>

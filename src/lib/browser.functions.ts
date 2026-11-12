@@ -78,6 +78,41 @@ export const endBrowserSession = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+/**
+ * Checks whether the cloud browser behind a chat card is still open. When the provider has closed it
+ * (time limit, lost connection), the row is marked ended so the chat stops embedding a dead live view.
+ */
+export const checkBrowserSession = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({ sessionRowId: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabase } = context;
+    const { data: row, error } = await supabase
+      .from("browser_sessions")
+      .select("id, session_id, status")
+      .eq("id", data.sessionRowId)
+      .maybeSingle();
+    if (error || !row) throw new Error("Browser session not found");
+    if (row.status !== "running") return { alive: false };
+
+    const lovableKey = process.env["LOVABLE_API_KEY"];
+    const connKey = process.env["UDC_BROWSERBASE_API_KEY"];
+    if (!lovableKey || !connKey) return { alive: null };
+
+    const { providerSessionStatus } = await import("./browser.server");
+    const { providerSessionAlive } = await import("./browserLive.shared");
+    const status = await providerSessionStatus(row.session_id, lovableKey, connKey);
+    if (status === null) return { alive: null };
+    if (providerSessionAlive(status)) return { alive: true };
+
+    await supabase
+      .from("browser_sessions")
+      .update({ status: "ended", ended_at: new Date().toISOString(), driver_lease: null })
+      .eq("id", row.id)
+      .eq("status", "running");
+    return { alive: false };
+  });
+
 /** Runs ONE step of Civi driving the browser toward the session's goal. The card calls it in a loop. */
 export const browserAgentStep = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])

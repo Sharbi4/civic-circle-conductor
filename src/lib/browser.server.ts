@@ -36,6 +36,26 @@ export async function bbRequest(
 }
 
 /**
+ * Asks the browser provider for a session's status (RUNNING, COMPLETED, TIMED_OUT, ERROR).
+ * A missing session reads as COMPLETED. Returns null when the provider can't be reached: unknown, not closed.
+ */
+export async function providerSessionStatus(sessionId: string, lovableKey: string, connKey: string): Promise<string | null> {
+  try {
+    const res = await fetch(`${GATEWAY}/v1/sessions/${encodeURIComponent(sessionId)}`, {
+      method: "GET",
+      redirect: "manual",
+      headers: { Authorization: `Bearer ${lovableKey}`, "X-Connection-Api-Key": connKey },
+    });
+    if (res.status === 404 || res.status === 410) return "COMPLETED";
+    if (!res.ok) return null;
+    const body = (await res.json()) as { status?: string };
+    return typeof body.status === "string" ? body.status : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Opens a real cloud browser session, stores it and returns the row.
  * Called from server-function handlers only — keys are read in the handler.
  */
