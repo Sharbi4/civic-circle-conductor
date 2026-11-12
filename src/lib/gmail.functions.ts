@@ -94,10 +94,10 @@ export const disconnectGmail = createServerFn({ method: "POST" })
 
 export const GMAIL_WELCOME = (accountName: string) => `Hi! I'm your **Gmail agent**, connected to **${accountName}**. Here's what I can do:
 
-- **Read your inbox** — summarize new messages, flag anything that needs a reply
-- **Draft replies** — write responses in your voice for you to approve
-- **Send emails** — event follow-ups, thank-yous and reminders, always with your OK first
-- **Tidy up** — mark things read or archive newsletters on your say-so
+- **Read your inbox**, summarize new messages, flag anything that needs a reply
+- **Draft replies**, write responses in your voice for you to approve
+- **Send emails**, event follow-ups, thank-yous and reminders, always with your OK first
+- **Tidy up**, mark things read or archive newsletters on your say-so
 
 Nothing is ever sent without your approval in Approvals. What should we start with?
 

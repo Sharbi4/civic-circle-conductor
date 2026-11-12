@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
-const VOICE_ID = "EXAVITQu4vr4xnSDxMaL"; // Sarah — warm, clear
+const VOICE_ID = "EXAVITQu4vr4xnSDxMaL"; // Sarah, warm, clear
 
 function key() {
   const k = process.env["ELEVENLABS_API_KEY"];

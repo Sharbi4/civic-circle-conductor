@@ -14,7 +14,7 @@ export async function executeXApproval(supabase: SupabaseClient<Database>, userI
     const { getConnectionForUser } = await import("@/lib/appUserConnections.server");
     const { callAsAppUser, appUserReconnectRequired } = await import("@/integrations/lovable/appUserConnector");
     const c = await getConnectionForUser(userId, "x");
-    if (!c) throw new Error("X isn't connected — connect it in the Connectors tab.");
+    if (!c) throw new Error("X isn't connected, connect it in the Connectors tab.");
     const { data: th } = await supabase.from("threads").select("id").eq("kind", "side").eq("title", "X Agent").maybeSingle();
     const threadId = th?.id ?? null;
     const say = async (content: string) => { if (threadId) await supabase.from("messages").insert({ thread_id: threadId, user_id: userId, role: "assistant", content }); };
@@ -31,7 +31,7 @@ export async function executeXApproval(supabase: SupabaseClient<Database>, userI
           gatewayBaseUrl: GATEWAY, connectionAPIKey: c.key, connectorId: "x", path: "/media/upload",
           init: { method: "POST", body: form }, requiredScopes: X_MEDIA_SCOPES,
         });
-        if (await appUserReconnectRequired(up)) { await say("⚠️ To post photos on X, Civi needs one more permission — press Disconnect then Connect next to X in Connectors, then approve again."); return { ok: false, threadId }; }
+        if (await appUserReconnectRequired(up)) { await say("⚠️ To post photos on X, Civi needs one more permission, press Disconnect then Connect next to X in Connectors, then approve again."); return { ok: false, threadId }; }
         if (!up.ok) { const body = await up.text(); console.error(`X media upload failed [${up.status}]: ${body}`); await say(`⚠️ X didn't accept the photo (${up.status}): ${body.slice(0, 300)}`); return { ok: false, threadId }; }
         mediaId = ((await up.json()) as { data?: { id?: string } }).data?.id;
       }
@@ -41,9 +41,9 @@ export async function executeXApproval(supabase: SupabaseClient<Database>, userI
       init: { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: p.text, ...(mediaId ? { media: { media_ids: [mediaId] } } : {}) }) },
       requiredScopes: X_SCOPES,
     });
-    if (await appUserReconnectRequired(res)) { await say("⚠️ Your X access needs to be renewed — press Disconnect then Connect next to X in Connectors."); return { ok: false, threadId }; }
+    if (await appUserReconnectRequired(res)) { await say("⚠️ Your X access needs to be renewed, press Disconnect then Connect next to X in Connectors."); return { ok: false, threadId }; }
     if (!res.ok) { const body = await res.text(); console.error(`X post failed [${res.status}]: ${body}`); await say(`⚠️ X didn't accept the post (${res.status}): ${body.slice(0, 300)}`); return { ok: false, threadId }; }
     const id = ((await res.json()) as { data?: { id?: string } }).data?.id;
-    await say(`✅ Posted on X${mediaId ? " with photo" : ""}${id ? ` — [view it](https://x.com/i/web/status/${id})` : ""}.`);
+    await say(`✅ Posted on X${mediaId ? " with photo" : ""}${id ? `, [view it](https://x.com/i/web/status/${id})` : ""}.`);
     return { ok: true, threadId, url: id ? `https://x.com/i/web/status/${id}` : undefined };
 }

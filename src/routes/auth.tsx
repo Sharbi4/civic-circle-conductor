@@ -8,9 +8,9 @@ import logo from "@/assets/civimeet-logo-dark.png";
 export const Route = createFileRoute("/auth")({
   head: () => ({
     meta: [
-      { title: "Sign in — Civi Meet" },
+      { title: "Sign in, Civi Meet" },
       { name: "description", content: "Sign in or create an account to plan events, outreach and volunteers with Civi, the AI community organizer." },
-      { property: "og:title", content: "Sign in — Civi Meet" },
+      { property: "og:title", content: "Sign in, Civi Meet" },
       { property: "og:description", content: "Sign in or create an account to plan events, outreach and volunteers with Civi, your AI community organizer." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },

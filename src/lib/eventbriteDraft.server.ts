@@ -39,10 +39,10 @@ export async function runEventbriteDraftTask(db: Db, userId: string, prompt: str
     const { executeApproval } = await import('./approvals.server');
     const approvalId = data.approvalId;
     const result = await executeApproval(db, userId, approvalId, () => publishEventbriteDraft(db, userId, approvalId));
-    const { error } = await db.from('messages').insert({ user_id: userId, thread_id: threadId, role: 'assistant', content: `**Published — live on Eventbrite:** ${data.title}\n\n${result.url}` });
+    const { error } = await db.from('messages').insert({ user_id: userId, thread_id: threadId, role: 'assistant', content: `**Published, live on Eventbrite:** ${data.title}\n\n${result.url}` });
     if (error) throw error;
   } else if (data.kind === 'eventbrite_reminder') {
-    const { error } = await db.from('messages').insert({ user_id: userId, thread_id: threadId, role: 'assistant', content: `**Reminder: ${data.title}** — review your Eventbrite draft. This reminder does not publish it.\n\n[[eventbrite_draft:${data.eventId}]]` });
+    const { error } = await db.from('messages').insert({ user_id: userId, thread_id: threadId, role: 'assistant', content: `**Reminder: ${data.title}**, review your Eventbrite draft. This reminder does not publish it.\n\n[[eventbrite_draft:${data.eventId}]]` });
     if (error) throw error;
   } else throw new Error('Invalid Eventbrite scheduled action.');
 }

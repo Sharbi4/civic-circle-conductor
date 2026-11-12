@@ -23,7 +23,7 @@ export function InfoRequestForm() {
   if (done) return (
     <div className="surface-premium mx-auto mt-10 flex w-full max-w-md flex-col items-center rounded-[1.75rem] p-8">
       <span className="grid h-12 w-12 place-items-center rounded-full bg-primary text-primary-foreground"><Check className="h-5 w-5" /></span>
-      <p className="mt-4 text-lg font-medium">Thanks — we got your request.</p>
+      <p className="mt-4 text-lg font-medium">Thanks, we got your request.</p>
       <p className="mt-1 text-sm text-muted-foreground">We'll reach out soon.</p>
     </div>
   );

@@ -13,10 +13,10 @@ const Email = ({ organization, email, phone, message }: Props) => (
         <Heading style={h1}>New information request</Heading>
         <Text style={muted}>Someone asked to learn more about Civi Meet.</Text>
         <Section style={box}>
-          <Text style={row}><b>Organization:</b> {organization || '—'}</Text>
-          <Text style={row}><b>Email:</b> {email || '—'}</Text>
-          <Text style={row}><b>Phone:</b> {phone || '—'}</Text>
-          <Text style={row}><b>Message:</b> {message || '—'}</Text>
+          <Text style={row}><b>Organization:</b> {organization || 'none'}</Text>
+          <Text style={row}><b>Email:</b> {email || 'none'}</Text>
+          <Text style={row}><b>Phone:</b> {phone || 'none'}</Text>
+          <Text style={row}><b>Message:</b> {message || 'none'}</Text>
         </Section>
       </Container>
     </Body>

@@ -1,3 +1,4 @@
+import { noLongDashes, withNoDashes } from "./punctuation.shared";
 import { generateResponse } from "@lovable.dev/ai-gateway";
 import { PDFDocument, PDFTextField, PDFCheckBox, PDFDropdown, PDFRadioGroup } from "pdf-lib";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -42,7 +43,7 @@ export async function fillPdfApplication(db: SupabaseClient<Database>, userId: s
   const context = `Organization: ${JSON.stringify(org ?? {})}\nRecent chat (newest first):\n${(msgs ?? []).map((m) => `${m.role}: ${m.content.slice(0, 1500)}`).join("\n")}`;
   if (!fields.length) {
     // Flat/scanned PDF: no fillable fields. Read it and return ready-to-copy answers instead.
-    return `This application is a flat PDF with no fillable boxes, so I couldn't type into it directly. [Open the original](${pdfUrl}) — print or sign it, and use the details from this chat. Ask me for a ready-to-copy answer sheet if useful.`;
+    return `This application is a flat PDF with no fillable boxes, so I couldn't type into it directly. [Open the original](${pdfUrl}), print or sign it, and use the details from this chat. Ask me for a ready-to-copy answer sheet if useful.`;
   }
   const spec = fields.map((f) => {
     const kind = f instanceof PDFTextField ? "text" : f instanceof PDFCheckBox ? "checkbox" : f instanceof PDFDropdown ? `choice:${f.getOptions().join("|")}` : f instanceof PDFRadioGroup ? `choice:${f.getOptions().join("|")}` : "other";
@@ -50,11 +51,11 @@ export async function fillPdfApplication(db: SupabaseClient<Database>, userId: s
   }).filter((f) => f.kind !== "other");
   const res = await generateResponse({
     model: "openai/gpt-6.1-terra",
-    instructions: "You fill venue rental applications for a community organization. Return only JSON: {\"values\":{fieldName:value},\"missing\":[plain-language questions]}. Use only facts in the context; never invent insurance numbers, IDs, signatures, card or bank details — leave those out and list them in missing. Checkbox values are true/false; choice values must be one of the listed options.",
+    instructions: withNoDashes("You fill venue rental applications for a community organization. Return only JSON: {\"values\":{fieldName:value},\"missing\":[plain-language questions]}. Use only facts in the context; never invent insurance numbers, IDs, signatures, card or bank details, leave those out and list them in missing. Checkbox values are true/false; choice values must be one of the listed options."),
     input: `Fields: ${JSON.stringify(spec)}\n\n${context}`,
   });
   let text = "";
-  for (const item of res.output ?? []) if (item.type === "message") for (const c of item.content ?? []) if (c.type === "output_text") text += c.text;
+  for (const item of res.output ?? []) if (item.type === "message") for (const c of item.content ?? []) if (c.type === "output_text") text += noLongDashes(c.text);
   let parsed: { values?: Record<string, unknown>; missing?: string[] } = {};
   try { parsed = JSON.parse(text.slice(text.indexOf("{"), text.lastIndexOf("}") + 1)); } catch { /* empty fill */ }
   let filled = 0;
@@ -72,5 +73,5 @@ export async function fillPdfApplication(db: SupabaseClient<Database>, userId: s
   if (error) throw new Error("Could not save the filled application.");
   const { data: signed } = await db.storage.from("event-images").createSignedUrl(path, 7 * 24 * 3600);
   const missing = (parsed.missing ?? []).slice(0, 10).map((q) => `- ${String(q).slice(0, 200)}`).join("\n");
-  return `📄 **Filled application ready** — I completed ${filled} of ${spec.length} boxes. [Download the filled PDF](${signed?.signedUrl ?? "#"}) (link works for 7 days).${missing ? `\n\nStill needed before it can be sent:\n${missing}` : ""}\n\nNothing has been submitted or emailed. Review it, add any signature, then tell me to send it.`;
+  return `📄 **Filled application ready**, I completed ${filled} of ${spec.length} boxes. [Download the filled PDF](${signed?.signedUrl ?? "#"}) (link works for 7 days).${missing ? `\n\nStill needed before it can be sent:\n${missing}` : ""}\n\nNothing has been submitted or emailed. Review it, add any signature, then tell me to send it.`;
 }

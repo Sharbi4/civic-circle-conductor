@@ -1,3 +1,4 @@
+import { noLongDashes, withNoDashes } from "./punctuation.shared";
 import { generateResponse } from "@lovable.dev/ai-gateway";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -24,15 +25,15 @@ export async function learnAboutOrg(db: Db, userId: string, since: string | null
     'Each fact is one short standalone sentence. Reply ONLY JSON: {"facts":["..."]} (0-6 facts; empty if nothing new).',
   ].join("\n");
   const input = [
-    `Org: ${org?.name ?? "?"} — ${org?.mission ?? ""}`,
+    `Org: ${org?.name ?? "?"}, ${org?.mission ?? ""}`,
     `Known memory:\n- ${(mems ?? []).map((m: { content: string }) => m.content.slice(0, 200)).join("\n- ") || "(none)"}`,
     `New chat:\n${(msgs ?? []).map((m: { role: string; content: string }) => `${m.role}: ${m.content.slice(0, 500)}`).join("\n") || "(none)"}`,
     `Approvals: ${(aps ?? []).map((a: { title: string; status: string }) => `${a.title} → ${a.status}`).join("; ") || "none"}`,
     `New tasks: ${(tasks ?? []).map((t: { title: string }) => t.title).join("; ") || "none"}`,
   ].join("\n\n");
-  const res = await generateResponse({ model: "openai/gpt-6.1-terra", instructions, input });
+  const res = await generateResponse({ model: "openai/gpt-6.1-terra", instructions: withNoDashes(instructions), input });
   let text = "";
-  for (const item of res.output ?? []) if (item.type === "message") for (const c of item.content ?? []) if (c.type === "output_text") text += c.text;
+  for (const item of res.output ?? []) if (item.type === "message") for (const c of item.content ?? []) if (c.type === "output_text") text += noLongDashes(c.text);
   let facts: string[] = [];
   try { facts = (JSON.parse(text.slice(text.indexOf("{"), text.lastIndexOf("}") + 1)).facts ?? []) as string[]; } catch { facts = []; }
   const known = new Set((mems ?? []).map((m: { content: string }) => m.content.trim().toLowerCase()));

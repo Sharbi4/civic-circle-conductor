@@ -35,7 +35,7 @@ export async function addDocumentPhotos(db: SupabaseClient, owner: string, title
       if (error) continue;
       const label = clean(page.title?.replace(/^File:/, "").replace(/\.[^.]+$/, "") ?? query);
       const creator = clean(photo.extmetadata?.["Artist"]?.value ?? "See original source");
-      return `![${label}](document-photo:${path})\n\n*Contextual photograph — ${label}. Not evidence of a partnership, confirmed venue or attendance. Photo: ${creator}. License: ${clean(license)}. [Original source and license](${source.href}).*\n\n${body.replace(/!\[[^\]]*\]\(https?:\/\/[^)]+\)/g, "")}`;
+      return `![${label}](document-photo:${path})\n\n*Contextual photograph, ${label}. Not evidence of a partnership, confirmed venue or attendance. Photo: ${creator}. License: ${clean(license)}. [Original source and license](${source.href}).*\n\n${body.replace(/!\[[^\]]*\]\(https?:\/\/[^)]+\)/g, "")}`;
     }
   } catch { console.warn("Document photography unavailable; preserved document text"); }
   return null;
@@ -44,7 +44,7 @@ export async function addDocumentPhotos(db: SupabaseClient, owner: string, title
 /** When no real licensed photo fits, Civi makes a clearly labeled illustration so no document ships without a picture. */
 export async function addDocumentIllustration(db: SupabaseClient, owner: string, title: string, body: string, about: string): Promise<string | null> {
   const { generateImage } = await import("@lovable.dev/ai-gateway");
-  const prompt = `Warm, professional editorial illustration (flat vector style, soft natural colors) to head a document titled "${title}". ${about} Show the spirit of the subject — community, place and purpose — with simple stylized figures and setting. No text, letters, numbers, logos or recognizable real people.`;
+  const prompt = `Warm, professional editorial illustration (flat vector style, soft natural colors) to head a document titled "${title}". ${about} Show the spirit of the subject, community, place and purpose, with simple stylized figures and setting. No text, letters, numbers, logos or recognizable real people.`;
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
       const img = await generateImage({ model: "openai/gpt-image-2.5-sunburst", prompt, size: "1536x1024", output_format: "jpeg", quality: "high" });
@@ -55,7 +55,7 @@ export async function addDocumentIllustration(db: SupabaseClient, owner: string,
       const { error } = await db.storage.from("event-images").upload(path, bytes, { contentType: "image/jpeg" });
       if (error) continue;
       const label = clean(title);
-      return `![Illustration for ${label}](document-photo:${path})\n\n*Illustration created by Civi for this document — not a photograph of an actual event, venue or attendees.*\n\n${body.replace(/!\[[^\]]*\]\(https?:\/\/[^)]+\)/g, "")}`;
+      return `![Illustration for ${label}](document-photo:${path})\n\n*Illustration created by Civi for this document, not a photograph of an actual event, venue or attendees.*\n\n${body.replace(/!\[[^\]]*\]\(https?:\/\/[^)]+\)/g, "")}`;
     } catch (e) { console.warn("Document illustration attempt failed", e instanceof Error ? e.message : e); }
   }
   return null;

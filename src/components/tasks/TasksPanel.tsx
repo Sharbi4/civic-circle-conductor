@@ -106,7 +106,7 @@ export function TasksPanel() {
         {other.filter((t) => showDone || !t.done).map((t) => <Row key={t.id} t={t} onUpdate={update} onRemove={remove} />)}
         <AddInline placeholder="Add a task…" onAdd={(v) => add(v, "task", null)} />
       </div>
-      {all.length === 0 && !q.isLoading && <p className="px-3 py-2 text-xs text-muted-foreground">Nothing yet — try asking Civi "Set goals for our spring cleanup."</p>}
+      {all.length === 0 && !q.isLoading && <p className="px-3 py-2 text-xs text-muted-foreground">Nothing yet, try asking Civi "Set goals for our spring cleanup."</p>}
     </div>
   );
 }

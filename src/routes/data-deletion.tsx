@@ -4,9 +4,9 @@ export const Route = createFileRoute("/data-deletion")({
   validateSearch: (s: Record<string, unknown>) => ({ code: typeof s["code"] === "string" ? s["code"].slice(0, 40) : undefined }),
   head: () => ({
     meta: [
-      { title: "Data Deletion — Civi Meet" },
+      { title: "Data Deletion, Civi Meet" },
       { name: "description", content: "How to delete your data from Civi Meet." },
-      { property: "og:title", content: "Data Deletion — Civi Meet" },
+      { property: "og:title", content: "Data Deletion, Civi Meet" },
       { property: "og:description", content: "Steps to request deletion of your Civi Meet account, organization data and connected-account information." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },

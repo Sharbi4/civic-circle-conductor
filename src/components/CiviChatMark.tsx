@@ -12,7 +12,7 @@ export function CiviChatMark({ alertKeys, onClick, mobile = false }: { alertKeys
     seen.current = new Set(alertKeys);
   }, [alertKeys]);
   return (
-    <Button variant="ghost" size="icon" onClick={onClick} aria-label={mobile ? "Open Civi Meet menu" : "Civi Meet — open chats"} title={mobile ? "Civi Meet — open menu" : "Civi Meet — chats"}
+    <Button variant="ghost" size="icon" onClick={onClick} aria-label={mobile ? "Open Civi Meet menu" : "Civi Meet, open chats"} title={mobile ? "Civi Meet, open menu" : "Civi Meet, chats"}
       className={mobile ? "absolute left-3 top-3 z-40 h-8 w-8 rounded-md bg-background/90 p-1 md:hidden" : "mb-1 h-11 w-11 shrink-0 rounded-md p-1"}>
       <img key={animation} src={icon.url} alt="Civi Meet" className="civi-mark-arrive h-full w-full object-contain" />
     </Button>

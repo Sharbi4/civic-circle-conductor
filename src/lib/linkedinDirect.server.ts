@@ -149,7 +149,7 @@ export async function handleDirectLinkedInCallback(request: Request): Promise<Re
   const result = JSON.stringify({ type: success ? 'civiLinkedInOAuthComplete' : 'civiLinkedInOAuthFailed', connectorId: 'linkedin', state: success ? state : null, message }).replace(/</g, '\\u003c');
   const origin = JSON.stringify(row.opener_origin);
   const escape = (s: string) => s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] ?? c));
-  return new Response(`<!doctype html><html><head><title>LinkedIn connection — Civi Meet</title></head><body><p>${escape(message)}</p><script>try{const c=new BroadcastChannel("civi-oauth");c.postMessage(${result});c.close();}catch(e){}if(window.opener){window.opener.postMessage(${result},${origin});}setTimeout(()=>window.close(),500);</script></body></html>`, {
+  return new Response(`<!doctype html><html><head><title>LinkedIn connection, Civi Meet</title></head><body><p>${escape(message)}</p><script>try{const c=new BroadcastChannel("civi-oauth");c.postMessage(${result});c.close();}catch(e){}if(window.opener){window.opener.postMessage(${result},${origin});}setTimeout(()=>window.close(),500);</script></body></html>`, {
     headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer' },
   });
 }

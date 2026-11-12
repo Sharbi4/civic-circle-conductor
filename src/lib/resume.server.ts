@@ -34,7 +34,7 @@ export async function runResumeStep(db: Db, userId: string, task: Task, threadId
   await runOrganizer(db, userId, {
     hidden: true,
     threadId,
-    content: `[Resume — picked up automatically] Event: ${goal?.title ?? "this event"}. Step: "${task.title}" (task id ${task.id}).\nContinue exactly where this chat left off; do not restart research already done. Start with one line: "Picking up where I left off: ${task.title}". Then take the next concrete action now (browse, fill an application, draft, or queue an approval). If you are waiting on an answer from the organizer, do not repeat earlier messages — send a one-line reminder of the single thing you need. When this step is complete, emit [[task_done: ${task.id}]].`,
+    content: `[Resume, picked up automatically] Event: ${goal?.title ?? "this event"}. Step: "${task.title}" (task id ${task.id}).\nContinue exactly where this chat left off; do not restart research already done. Start with one line: "Picking up where I left off: ${task.title}". Then take the next concrete action now (browse, fill an application, draft, or queue an approval). If you are waiting on an answer from the organizer, do not repeat earlier messages, send a one-line reminder of the single thing you need. When this step is complete, emit [[task_done: ${task.id}]].`,
   });
   const { data: after } = await db.from("tasks").select("done").eq("id", task.id).eq("user_id", userId).maybeSingle();
   if (after?.done) return "infinity";

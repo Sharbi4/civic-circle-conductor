@@ -37,15 +37,15 @@ export function documentConflicts(text: string, ev: EventFacts | null): string[]
     const closedRe = new RegExp(`closed(?: on| every| all day)?:?\\s+((?:${DAY}(?:\\s*(?:,|and|&|/|or)\\s*)?)+)`, "gi");
     for (const m of t.matchAll(closedRe)) {
       const days = [...(m[1] ?? "").matchAll(new RegExp(DAY, "gi"))].map((d) => dayIndex(d[0]));
-      if (days.includes(wd)) { out.push(`The document says it's closed on ${DAYS[wd]![0]!.toUpperCase()}${DAYS[wd]!.slice(1)}s — your event is ${longDate(ev.date)}.`); break; }
+      if (days.includes(wd)) { out.push(`The document says it's closed on ${DAYS[wd]![0]!.toUpperCase()}${DAYS[wd]!.slice(1)}s, but your event is ${longDate(ev.date)}.`); break; }
     }
     const weekdaysOnly = /\b(?:open|hours|available|reservations?)\b[^.]{0,40}\bmon(?:day)?\s*(?:-|–|—|to|through|thru)\s*fri(?:day)?\b(?![^.]{0,40}\b(?:sat|sun)(?:urday|day)?\b)/i.test(t);
-    if (weekdaysOnly && (wd === 0 || wd === 6) && !out.length) out.push(`Hours listed are Monday–Friday only — your event is ${longDate(ev.date)}.`);
+    if (weekdaysOnly && (wd === 0 || wd === 6) && !out.length) out.push(`Hours listed are Monday, Friday only, your event is ${longDate(ev.date)}.`);
   }
   if (ev.headcount) {
     const cap = t.match(/\b(?:maximum (?:capacity|occupancy)|max(?:imum)?\.? (?:of )?|capacity|occupancy|seats|holds|accommodates)\D{0,20}(\d{1,5})\b/i);
     const n = cap ? Number(cap[1]) : NaN;
-    if (Number.isFinite(n) && n >= 5 && n < ev.headcount) out.push(`It lists a capacity of ${n} — you're expecting ${ev.headcount}.`);
+    if (Number.isFinite(n) && n >= 5 && n < ev.headcount) out.push(`It lists a capacity of ${n}, you're expecting ${ev.headcount}.`);
   }
   return out;
 }

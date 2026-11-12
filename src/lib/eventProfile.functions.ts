@@ -1,3 +1,4 @@
+import { noLongDashes, withNoDashes } from "./punctuation.shared";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
@@ -19,11 +20,11 @@ export const refreshEventSuggestions = createServerFn({ method: "POST" })
     const { generateResponse } = await import("@lovable.dev/ai-gateway");
     const res = await generateResponse({
       model: "openai/gpt-6.1-terra",
-      instructions: 'You suggest practical next ideas for a community event. Return only JSON {"items":[{"title":"short","detail":"one sentence"}]} with 5 specific, creative, doable ideas (venue, vendors, outreach, budget savings, attendee experience, follow-up). No emojis.',
+      instructions: withNoDashes('You suggest practical next ideas for a community event. Return only JSON {"items":[{"title":"short","detail":"one sentence"}]} with 5 specific, creative, doable ideas (venue, vendors, outreach, budget savings, attendee experience, follow-up). No emojis.'),
       input: `Org: ${JSON.stringify(org ?? {})}\nEvent: ${goal.title}\nProfile: ${JSON.stringify(profile ?? {})}\nSteps: ${JSON.stringify(steps ?? [])}\nRecent chat:\n${(msgs ?? []).map((m) => `${m.role}: ${m.content.slice(0, 800)}`).join("\n")}`,
     });
     let text = "";
-    for (const item of res.output ?? []) if (item.type === "message") for (const c of item.content ?? []) if (c.type === "output_text") text += c.text;
+    for (const item of res.output ?? []) if (item.type === "message") for (const c of item.content ?? []) if (c.type === "output_text") text += noLongDashes(c.text);
     let items: { title: string; detail: string }[] = [];
     try { items = (JSON.parse(text.slice(text.indexOf("{"), text.lastIndexOf("}") + 1)).items ?? []).slice(0, 6).map((i: { title?: unknown; detail?: unknown }) => ({ title: String(i.title ?? "").slice(0, 120), detail: String(i.detail ?? "").slice(0, 400) })).filter((i: { title: string }) => i.title); } catch { items = []; }
     const { error } = await db.from("event_profiles").upsert({ goal_id: goal.id, user_id: context.userId, suggestions: items, suggestions_at: new Date().toISOString() }, { onConflict: "goal_id" });

@@ -34,7 +34,7 @@ export const Route = createFileRoute("/api/oauth/nextdoor/return")({
 <html>
 <head><title>Finishing Nextdoor connection…</title></head>
 <body>
-  <p>${result.success ? "Nextdoor connected — you can close this window." : "Connection failed."}</p>
+  <p>${result.success ? "Nextdoor connected, you can close this window." : "Connection failed."}</p>
   <script>
     const result = ${safeJson};
     const msg = { type: result.success ? "civiOauthComplete" : "civiOauthFailed", connectorId: result.connectorId, code: result.code ?? null, error: result.error ?? null };

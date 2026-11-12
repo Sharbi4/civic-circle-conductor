@@ -10,9 +10,9 @@ import logo from "@/assets/civimeet-logo-dark.png";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Civi Meet — The AI that organizes your community" },
+      { title: "Civi Meet, The AI that organizes your community" },
       { name: "description", content: "Civi, the AI organizer for nonprofits, governments, parties and campaigns: outreach, events, pages and volunteers." },
-      { property: "og:title", content: "Civi Meet — The AI that organizes your community" },
+      { property: "og:title", content: "Civi Meet, The AI that organizes your community" },
       { property: "og:description", content: "Civi organizes outreach, events, pages and volunteers for nonprofits, governments, parties and campaigns, so your team can focus on people." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },

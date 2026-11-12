@@ -1,3 +1,4 @@
+import { noLongDashes, withNoDashes } from "./punctuation.shared";
 import { generateResponse, GatewayError } from "@lovable.dev/ai-gateway";
 
 const MODEL = "openai/gpt-6.1-terra";
@@ -118,15 +119,15 @@ export async function runCommunityScout(onlyUserId: string) {
               ? [
                   `You are Community Scout, a background research agent for "${org?.name ?? "a community organization"}" (mission: ${org?.mission ?? "not provided"}).`,
                   focusDescription,
-                  `Below are live web search results gathered just now. Base every discovery on these results — do not add organizations or events that are not in them. For each finding, cite the source as a markdown link (e.g. [Source title](url)) so the team can verify it.`,
-                  `WEB RESULTS:\n${webResults.map((r, i) => `[${i + 1}] ${r.title} — ${r.url}\n${r.description}`).join("\n\n")}`,
+                  `Below are live web search results gathered just now. Base every discovery on these results, do not add organizations or events that are not in them. For each finding, cite the source as a markdown link (e.g. [Source title](url)) so the team can verify it.`,
+                  `WEB RESULTS:\n${webResults.map((r, i) => `[${i + 1}] ${r.title}, ${r.url}\n${r.description}`).join("\n\n")}`,
                   `Already in the directory (do not repeat): ${(known ?? []).map((r) => r.name).join(", ") || "nothing yet"}.`,
                   `Output a short markdown briefing of what you found on the live web, citing sources inline. Then one line per new discovery exactly like: [[resource: <group|vendor|venue|nonprofit|event|professional|other> | <name> | <one line of details> | <source URL from the results>]]. Max 6 resources. The source URL must be copied verbatim from the results above.`,
                 ].join("\n")
               : [
                   `You are Community Scout, a background research agent for "${org?.name ?? "a community organization"}" (mission: ${org?.mission ?? "not provided"}).`,
                   focusDescription,
-                  `Suggest community groups, food vendors, venues, local nonprofits, community events, and professional groups worth knowing. Be honest: live web search was unavailable this run, so these are unverified leads from your training knowledge — say so, and never invent contact details, addresses or dates you don't actually know. Prefer well-known, real organizations.`,
+                  `Suggest community groups, food vendors, venues, local nonprofits, community events, and professional groups worth knowing. Be honest: live web search was unavailable this run, so these are unverified leads from your training knowledge, say so, and never invent contact details, addresses or dates you don't actually know. Prefer well-known, real organizations.`,
                   `Already in the directory (do not repeat): ${(known ?? []).map((r) => r.name).join(", ") || "nothing yet"}.`,
                   `Output a short markdown briefing, then one line per new discovery exactly like: [[resource: <group|vendor|venue|nonprofit|event|professional|other> | <name> | <one line of details>]]. Max 6 resources. Also flag any listed directory entries that are likely duplicates or outdated.`,
                 ].join("\n");
@@ -134,14 +135,14 @@ export async function runCommunityScout(onlyUserId: string) {
             const ideaInstructions = '\nAlso propose 3 organization-specific ideas: one blog, one event and one social post. Ground each in this research and the mission; do not invent dates, availability or partnership interest. Finish with [[ideas: JSON_ARRAY]] where each object has kind (blog|event|post), title, description, connector (internal for blogs, eventbrite for events, linkedin or x for posts), and prompt (specific instruction to draft or plan the action while preserving unknowns and approval requirements). No checklist reminders or approval reviews in this feed.';
             const res = await generateResponse({
               model: MODEL,
-              instructions: instructions + ideaInstructions,
+              instructions: withNoDashes(instructions + ideaInstructions),
               input: `Run a community discovery pass for ${area.city}, ${area.state}.`,
             });
 
             let text = "";
             for (const item of res.output ?? []) {
               if (item.type === "message") {
-                for (const c of item.content ?? []) if (c.type === "output_text") text += c.text;
+                for (const c of item.content ?? []) if (c.type === "output_text") text += noLongDashes(c.text);
               }
             }
 

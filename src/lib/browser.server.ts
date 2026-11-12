@@ -1,3 +1,4 @@
+import { noLongDashes, withNoDashes } from "./punctuation.shared";
 import type { AgentAction } from "@/lib/browserAgent.server";
 import { VENDOR_SCOUT_BROWSER } from "@/lib/eventPlaybook";
 import { browserNeedsProgressReport, searchFallbackUrl, isFacebookSecurityCheck, repeatedStep } from "./browserProgress.shared";
@@ -61,7 +62,7 @@ export async function providerSessionLiveness(sessionId: string, lovableKey: str
 
 /**
  * Opens a real cloud browser session, stores it and returns the row.
- * Called from server-function handlers only — keys are read in the handler.
+ * Called from server-function handlers only, keys are read in the handler.
  */
 export async function openBrowserSession(opts: {
   supabase: SupabaseLike;
@@ -236,7 +237,7 @@ export async function runAgentStep(supabase: any, userId: string, sessionRowId: 
           state = await snapshot(page);
         }
         if (isFacebookSecurityCheck(state)) {
-          return { action: { action: "handoff", reason: "Facebook wants to confirm it's you with a quick security check. Tap into the browser, finish the check, then press Done — Civi, continue" } as AgentAction, note: "" };
+          return { action: { action: "handoff", reason: "Facebook wants to confirm it's you with a quick security check. Tap into the browser, finish the check, then press Done, Civi, continue" } as AgentAction, note: "" };
         }
         if (isLinkedInUrl(state.url)) return { action: { action: "done", summary: LINKEDIN_API_ONLY } as AgentAction, note: "LinkedIn browser disabled" };
         // A PDF or Word file shows no readable text in the browser: read the file itself and give the model its contents.
@@ -271,15 +272,15 @@ export async function runAgentStep(supabase: any, userId: string, sessionRowId: 
         catch { today = new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric", timeZone: "America/Phoenix" }); }
         const ask = (extra = "") => generateResponse({
           model: "openai/gpt-6.1-terra",
-          instructions: [
+          instructions: withNoDashes([
             "You are Civi, a community-organizing agent driving a real web browser one action at a time to reach the organizer's goal (e.g. find vendors on Eventbrite, fill a booking/inquiry form).",
             `Today is ${today}. Never present a date or deadline that has already passed as upcoming.`,
             "SEARCHING: search the web with https://duckduckgo.com/html/?q=your+words, never google.com (Google blocks automated browsers with a verification check). Better still, open an official site directly when you know it (e.g. the city's parks page).",
-            "NO LOOPS: never repeat a search or reopen a page already listed in 'Steps so far'. When a page shows a form, application, sign-up or PDF that fits the goal, open it next and note its fields — don't go back to searching. If two searches in a row turned up nothing new, finish with done.",
+            "NO LOOPS: never repeat a search or reopen a page already listed in 'Steps so far'. When a page shows a form, application, sign-up or PDF that fits the goal, open it next and note its fields, don't go back to searching. If two searches in a row turned up nothing new, finish with done.",
             "Reply with ONLY one JSON object. Allowed actions:",
             '{"action":"navigate","url":"https://..."} | {"action":"click","index":N} | {"action":"type","index":N,"text":"..."} | {"action":"select","index":N,"value":"..."} | {"action":"press_enter","index":N} | {"action":"scroll"} | {"action":"login","username_index":N,"password_index":N} | {"action":"submit","index":N} | {"action":"handoff","reason":"what the organizer needs to do"} | {"action":"request_approval","title":"...","details":"..."} | {"action":"done","summary":"markdown summary of what you found/did, with links"}',
             "Add a short \"reason\" field to every action. Use element indexes from the page state only.",
-            "PAGE NOTES: when the current page is relevant to the goal (a vendor, venue or business page), also add a \"page_notes\" field to your action: the business name, then exactly what this page shows for prices, packages, minimums, per-person rates, capacity, hours, phone, email and address (use the page's text and its 'facts' list). Steps starting 'Notes from' are your notes from pages you already left — they are your memory; use them in your summary, and use the URL in each note as that vendor's link (never a search-results link).",
+            "PAGE NOTES: when the current page is relevant to the goal (a vendor, venue or business page), also add a \"page_notes\" field to your action: the business name, then exactly what this page shows for prices, packages, minimums, per-person rates, capacity, hours, phone, email and address (use the page's text and its 'facts' list). Steps starting 'Notes from' are your notes from pages you already left, they are your memory; use them in your summary, and use the URL in each note as that vendor's link (never a search-results link).",
             row.submit_approved
               ? "The organizer has APPROVED submitting. You may use submit on the final send/book/pay button."
               : "Never click a button that sends a message, posts, joins a group, books, registers, purchases or pays. When a form is filled and ready, use request_approval describing exactly what will be sent and to whom. Use plain click only for navigation, search and opening pages.",
@@ -295,27 +296,27 @@ export async function runAgentStep(supabase: any, userId: string, sessionRowId: 
             "Never invent contact details. Never ask the organizer to paste passwords or codes in chat.",
             "Never navigate to LinkedIn or perform LinkedIn actions through this browser. LinkedIn runs only through its connected API; explain unsupported actions rather than attempting browser login.",
             "Be proactive when research is exhausted or going in circles: finish with verified findings, remaining unknowns and a concrete next recommendation. Missing online venue availability calls for a sourced booking-contact lookup and an offer of an approved phone inquiry, not asking the organizer to drive the browser. Only hand off for genuine human-only obstacles.",
-            "PUBLIC VENUES: for city, county, state, park, pavilion and community-center spaces, look first for the official rental application (often a PDF) and fee schedule; open them directly, copy the direct PDF link into your summary so Civi can fill it, list the submission method, and stay focused on the goal — skip unrelated pages and finish in as few steps as possible.",
-            "EXTRACT, DON'T SKIM: on every official page you open, copy the exact facts (fees, capacity, hours, deposit, cancellation, booking method, phone, email) with the page URL into your notes before moving on, and open any rental application or form link to list its fields. Your done summary must cite those exact URLs and quoted facts — never say details were not retained.",
-            "ACT HUMAN-LIKE: browse the way a real person would. Scroll through pages instead of jumping straight to buttons, open and read posts before commenting or inviting, vary your path (search, scroll, open a profile, come back), and take it one considered action at a time — never fire off a rapid sequence of posts, joins or invites. In groups, read the rules and recent posts first so every interaction fits the conversation.",
-            "DOCUMENTS: when a step note says you read a PDF or Word document, use its facts (capacity, fees, deposit, hours and closed days, rules, deadlines, contacts) in your work and summary, and call out every conflict with the event plainly (e.g. 'The venue is closed on Wednesdays — your event is Wednesday, Dec 9'). Never claim a document said something it didn't.",
+            "PUBLIC VENUES: for city, county, state, park, pavilion and community-center spaces, look first for the official rental application (often a PDF) and fee schedule; open them directly, copy the direct PDF link into your summary so Civi can fill it, list the submission method, and stay focused on the goal, skip unrelated pages and finish in as few steps as possible.",
+            "EXTRACT, DON'T SKIM: on every official page you open, copy the exact facts (fees, capacity, hours, deposit, cancellation, booking method, phone, email) with the page URL into your notes before moving on, and open any rental application or form link to list its fields. Your done summary must cite those exact URLs and quoted facts, never say details were not retained.",
+            "ACT HUMAN-LIKE: browse the way a real person would. Scroll through pages instead of jumping straight to buttons, open and read posts before commenting or inviting, vary your path (search, scroll, open a profile, come back), and take it one considered action at a time, never fire off a rapid sequence of posts, joins or invites. In groups, read the rules and recent posts first so every interaction fits the conversation.",
+            "DOCUMENTS: when a step note says you read a PDF or Word document, use its facts (capacity, fees, deposit, hours and closed days, rules, deadlines, contacts) in your work and summary, and call out every conflict with the event plainly (e.g. 'The venue is closed on Wednesdays, your event is Wednesday, Dec 9'). Never claim a document said something it didn't.",
             goalSummaryRules(goal),
             ...(ev ? [`EVENT PAGE: this browser is working on the event "${ev.title}". At the end of your done summary add one marker per real record you found, so it is saved to the event page: [[event_vendor: {"name":"...","type":"...","url":"https://...","price_range":"as listed","phone":"...","email":"...","status":"suggested"}]] for each vendor, [[event_contact: {"name":"...","role":"...","phone":"...","email":"..."}]] for each named contact person, and [[event_venue: {"name":"...","address":"...","phone":"booking phone","email":"booking email","terms":"capacity, fees, deposit, hours, rules"}]] for a venue that fits. Add an event_vendor marker for EVERY vendor in your summary, with its price_range (as listed, or your rough estimate marked 'est.'). Real details you saw only; leave out unknown fields.`] : []),
             ...(progressReport ? [progressInstructions(goal)] : []),
-          ].join("\n"),
+          ].join("\n")),
           input: [{
             role: "user" as const,
-            content: `Goal: ${goal}\n\n${ev ? `Event: ${JSON.stringify(ev)}\n\n` : ""}Saved logins available for: ${savedSites}\n\nEarlier in this same browser (already done — don't redo, build on it):\n${earlier.map((s) => `- ${s.note}`).join("\n") || "(nothing yet)"}\n\nSteps so far on this goal:\n${current.map((s, i) => `${i + 1}. ${s.note}`).join("\n") || "(none)"}\n\nCurrent page state:\n${JSON.stringify(modelState)}${extra}`,
+            content: `Goal: ${goal}\n\n${ev ? `Event: ${JSON.stringify(ev)}\n\n` : ""}Saved logins available for: ${savedSites}\n\nEarlier in this same browser (already done, don't redo, build on it):\n${earlier.map((s) => `- ${s.note}`).join("\n") || "(nothing yet)"}\n\nSteps so far on this goal:\n${current.map((s, i) => `${i + 1}. ${s.note}`).join("\n") || "(none)"}\n\nCurrent page state:\n${JSON.stringify(modelState)}${extra}`,
           }],
         });
         const readAction = (r: Awaited<ReturnType<typeof ask>>) => {
           let t = "";
-          for (const item of r.output ?? []) if (item.type === "message") for (const c of item.content ?? []) if (c.type === "output_text") t += c.text;
+          for (const item of r.output ?? []) if (item.type === "message") for (const c of item.content ?? []) if (c.type === "output_text") t += noLongDashes(c.text);
           return parseAction(t);
         };
         let action = readAction(await ask());
         const repeat = action && !progressReport ? repeatedStep(action as { action: string; url?: string; text?: string }, current.map((s) => s.note)) : null;
-        if (repeat) action = readAction(await ask(`\n\nYou just proposed ${repeat} — that was already done on this goal. Pick a different action: open the most relevant result, form or PDF you already found, or finish with done.`)) ?? action;
+        if (repeat) action = readAction(await ask(`\n\nYou just proposed ${repeat}, that was already done on this goal. Pick a different action: open the most relevant result, form or PDF you already found, or finish with done.`)) ?? action;
         pageNoteText = pageNote(state, (action as { page_notes?: unknown } | null)?.page_notes, facts, current.map((s) => String(s.note ?? "")));
         if (action?.action === "navigate") { const alt = searchFallbackUrl(action.url); if (alt) action = { ...action, url: alt }; }
         if (action?.action === "navigate" && isLinkedInUrl(action.url)) return { action: { action: "done", summary: LINKEDIN_API_ONLY } as AgentAction, note: "LinkedIn browser disabled" };
@@ -356,7 +357,7 @@ export async function runAgentStep(supabase: any, userId: string, sessionRowId: 
       if (docRead?.conflicts.length) {
         let name = "this document";
         try { name = decodeURIComponent(new URL(docRead.docUrl).pathname.split("/").pop() || name); } catch { /* keep default */ }
-        await post(`⚠️ **Heads-up from [${name}](${docRead.docUrl})**\n\n${docRead.conflicts.map((c) => `- ${c}`).join("\n")}\n\nI'll plan around this — a venue that's open then, or a nearby date or time that works here.`);
+        await post(`⚠️ **Heads-up from [${name}](${docRead.docUrl})**\n\n${docRead.conflicts.map((c) => `- ${c}`).join("\n")}\n\nI'll plan around this, a venue that's open then, or a nearby date or time that works here.`);
       }
       if (!a && docRead) {
         await save({}, { action: "read", note: docRead.docNote });
@@ -372,13 +373,13 @@ export async function runAgentStep(supabase: any, userId: string, sessionRowId: 
           user_id: userId, thread_id: row.thread_id, action_type: "booking", title: a.title, details: a.details, browser_session_id: row.id,
         }).select("id").single();
         await save({ agent_status: "awaiting_approval" }, { action: "approval", note: `Waiting for approval: ${a.title}` });
-        await post(`🛑 The form for **${goal}** is filled in and ready. Before I submit, please review it in the **Approvals** inbox:\n\n**${a.title}** — ${a.details}${ap ? "" : ""}`);
+        await post(`🛑 The form for **${goal}** is filled in and ready. Before I submit, please review it in the **Approvals** inbox:\n\n**${a.title}**, ${a.details}${ap ? "" : ""}`);
         return { agentStatus: "awaiting_approval" };
       }
       if (a.action === "handoff") {
         await supabase.from("browser_sessions").update({ handoff_reason: a.reason }).eq("id", row.id);
         await save({ agent_status: "needs_user" }, { action: "handoff", note: `Your turn: ${a.reason}` });
-        await post(`🙋 I need you for a moment in the browser: **${a.reason}**\n\nClick into the browser to do it, then press **Done — Civi, continue** and I'll pick up where I left off.`);
+        await post(`🙋 I need you for a moment in the browser: **${a.reason}**\n\nClick into the browser to do it, then press **Done, Civi, continue** and I'll pick up where I left off.`);
         return { agentStatus: "needs_user" };
       }
       if (a.action === "done") {
@@ -425,7 +426,7 @@ export async function runAgentStep(supabase: any, userId: string, sessionRowId: 
           }] : []),
         ];
         if (goal.startsWith("NOTIFICATION CHECK") && /^\s*NO_NEW\s*$/.test(cleanSummary)) {
-          await save({ agent_status: "done" }, { action: "done", note: "Checked notifications — nothing new" });
+          await save({ agent_status: "done" }, { action: "done", note: "Checked notifications, nothing new" });
           if (await startNextQueued(supabase, row.id)) return { agentStatus: "driving" };
           return { agentStatus: "done" };
         }
@@ -437,7 +438,7 @@ export async function runAgentStep(supabase: any, userId: string, sessionRowId: 
           }
         }
         await save({ agent_status: "done" }, { action: "done", note: `Finished: ${cleanSummary.replace(/\s+/g, " ").slice(0, 400)}` });
-        await post(`${progressReport ? "🔎 **Research checkpoint — next steps**" : goal.startsWith("NOTIFICATION CHECK") ? "🔔 **New on Facebook**" : `✅ Browser task finished: **${goal}**`}\n\n${cleanSummary}${fbRows.length ? `\n\n📥 I put ${fbRows.length} request${fbRows.length > 1 ? "s" : ""} in your **Approvals** inbox — ${groups.length ? `one per group to join` : ""}${groups.length && page ? " and " : ""}${page ? "the Page update post" : ""}. Approve the ones you want and I'll do them one by one in this browser.` : ""}`);
+        await post(`${progressReport ? "🔎 **Research checkpoint: next steps**" : goal.startsWith("NOTIFICATION CHECK") ? "🔔 **New on Facebook**" : `✅ Browser task finished: **${goal}**`}\n\n${cleanSummary}${fbRows.length ? `\n\n📥 I put ${fbRows.length} request${fbRows.length > 1 ? "s" : ""} in your **Approvals** inbox, ${groups.length ? `one per group to join` : ""}${groups.length && page ? " and " : ""}${page ? "the Page update post" : ""}. Approve the ones you want and I'll do them one by one in this browser.` : ""}`);
         // Phone fallback: when venue research ends without confirmed booking details,
         // hand the findings back to the organizer so it proposes the approved call
         // (venue_call marker → Approvals card → real call on approval → chat report).
@@ -448,8 +449,8 @@ export async function runAgentStep(supabase: any, userId: string, sessionRowId: 
               hidden: true,
               threadId: row.thread_id,
               content: hasEventConflict(cleanSummary)
-                ? `[Research finished — continue automatically] Goal: ${goal}\n\nFindings:\n${cleanSummary.replace(/\[\[choices:[\s\S]*?\]\]/g, "").trim()}\n\n${CONFLICT_FIRST_NOTE}`
-                : `[Research finished — continue automatically] Goal: ${goal}\n\nFindings:\n${cleanSummary.replace(/\[\[choices:[\s\S]*?\]\]/g, "").trim()}\n\nOnline booking details were not confirmed. Apply your phone-fallback rule now: summarize what was verified, and if the findings include the venue's official booking phone number from a cited source, propose the one-time approved availability call with the venue_call marker so it appears in Approvals. If no verified number was found, state exactly what is still missing. ${CALL_FOLLOW_UP_NOTE}`,
+                ? `[Research finished, continue automatically] Goal: ${goal}\n\nFindings:\n${cleanSummary.replace(/\[\[choices:[\s\S]*?\]\]/g, "").trim()}\n\n${CONFLICT_FIRST_NOTE}`
+                : `[Research finished, continue automatically] Goal: ${goal}\n\nFindings:\n${cleanSummary.replace(/\[\[choices:[\s\S]*?\]\]/g, "").trim()}\n\nOnline booking details were not confirmed. Apply your phone-fallback rule now: summarize what was verified, and if the findings include the venue's official booking phone number from a cited source, propose the one-time approved availability call with the venue_call marker so it appears in Approvals. If no verified number was found, state exactly what is still missing. ${CALL_FOLLOW_UP_NOTE}`,
             });
           } catch (e) { console.error("Call follow-up failed", e); }
         }
@@ -462,8 +463,8 @@ export async function runAgentStep(supabase: any, userId: string, sessionRowId: 
           const fb = ((aps ?? []) as { status: string; title: string; payload: unknown }[]).filter((x) => (x.payload as { kind?: string } | null)?.kind === "fb_join_group");
           const joined = fb.filter((x: { status: string }) => x.status === "approved").length;
           const waiting = fb.filter((x: { status: string }) => x.status === "pending").map((x: { title: string }) => x.title.replace("Join Facebook group: ", ""));
-          const milestone = joined >= 10 && joined % 10 === 0 ? `🎉 That's **${joined} groups** joined — a strong local footprint. ` : `📊 **${joined}** Facebook group${joined === 1 ? "" : "s"} joined so far. `;
-          await post(`${milestone}${waiting.length ? `Still waiting on your OK for ${waiting.length}: ${waiting.slice(0, 5).map((w: string) => `**${w}**`).join(", ")}${waiting.length > 5 ? "…" : ""} (most relevant first — see Approvals).` : "No group requests are waiting."} Want me to keep going?\n\n[[choices: Find more groups | Post in a joined group | Pause for now]]`);
+          const milestone = joined >= 10 && joined % 10 === 0 ? `🎉 That's **${joined} groups** joined, a strong local footprint. ` : `📊 **${joined}** Facebook group${joined === 1 ? "" : "s"} joined so far. `;
+          await post(`${milestone}${waiting.length ? `Still waiting on your OK for ${waiting.length}: ${waiting.slice(0, 5).map((w: string) => `**${w}**`).join(", ")}${waiting.length > 5 ? "…" : ""} (most relevant first, see Approvals).` : "No group requests are waiting."} Want me to keep going?\n\n[[choices: Find more groups | Post in a joined group | Pause for now]]`);
         }
         return { agentStatus: "done" };
       }
@@ -477,7 +478,7 @@ export async function runAgentStep(supabase: any, userId: string, sessionRowId: 
     } catch (e) {
       console.error("Browser agent step failed", e);
       await finishApproval("failed", "Browser connection failed. Check the page before trying again.");
-      await save({ agent_status: "failed" }, { action: "error", note: "Lost connection to the browser — the session may have expired." });
+      await save({ agent_status: "failed" }, { action: "error", note: "Lost connection to the browser, the session may have expired." });
       return { agentStatus: "failed" };
     }
     } finally {
@@ -491,7 +492,7 @@ export async function executeFacebookApproval(supabase: SupabaseLike, userId: st
     if (!ap || ap.status !== "approved") throw new Error("This action isn't approved.");
     const p = ap.payload as { kind: string; session: string; name?: string; url: string; text?: string };
     const { data: row } = await supabase.from("browser_sessions").select("id, status, agent_status, queue").eq("id", p.session).maybeSingle();
-    if (!row || row.status !== "running") throw new Error("That Facebook browser has closed — ask Civi to open Facebook again, then approve.");
+    if (!row || row.status !== "running") throw new Error("That Facebook browser has closed, ask Civi to open Facebook again, then approve.");
     const goal = p.kind === "fb_join_group"
       ? `APPROVED by the organizer: join the Facebook group "${p.name}". Open ${p.url}, click Join group (use submit for that button). If it asks membership questions, answer briefly and honestly from our mission, then submit. If anything needs the organizer (e.g. agreeing to rules personally), use handoff. Then done.`
       : `APPROVED by the organizer: post this update on our organization's Facebook Page (${p.url}), posting as the Page, not the personal profile. Switch to the Page if needed, open "Create post", type exactly this text:\n${p.text}\nthen click Post (use submit for that button). Then done.`;

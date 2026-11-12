@@ -1,3 +1,4 @@
+import { noLongDashes, withNoDashes } from "./punctuation.shared";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
@@ -57,14 +58,14 @@ export const summarizePoll = createServerFn({ method: "POST" })
     const { data: p } = await context.supabase.from("polls").select("title, questions").eq("id", data.pollId).maybeSingle();
     if (!p) throw new Error("Poll not found");
     const { data: rs } = await context.supabase.from("poll_responses").select("answers, created_at").eq("poll_id", data.pollId).order("created_at").limit(500);
-    if (!rs?.length) return { summary: "No responses yet — share the link to start collecting answers." };
+    if (!rs?.length) return { summary: "No responses yet, share the link to start collecting answers." };
     const { generateResponse } = await import("@lovable.dev/ai-gateway");
     const res = await generateResponse({
       model: "openai/gpt-6.1-terra",
-      instructions: "You are Civi, a community organizer. Summarize poll/feedback results for the organization in under 150 words: the headline result, 2-3 themes from comments, and 2 concrete next steps. Plain language, short bullets. Never include people's contact details.",
+      instructions: withNoDashes("You are Civi, a community organizer. Summarize poll/feedback results for the organization in under 150 words: the headline result, 2-3 themes from comments, and 2 concrete next steps. Plain language, short bullets. Never include people's contact details."),
       input: [{ role: "user", content: JSON.stringify({ title: p.title, questions: p.questions, responses: rs.map((r) => r.answers) }).slice(0, 60000) }],
     });
     let text = "";
-    for (const item of res.output ?? []) if (item.type === "message") for (const c of item.content ?? []) if (c.type === "output_text") text += c.text;
+    for (const item of res.output ?? []) if (item.type === "message") for (const c of item.content ?? []) if (c.type === "output_text") text += noLongDashes(c.text);
     return { summary: text.trim() || "Couldn't summarize right now." };
   });

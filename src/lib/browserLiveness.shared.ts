@@ -34,7 +34,7 @@ export function awaitingBrowserCheck(row: BrowserRowView | null | undefined, che
 }
 
 export const BROWSER_CLOSED_AFTER_FAILURE =
-  "The browser closed while Civi was working. Everything it found so far is saved in this chat — ask Civi to pick it back up.";
+  "The browser closed while Civi was working. Everything it found so far is saved in this chat, ask Civi to pick it back up.";
 export const BROWSER_CLOSED = "This browser session has closed. Everything Civi found is saved in this chat.";
 
 /** Friendly text shown in place of the live view once the browser is gone. */

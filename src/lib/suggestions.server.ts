@@ -1,3 +1,4 @@
+import { noLongDashes, withNoDashes } from "./punctuation.shared";
 import { isScoutBriefing } from "./discovery.shared";
 import { generateResponse } from "@lovable.dev/ai-gateway";
 
@@ -26,10 +27,10 @@ export async function generateSuggestions(supabase: Db, userId: string, threadId
     "Each label is 2-6 words, action-first (e.g. \"Add Page contact details\"). Each prompt is what the organizer would say to you to do it. If it needs the live browser (Facebook etc.) and a browser is open, set browser_goal to a concrete browser instruction that never joins, posts or submits without approval.",
     'Reply ONLY JSON: {"items":[{"label":"...","prompt":"...","browser_goal":"optional"}]}',
   ].join("\n");
-  const input = `Org: ${org?.name ?? "?"} — ${org?.mission ?? ""}\nLocation: ${org?.facebook_setup_location ?? "unknown"}\nPending approvals: ${(aps ?? []).map((a: { title: string }) => a.title).join("; ") || "none"}\nOpen browser: ${browsers?.[0] ? `${browsers[0].site ?? "?"} signed_in=${browsers[0].signed_in} status=${browsers[0].agent_status}` : "none"}\n\nChat:\n${transcript || "(empty)"}`;
-  const res = await generateResponse({ model: "openai/gpt-6.1-terra", instructions, input });
+  const input = `Org: ${org?.name ?? "?"}, ${org?.mission ?? ""}\nLocation: ${org?.facebook_setup_location ?? "unknown"}\nPending approvals: ${(aps ?? []).map((a: { title: string }) => a.title).join("; ") || "none"}\nOpen browser: ${browsers?.[0] ? `${browsers[0].site ?? "?"} signed_in=${browsers[0].signed_in} status=${browsers[0].agent_status}` : "none"}\n\nChat:\n${transcript || "(empty)"}`;
+  const res = await generateResponse({ model: "openai/gpt-6.1-terra", instructions: withNoDashes(instructions), input });
   let text = "";
-  for (const item of res.output ?? []) if (item.type === "message") for (const c of item.content ?? []) if (c.type === "output_text") text += c.text;
+  for (const item of res.output ?? []) if (item.type === "message") for (const c of item.content ?? []) if (c.type === "output_text") text += noLongDashes(c.text);
   let items: Suggestion[] = [];
   try {
     const parsed = JSON.parse(text.slice(text.indexOf("{"), text.lastIndexOf("}") + 1)) as { items?: Suggestion[] };

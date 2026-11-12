@@ -4,7 +4,7 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { encryptToken } from "@/lib/tokenCrypto.server";
 
-// Nextdoor Share API OAuth 2.0 — https://developer.nextdoor.com/reference/sharing-get-authorization-code
+// Nextdoor Share API OAuth 2.0, https://developer.nextdoor.com/reference/sharing-get-authorization-code
 const AUTHORIZE_URL = "https://www.nextdoor.com/v3/authorize/";
 const TOKEN_URL = "https://auth.nextdoor.com/v2/token";
 const SCOPES = "openid post:write post:read profile:read";
@@ -26,7 +26,7 @@ export const startNextdoorConnect = createServerFn({ method: "POST" })
   .handler(async () => {
     const clientId = process.env["NEXTDOOR_CLIENT_ID"];
     if (!clientId) {
-      throw new Error("Nextdoor isn't configured yet — the app key still needs to be added.");
+      throw new Error("Nextdoor isn't configured yet, the app key still needs to be added.");
     }
     const params = new URLSearchParams({
       response_type: "code",
@@ -45,7 +45,7 @@ export const completeNextdoorConnect = createServerFn({ method: "POST" })
     const clientId = process.env["NEXTDOOR_CLIENT_ID"];
     const clientSecret = process.env["NEXTDOOR_CLIENT_SECRET"];
     if (!clientId || !clientSecret) {
-      throw new Error("Nextdoor isn't configured yet — the app credentials still need to be added.");
+      throw new Error("Nextdoor isn't configured yet, the app credentials still need to be added.");
     }
 
     const tokenRes = await fetch(TOKEN_URL, {

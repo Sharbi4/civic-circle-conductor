@@ -1,3 +1,4 @@
+import { noLongDashes, withNoDashes } from "./punctuation.shared";
 // Background research via Perplexity Search (managed, search-only) + Lovable AI synthesis.
 import { generateResponse } from "@lovable.dev/ai-gateway";
 
@@ -21,7 +22,7 @@ export async function perplexitySearch(queries: string[], max = 5): Promise<Sear
 }
 
 export function formatHits(hits: SearchHit[], n = 20) {
-  return hits.slice(0, n).map((h, i) => `[${i + 1}] ${h.title} — ${h.url}\n${(h.snippet ?? "").slice(0, 400)}`).join("\n\n");
+  return hits.slice(0, n).map((h, i) => `[${i + 1}] ${h.title}, ${h.url}\n${(h.snippet ?? "").slice(0, 400)}`).join("\n\n");
 }
 
 /** Researches the org at onboarding and returns memory lines + vendor/venue resources. */
@@ -36,11 +37,11 @@ export async function researchOrganization(name: string, mission: string, area =
   if (!hits.length) return { memories: [] as string[], resources: [] as { type: string; name: string; details: string; source: string }[], hits };
   const res = await generateResponse({
     model: "openai/gpt-6.1-terra",
-    instructions: `You build background awareness for Civi, an AI community organizer for "${name}" (mission: ${mission}). From the search results, return ONLY JSON: {"memories":["..."],"resources":[{"type":"vendor|venue|nonprofit|group|event","name":"...","details":"one line","source":"https://..."}]}. memories: 6-10 short, specific facts useful for organizing (local issues, allied orgs, recurring events, audience insights, timing/season notes) — each ends with (source: domain). resources: up to 10 real vendors, venues, allied nonprofits or events from the results with their URL. Never invent anything not in the results.`,
+    instructions: withNoDashes(`You build background awareness for Civi, an AI community organizer for "${name}" (mission: ${mission}). From the search results, return ONLY JSON: {"memories":["..."],"resources":[{"type":"vendor|venue|nonprofit|group|event","name":"...","details":"one line","source":"https://..."}]}. memories: 6-10 short, specific facts useful for organizing (local issues, allied orgs, recurring events, audience insights, timing/season notes), each ends with (source: domain). resources: up to 10 real vendors, venues, allied nonprofits or events from the results with their URL. Never invent anything not in the results.`),
     input: formatHits(hits, 25),
   });
   let text = "";
-  for (const it of res.output ?? []) if (it.type === "message") for (const c of it.content ?? []) if (c.type === "output_text") text += c.text;
+  for (const it of res.output ?? []) if (it.type === "message") for (const c of it.content ?? []) if (c.type === "output_text") text += noLongDashes(c.text);
   try {
     const p = JSON.parse(text.slice(text.indexOf("{"), text.lastIndexOf("}") + 1)) as { memories?: string[]; resources?: { type: string; name: string; details: string; source: string }[] };
     return { memories: (p.memories ?? []).filter(Boolean).slice(0, 10).map((m) => String(m).slice(0, 400)), resources: (p.resources ?? []).filter((r) => r?.name).slice(0, 10), hits };

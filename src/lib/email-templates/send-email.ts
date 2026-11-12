@@ -12,7 +12,7 @@ const SITE_NAME = "Civic Circle Conductor"
 // It MUST match the sender verified in Lovable's email setup.
 const SENDER_DOMAIN = "notify.civimeet.com"
 // FROM_DOMAIN is the domain shown in the From: header (e.g., "example.com").
-// Can be the root domain when display_from_root is enabled — this is cosmetic only.
+// Can be the root domain when display_from_root is enabled, this is cosmetic only.
 const FROM_DOMAIN = "notify.civimeet.com"
 
 export type SendTemplateEmailResult =
@@ -30,7 +30,7 @@ export interface SendTemplateEmailOptions {
  * Renders a registered template and sends it through Lovable's managed email
  * API. Suppression, retries, and rate limits are enforced by Lovable
  * server-side. A suppressed recipient is an expected outcome
- * ({ sent: false }); any other failure throws — EmailAPIError exposes
+ * ({ sent: false }); any other failure throws, EmailAPIError exposes
  * .code and .status for branching.
  */
 export async function sendTemplateEmail(
@@ -50,7 +50,7 @@ export async function sendTemplateEmail(
     )
   }
 
-  // Template-level `to` takes precedence — notification templates always
+  // Template-level `to` takes precedence, notification templates always
   // send to their fixed address.
   const recipient = template.to || to
   if (!recipient) {

@@ -47,7 +47,7 @@ export function buildLaunchPlan(ev: LaunchEvent, conns: LaunchConnections): Laun
     conns.facebook && conns.browserAvailable
       ? { key: "facebook_event", title: "Facebook event", status: "queued" }
       : conns.facebook
-        ? { key: "facebook_event", title: "Facebook event", status: "pending", note: "Live browser is unavailable right now — ask Civi to retry" }
+        ? { key: "facebook_event", title: "Facebook event", status: "pending", note: "Live browser is unavailable right now, ask Civi to retry" }
         : { key: "facebook_event", title: "Facebook event", status: "needs_connect", note: "Save your Facebook login under the key icon → Saved logins to run this step" },
     conns.x
       ? { key: "share_x", title: "Share on X", status: "queued" }
@@ -65,7 +65,7 @@ export function buildLaunchPlan(ev: LaunchEvent, conns: LaunchConnections): Laun
 
 export function launchStatusLine(plan: LaunchStep[]): string {
   const icon = (s: LaunchStep["status"]) => s === "done" ? "✅" : s === "queued" ? "⏳" : s === "needs_connect" ? "🔌" : "⬜";
-  return plan.map((s, i) => `${i + 1}. ${icon(s.status)} ${s.title}${s.note ? ` — ${s.note}` : s.status === "queued" ? " — queued for approval" : ""}`).join("\n");
+  return plan.map((s, i) => `${i + 1}. ${icon(s.status)} ${s.title}${s.note ? `, ${s.note}` : s.status === "queued" ? ", queued for approval" : ""}`).join("\n");
 }
 
 const stripHtml = (s: string) => s.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
@@ -74,7 +74,7 @@ const stripHtml = (s: string) => s.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ")
  * Kicks off the event launch chain after an Eventbrite listing is created: records the event as a goal
  * with per-step tasks, queues the connected-platform actions for approval, starts the Facebook event in
  * the live browser when possible, and posts a status message prompting to connect or skip what's missing.
- * Never throws — a chain hiccup must not fail the Eventbrite creation it follows.
+ * Never throws, a chain hiccup must not fail the Eventbrite creation it follows.
  */
 export async function startEventLaunchChain(db: Db, userId: string, ev: LaunchEvent): Promise<void> {
   try {
@@ -87,7 +87,7 @@ export async function startEventLaunchChain(db: Db, userId: string, ev: LaunchEv
         await finishPlanStep(db, userId, goal.id, "eventbrite", ev.url);
         if (ev.rsvpId) await finishPlanStep(db, userId, goal.id, "rsvp", `https://civimeet.com/p/${ev.rsvpId}`);
         if (!goal.due_date && /^\d{4}-\d{2}-\d{2}/.test(ev.start)) await db.from("tasks").update({ due_date: ev.start.slice(0, 10) }).eq("id", goal.id).eq("user_id", userId);
-        await db.from("messages").insert({ thread_id: ev.threadId, user_id: userId, role: "assistant", content: `🚀 **Eventbrite is set for “${ev.title}”.** That unlocks the promotion steps — the LinkedIn event, posts on X and LinkedIn, the Facebook Page post and email invites now run side by side, each waiting for your approval before anything goes out. Reminders and the thank-you follow-up are on a timer around the event date.\n\n- 📅 Add to Google Calendar: ${addToCalendarUrl(ev)}\n- 📋 Listing: ${ev.url}` });
+        await db.from("messages").insert({ thread_id: ev.threadId, user_id: userId, role: "assistant", content: `🚀 **Eventbrite is set for “${ev.title}”.** That unlocks the promotion steps, the LinkedIn event, posts on X and LinkedIn, the Facebook Page post and email invites now run side by side, each waiting for your approval before anything goes out. Reminders and the thank-you follow-up are on a timer around the event date.\n\n- 📅 Add to Google Calendar: ${addToCalendarUrl(ev)}\n- 📋 Listing: ${ev.url}` });
         return;
       }
     }
@@ -133,7 +133,7 @@ export async function startEventLaunchChain(db: Db, userId: string, ev: LaunchEv
 
     const desc = stripHtml(ev.description).slice(0, 800);
     const when = new Date(ev.start).toLocaleString("en-US", { timeZone: ev.timezone, weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
-    const imagePrompt = `Warm, authentic community event photo for "${ev.title}" — ${desc.slice(0, 200)}`;
+    const imagePrompt = `Warm, authentic community event photo for "${ev.title}", ${desc.slice(0, 200)}`;
     const approvals: Omit<Database["public"]["Tables"]["approvals"]["Insert"], "user_id" | "thread_id">[] = [];
     if (linkedin) {
       approvals.push({
@@ -143,14 +143,14 @@ export async function startEventLaunchChain(db: Db, userId: string, ev: LaunchEv
       });
       approvals.push({
         action_type: "outreach", title: "Share the event on LinkedIn",
-        details: `📅 ${ev.title} — ${when}. RSVP: ${rsvpUrl}`,
+        details: `📅 ${ev.title}, ${when}. RSVP: ${rsvpUrl}`,
         payload: { kind: "linkedin_post", text: `📅 You're invited: ${ev.title}\n\n${when} · ${ev.location}\n\n${desc.slice(0, 400)}\n\nRSVP here: ${rsvpUrl}\nAdd to your calendar: ${calUrl}`, image_prompt: imagePrompt, launch_task_id: taskIdByKey.get("share_linkedin") },
       });
     }
     if (xConn) {
       approvals.push({
         action_type: "outreach", title: "Share the event on X",
-        details: `📅 ${ev.title} — ${when}. RSVP: ${rsvpUrl}`,
+        details: `📅 ${ev.title}, ${when}. RSVP: ${rsvpUrl}`,
         payload: { kind: "x_post", text: `📅 ${ev.title}\n${when} · ${ev.location}\nRSVP: ${rsvpUrl}`.slice(0, 280), image_prompt: imagePrompt, launch_task_id: taskIdByKey.get("share_x") },
       });
     }
@@ -180,8 +180,8 @@ export async function startEventLaunchChain(db: Db, userId: string, ev: LaunchEv
         browserNote = `\n\n[[browser: ${id} | ${fbTask}]]`;
       } catch (e) {
         console.error("Launch chain browser start failed", e);
-        browserNote = "\n\n⚠️ I couldn't open the live browser for the Facebook event just now — ask me to retry it.";
-        if (taskIdByKey.get("facebook_event")) await db.from("tasks").update({ last_error: "Browser start failed — ask Civi to retry" }).eq("id", taskIdByKey.get("facebook_event")!);
+        browserNote = "\n\n⚠️ I couldn't open the live browser for the Facebook event just now, ask me to retry it.";
+        if (taskIdByKey.get("facebook_event")) await db.from("tasks").update({ last_error: "Browser start failed, ask Civi to retry" }).eq("id", taskIdByKey.get("facebook_event")!);
       }
     }
 
@@ -189,7 +189,7 @@ export async function startEventLaunchChain(db: Db, userId: string, ev: LaunchEv
     if (ev.threadId) {
       await db.from("messages").insert({
         thread_id: ev.threadId, user_id: userId, role: "assistant",
-        content: `🚀 **Launch chain started for “${ev.title}”** — I'm working it step by step:\n\n${launchStatusLine(plan)}\n\n- 📅 Add to Google Calendar: ${calUrl}\n- 📋 RSVP page: ${rsvpUrl}\n\nTrack every step under **Goals & tasks → “Launch: ${ev.title}”** — tap it for the live progress here in chat.${missing.length ? `\n\n${missing.length === 1 ? "One platform isn't" : "Some platforms aren't"} connected yet — connect ${missing.map((s) => s.title.replace(/^(Share on |Create & publish )/, "")).join(" and ")} to continue, or skip ${missing.length === 1 ? "it" : "them"}.\n\n[[choices: I'll connect it | Skip for now]]` : ""}${browserNote}`,
+        content: `🚀 **Launch chain started for “${ev.title}”**. I'm working it step by step:\n\n${launchStatusLine(plan)}\n\n- 📅 Add to Google Calendar: ${calUrl}\n- 📋 RSVP page: ${rsvpUrl}\n\nTrack every step under **Goals & tasks → “Launch: ${ev.title}”**, tap it for the live progress here in chat.${missing.length ? `\n\n${missing.length === 1 ? "One platform isn't" : "Some platforms aren't"} connected yet, so connect ${missing.map((s) => s.title.replace(/^(Share on |Create & publish )/, "")).join(" and ")} to continue, or skip ${missing.length === 1 ? "it" : "them"}.\n\n[[choices: I'll connect it | Skip for now]]` : ""}${browserNote}`,
       });
     }
   } catch (e) {

@@ -13,7 +13,7 @@ const STEPS = [
     ),
   },
   {
-    k: "02", title: "It shows up, every day", body: "Civi answers questions in community groups, posts updates and replies to comments — building trust before you ever ask.",
+    k: "02", title: "It shows up, every day", body: "Civi answers questions in community groups, posts updates and replies to comments, building trust before you ever ask.",
     visual: (
       <div className="space-y-3">
         <Row icon={<MessageCircle className="h-4 w-4" />} t="Answered: “Where's free produce this Saturday?”" s="Tucson Neighbors · 2m ago" />
@@ -28,7 +28,7 @@ const STEPS = [
       <div className="rounded-2xl bg-background/60 p-5">
         <div className="flex items-center gap-2 text-xs text-muted-foreground"><CalendarDays className="h-4 w-4" /> Draft event</div>
         <p className="mt-2 text-xl font-semibold">Spring Volunteer Cookout</p>
-        <p className="text-sm text-muted-foreground">Sat, Apr 18 · 9–11am · Reid Park</p>
+        <p className="text-sm text-muted-foreground">Sat, Apr 18 · 9-11am · Reid Park</p>
         <div className="mt-4 flex flex-wrap gap-2 text-xs">
           {["2 food trucks · quote $640", "120 expected", "Cover image ready"].map((x) => <span key={x} className="rounded-full bg-secondary px-3 py-1">{x}</span>)}
         </div>
@@ -40,7 +40,7 @@ const STEPS = [
     visual: (
       <div className="rounded-2xl bg-background/60 p-5">
         <div className="flex items-center gap-2 text-xs text-muted-foreground"><ShieldCheck className="h-4 w-4" /> Needs your approval</div>
-        <p className="mt-2 font-medium">Book Sonoran Tacos for Apr 18 — $320</p>
+        <p className="mt-2 font-medium">Book Sonoran Tacos for Apr 18, $320</p>
         <div className="mt-4 flex gap-2">
           <span className="rounded-full bg-primary px-4 py-1.5 text-sm text-primary-foreground">Approve</span>
           <span className="rounded-full bg-secondary px-4 py-1.5 text-sm">Decline</span>

@@ -14,8 +14,8 @@ export const Route = createFileRoute("/p/$id")({
     return poll;
   },
   head: ({ loaderData }) => {
-    const t = loaderData ? `${loaderData.title}${loaderData.orgName ? ` — ${loaderData.orgName}` : ""}` : "Poll — Civi Meet";
-    const d = loaderData?.description || "Share your voice — it takes less than a minute.";
+    const t = loaderData ? `${loaderData.title}${loaderData.orgName ? `, ${loaderData.orgName}` : ""}` : "Poll, Civi Meet";
+    const d = loaderData?.description || "Share your voice, it takes less than a minute.";
     return { meta: [
       { title: t }, { name: "description", content: d },
       { property: "og:title", content: t }, { property: "og:description", content: d },
@@ -58,7 +58,7 @@ function PollPage() {
         {poll.description && <p className="mt-2 text-muted-foreground">{poll.description}</p>}
         {poll.event && <EventCard e={poll.event} />}
         {done ? (
-          <p className="mt-8 rounded-2xl bg-secondary p-5 text-center">Thank you — your response was recorded.</p>
+          <p className="mt-8 rounded-2xl bg-secondary p-5 text-center">Thank you, your response was recorded.</p>
         ) : poll.status !== "open" ? (
           <p className="mt-8 text-muted-foreground">This poll is closed.</p>
         ) : (
@@ -112,7 +112,7 @@ function EventCard({ e }: { e: NonNullable<ReturnType<typeof Route.useLoaderData
       {e.image && <img src={e.image} alt="" className="aspect-[2/1] w-full object-cover" />}
       <div className="space-y-1.5 p-4 text-sm">
         <div className="font-medium">{e.title}</div>
-        {start && <div className="text-muted-foreground">🗓 {start}{endT ? ` – ${endT}` : ""}</div>}
+        {start && <div className="text-muted-foreground">🗓 {start}{endT ? `, ${endT}` : ""}</div>}
         {e.location && <div className="text-muted-foreground">📍 {e.location}</div>}
         {e.url && <a href={e.url} target="_blank" rel="noreferrer" className="inline-block pt-1 font-medium text-primary underline underline-offset-4">View event page ↗</a>}
       </div>

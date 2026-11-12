@@ -97,10 +97,10 @@ export const runXApproval = createServerFn({ method: "POST" })
 
 export const X_WELCOME = (accountName: string) => `Hi! I'm your **X agent**, connected to **${accountName}**. Here's what I can do:
 
-- **Write posts** — short, punchy posts about your events, calls to action and wins
-- **Add a photo** — I can make an image for a post or use one you upload
-- **Promote events** — announce an event, then post reminders as it gets closer
-- **Recurring posts** — set up weekly roundups, volunteer calls or reminders on a schedule
+- **Write posts**, short, punchy posts about your events, calls to action and wins
+- **Add a photo**, I can make an image for a post or use one you upload
+- **Promote events**, announce an event, then post reminders as it gets closer
+- **Recurring posts**, set up weekly roundups, volunteer calls or reminders on a schedule
 
 Every post waits for your OK in Approvals before it goes live. What should we start with?
 

@@ -13,9 +13,9 @@ async function call(userId: string, connectorId: Cid, path: string, init?: Reque
   const { getConnectionForUser } = await import("./appUserConnections.server");
   const { callAsAppUser, appUserReconnectRequired } = await import("@/integrations/lovable/appUserConnector");
   const c = await getConnectionForUser(userId, connectorId);
-  if (!c) throw new Error(`${label(connectorId)} isn't connected — connect it in Connectors.`);
+  if (!c) throw new Error(`${label(connectorId)} isn't connected, connect it in Connectors.`);
   const res = await callAsAppUser({ gatewayBaseUrl: GATEWAY, connectionAPIKey: c.key, connectorId, path, ...(init ? { init } : {}), requiredScopes: SCOPES[connectorId] });
-  if (await appUserReconnectRequired(res)) throw new Error(`${label(connectorId)} access needs to be renewed — press Reconnect next to it in Connectors.`);
+  if (await appUserReconnectRequired(res)) throw new Error(`${label(connectorId)} access needs to be renewed, press Reconnect next to it in Connectors.`);
   if (!res.ok) { const body = await res.text(); console.error(`${connectorId} ${path} [${res.status}]: ${body.slice(0, 500)}`); throw new Error(`${label(connectorId)} said no (${res.status}): ${body.slice(0, 200)}`); }
   return res;
 }
@@ -97,12 +97,12 @@ export async function executeGoogleApproval(db: Db, userId: string, approvalId: 
     const raw = b64(`To: ${clean(p.to)}\r\n${p.cc ? `Cc: ${clean(p.cc)}\r\n` : ""}${p.bcc ? `Bcc: ${clean(p.bcc)}\r\n` : ""}Subject: ${hdr(clean(p.subject))}\r\n${refs}MIME-Version: 1.0\r\nContent-Type: text/plain; charset="UTF-8"\r\n\r\n${p.body}`).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
     if (kind === "gmail_draft") {
       await call(userId, "google_mail", "/gmail/v1/users/me/drafts", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message: threadId ? { raw, threadId } : { raw } }) });
-      await say(`✅ Saved a draft to **${clean(p.to)}** — “${clean(p.subject)}” in your Gmail Drafts.`);
+      await say(`✅ Saved a draft to **${clean(p.to)}**, “${clean(p.subject)}” in your Gmail Drafts.`);
       return { ok: true };
     }
     const sent = (await (await call(userId, "google_mail", "/gmail/v1/users/me/messages/send", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(threadId ? { raw, threadId } : { raw }) })).json().catch(() => ({}))) as { id?: string };
     const bccCount = p.bcc ? p.bcc.split(",").filter((x) => x.trim()).length : 0;
-    await say(`✅ Email sent to **${clean(p.to)}**${bccCount ? ` and ${bccCount} people (privately, by Bcc)` : ""} — “${clean(p.subject)}”.`);
+    await say(`✅ Email sent to **${clean(p.to)}**${bccCount ? ` and ${bccCount} people (privately, by Bcc)` : ""}, “${clean(p.subject)}”.`);
     return { ok: true, url: sent.id ? `https://mail.google.com/mail/u/0/#sent/${sent.id}` : undefined };
   }
   if (kind === "calendar_cancel") {

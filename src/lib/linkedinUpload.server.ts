@@ -18,7 +18,7 @@ export async function uploadLinkedInImage(
     const body = await response.text();
     // Provider bodies may contain signed upload URLs; keep those out of logs/UI.
     console.error(`LinkedIn photo transfer failed [${response.status}]; provider returned ${body ? 'an error body' : 'no error body'}`);
-    throw new Error(`Post not published — LinkedIn photo upload failed [${response.status}]. Your approved draft and photo are retained.`);
+    throw new Error(`Post not published, LinkedIn photo upload failed [${response.status}]. Your approved draft and photo are retained.`);
   }
   return response;
 }

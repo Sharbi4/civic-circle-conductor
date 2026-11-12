@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { noLongDashes } from "@/lib/punctuation.shared";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { createContext, useContext, useEffect, useRef, useState } from "react";
@@ -31,8 +32,8 @@ import { plainChoice } from '@/lib/browserProgress.shared';
 
 export const Route = createFileRoute("/_authenticated/chat/$threadId")({
   head: () => ({ meta: [
-    { title: "Agent conversation — Civi Meet" }, { name: "description", content: "Plan outreach and community events with Civi and your connected channel agents." },
-    { property: "og:title", content: "Agent conversation — Civi Meet" }, { property: "og:description", content: "Organization-specific organizing help from Civi." },
+    { title: "Agent conversation, Civi Meet" }, { name: "description", content: "Plan outreach and community events with Civi and your connected channel agents." },
+    { property: "og:title", content: "Agent conversation, Civi Meet" }, { property: "og:description", content: "Organization-specific organizing help from Civi." },
     { property: "og:type", content: "website" }, { name: "twitter:card", content: "summary" },
   ] }),
   component: ThreadPage,
@@ -90,7 +91,7 @@ function flattenText(node: React.ReactNode): string {
 
 function MessageBody({ content, onAction }: { content: string; onAction?: ((text: string) => void) | undefined }) {
   const eventId = content.match(/\[\[eventbrite_draft:(\d+)\]\]/)?.[1] ?? content.match(/https:\/\/www\.eventbrite\.com\/myevent\?eid=(\d+)/)?.[1];
-  content = content.replace(/\[\[eventbrite_draft:\d+\]\]/g, '');
+  content = noLongDashes(content.replace(/\[\[eventbrite_draft:\d+\]\]/g, ''));
   type Part = { kind: "text"; text: string } | { kind: "browser"; id: string; task: string } | { kind: "image"; role: string; path: string } | { kind: "doc"; id: string; title: string; dkind: string };
   const parts: Part[] = [];
   let last = 0;
@@ -367,12 +368,12 @@ function BrowserCard({ sessionRowId, task }: { sessionRowId: string; task: strin
           {agent === "needs_user" && (
             <div className="flex flex-wrap items-center justify-between gap-2 border-t bg-secondary px-4 py-3">
               <p className="text-sm"><span className="font-semibold">Your turn:</span> {handoffText(session.data?.handoff_reason)}</p>
-              <Button size="sm" onClick={() => toggleDrive(true)}>Done — Civi, continue</Button>
+              <Button size="sm" onClick={() => toggleDrive(true)}>Done, Civi, continue</Button>
             </div>
           )}
           {agent === "stopped" && session.data?.connect_url && (
             <div className="flex flex-wrap items-center justify-between gap-2 border-t px-4 py-2.5">
-              <p className="text-xs text-muted-foreground">You have control — Civi is paused until you hand it back.</p>
+              <p className="text-xs text-muted-foreground">You have control, Civi is paused until you hand it back.</p>
               <Button size="sm" variant="outline" onClick={() => toggleDrive(true)}>Give control back to Civi</Button>
             </div>
           )}
@@ -384,7 +385,7 @@ function BrowserCard({ sessionRowId, task }: { sessionRowId: string; task: strin
                 <span className="relative inline-flex h-2 w-2 rounded-full bg-primary" />
               </span>
               <span key={steps.length} className="min-w-0 flex-1 truncate animate-in fade-in slide-in-from-bottom-1 duration-300">
-                <span className="font-semibold text-foreground">{steps.length}.</span> {friendlyStep(steps[steps.length - 1]!.note)}
+                <span className="font-semibold text-foreground">{steps.length}.</span> {noLongDashes(friendlyStep(steps[steps.length - 1]!.note))}
               </span>
               <span className="shrink-0 text-[10px] uppercase tracking-wide">View all</span>
             </button>
@@ -411,7 +412,7 @@ function BrowserCard({ sessionRowId, task }: { sessionRowId: string; task: strin
                 </div>
                 <ol className="max-h-[65vh] space-y-1.5 overflow-y-auto px-4 py-3 text-xs text-muted-foreground">
                   {steps.map((st, i) => (
-                    <li key={i}><span className="font-semibold text-foreground">{i + 1}.</span> {friendlyStep(st.note)}</li>
+                    <li key={i}><span className="font-semibold text-foreground">{i + 1}.</span> {noLongDashes(friendlyStep(st.note))}</li>
                   ))}
                 </ol>
               </div>
@@ -438,9 +439,9 @@ function BrowserCard({ sessionRowId, task }: { sessionRowId: string; task: strin
 }
 
 const LEAD_ACTIONS = [
-  { Icon: CalendarHeart, title: "Plan an Event", desc: "Research, organize, promote & measure", prompt: "I want to plan an event. Walk me through it — start by asking what kind of event, where, when, how many people, budget, venue, vendors, audience and goal." },
+  { Icon: CalendarHeart, title: "Plan an Event", desc: "Research, organize, promote & measure", prompt: "I want to plan an event. Walk me through it, start by asking what kind of event, where, when, how many people, budget, venue, vendors, audience and goal." },
   { Icon: Megaphone, title: "Social Outreach", desc: "Campaigns, posts & follow-up", prompt: "I want to run a social outreach campaign. Ask me about my goal, audience, location, channels and schedule, then build a content and engagement plan." },
-  { Icon: Vote, title: "Poll Your Community", desc: "Feedback & community priorities", prompt: "I want to poll my community — show me the ready-made forms." },
+  { Icon: Vote, title: "Poll Your Community", desc: "Feedback & community priorities", prompt: "I want to poll my community, show me the ready-made forms." },
   { Icon: HeartPulse, title: "Analyze Sentiment", desc: "How communities respond to you", prompt: "I want to analyze community sentiment. Ask me which communities and date range to focus on, then identify recurring themes, concerns and support." },
   { Icon: Mail, title: "Email Campaign", desc: "Approved outreach, sent & tracked", prompt: "I want to run an email campaign. Ask me about the objective, audience and timing, then draft the content." },
   { Icon: Phone, title: "Phone Outreach", desc: "Calls, responses & follow-up", prompt: "I want to coordinate phone outreach. Ask me about the purpose, contacts, script and schedule." },
@@ -601,7 +602,7 @@ function ChatWindow({ threadId }: { threadId: string }) {
           const buf = new Uint8Array(await blob.arrayBuffer());
           let bin = ""; for (let i = 0; i < buf.length; i += 0x8000) bin += String.fromCharCode(...buf.subarray(i, i + 0x8000));
           const { text } = await transcribe({ data: { audio: btoa(bin), mime: blob.type } });
-          if (text) submit(text); else toast("I didn't catch that — try again.");
+          if (text) submit(text); else toast("I didn't catch that, try again.");
         } catch (e) { toast.error(e instanceof Error ? e.message : "Couldn't hear that"); }
         finally { setRec("idle"); }
       };
@@ -684,7 +685,7 @@ function ChatWindow({ threadId }: { threadId: string }) {
     <>
       <PinnedBrowser.Provider value={pinned.data?.id ?? null}>
       <ChatSearch threadId={threadId} leadActions={LEAD_ACTIONS} />
-      {(callStatus.data?.active || callStatus.data?.unavailable) ? <div role="status" className="border-b px-5 py-2 text-center text-sm text-muted-foreground">{callStatus.data.unavailable ? "Call report unavailable — checking again shortly. No automatic redial." : "Availability call in progress — the report will appear here when it ends."}</div> : null}
+      {(callStatus.data?.active || callStatus.data?.unavailable) ? <div role="status" className="border-b px-5 py-2 text-center text-sm text-muted-foreground">{callStatus.data.unavailable ? "Call report unavailable, checking again shortly. No automatic redial." : "Availability call in progress, the report will appear here when it ends."}</div> : null}
       <div className="flex-1 overflow-y-auto">
         {pinned.data && (
           <div className="sticky top-0 z-20 border-b bg-background/85 px-5 py-2 backdrop-blur">
@@ -752,8 +753,8 @@ function ChatWindow({ threadId }: { threadId: string }) {
                 <div key={m.id} id={`msg-${m.id}`} className="rounded-3xl">
                   <div className="max-w-[92%] rounded-3xl bg-bubble px-6 py-4">
                     <MessageBody content={tidyStepHeading(m.content).replace(CHOICES_MARKER, "").replace(/\[\[(form_library|letterhead_check)\]\]/g, "").trim()}
-                      onAction={m.content.includes("What would you like me to do") ? (t) => submit(`${t} — yes, do the one you just suggested.`) : undefined} />
-                    {m.content.includes("[[letterhead_check]]") && m.id === all[all.length - 1]?.id && <LetterheadPrompt onDone={() => submit("Letterhead details are saved — go ahead and create the document.")} onSkipped={() => submit("Skip the missing letterhead details for now and create the document using only the details already provided. Do not ask for letterhead details again this session.")} />}
+                      onAction={m.content.includes("What would you like me to do") ? (t) => submit(`${t}, yes, do the one you just suggested.`) : undefined} />
+                    {m.content.includes("[[letterhead_check]]") && m.id === all[all.length - 1]?.id && <LetterheadPrompt onDone={() => submit("Letterhead details are saved, go ahead and create the document.")} onSkipped={() => submit("Skip the missing letterhead details for now and create the document using only the details already provided. Do not ask for letterhead details again this session.")} />}
                     {m.content.includes("[[form_library]]") && m.id === all[all.length - 1]?.id && <FormLibrary logo={orgQ.data?.logo_url} orgName={orgQ.data?.name} onDone={(t) => submit(t)} />}
                   </div>
                   {m.id !== "p" && (

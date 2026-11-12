@@ -23,7 +23,7 @@ export const FORM_TEMPLATES: Spec[] = [
     { id: "q2", q: "What did you enjoy most?", type: "text" },
     { id: "q3", q: "What should we change next time?", type: "text" },
     { id: "q4", q: "Want to hear about future events?", type: "choice", options: ["Yes", "No"] } ] },
-  { title: "Vendor interest form", kind: "signup", description: "Food trucks, caterers and makers — join our next event.", questions: [
+  { title: "Vendor interest form", kind: "signup", description: "Food trucks, caterers and makers, join our next event.", questions: [
     { id: "q1", q: "What do you offer?", type: "choice", options: ["Food truck", "Catering", "Retail / maker", "Services", "Other"], required: true },
     { id: "q2", q: "Tell us about your business", type: "text" },
     { id: "q3", q: "Your contact info", type: "contact", required: true } ] },
@@ -75,8 +75,8 @@ export function FormLibrary({ logo, orgName, onDone }: { logo?: string | null | 
       const { data, error } = await supabase.from("polls").insert({ user_id: u.user!.id, title: spec.title, kind: spec.kind, description: spec.description, questions: spec.questions as never }).select("id").single();
       if (error || !data) throw error;
       qc.invalidateQueries({ queryKey: ["polls"] }); qc.invalidateQueries({ queryKey: ["my-forms"] });
-      onDone(`I created "${spec.title}" from ${own ? "one of our saved forms" : "a Civi Meet template"}: https://civimeet.com/p/${data.id} — help me tailor it if needed and share it on our connected platforms.`);
-    } catch { toast.error("Couldn't create that form — try again."); }
+      onDone(`I created "${spec.title}" from ${own ? "one of our saved forms" : "a Civi Meet template"}: https://civimeet.com/p/${data.id}, help me tailor it if needed and share it on our connected platforms.`);
+    } catch { toast.error("Couldn't create that form, try again."); }
     setBusy(null);
   }
 

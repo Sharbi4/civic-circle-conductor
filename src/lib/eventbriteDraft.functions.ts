@@ -38,7 +38,7 @@ export const manageEventbriteDraft = createServerFn({ method: 'POST' }).middlewa
     }
     const { error: cancelError } = await context.supabase.from('tasks').update({ done: true, done_at: new Date().toISOString() }).eq('schedule_key', key).eq('user_id', context.userId);
     if (cancelError) throw cancelError;
-    if (data.action === 'save') return { message: 'Saved as draft — not published. No reminder or publishing scheduled.' };
+    if (data.action === 'save') return { message: 'Saved as draft, not published. No reminder or publishing scheduled.' };
     let approvalId: string | undefined;
     if (data.action === 'publish' || data.action === 'schedule') {
       const { data: ap, error } = await context.supabase.from('approvals').insert({ user_id: context.userId, action_type: 'booking', title: `Publish Eventbrite event: ${title}`, status: 'approved', resolved_at: new Date().toISOString(), payload: { kind: 'eventbrite_publish', event_id: data.eventId, connection: eb.revision } }).select('id').single();
@@ -46,7 +46,7 @@ export const manageEventbriteDraft = createServerFn({ method: 'POST' }).middlewa
       approvalId = ap.id;
       if (data.action === 'publish') {
         await executeApproval(context.supabase, context.userId, ap.id, () => publishEventbriteDraft(context.supabase, context.userId, ap.id));
-        return { message: 'Published — live on Eventbrite. People can register now.' };
+        return { message: 'Published, live on Eventbrite. People can register now.' };
       }
     }
     const { data: thread } = await context.supabase.from('threads').select('id').eq('user_id', context.userId).eq('title', 'Eventbrite Agent').maybeSingle();
@@ -55,5 +55,5 @@ export const manageEventbriteDraft = createServerFn({ method: 'POST' }).middlewa
       if (approvalId) await context.supabase.from('approvals').update({ status: 'ignored' }).eq('id', approvalId).is('run_state', null);
       throw error;
     }
-    return { message: data.action === 'remind' ? 'Reminder saved — event stays unpublished.' : 'Publishing scheduled — approved for this event only.' };
+    return { message: data.action === 'remind' ? 'Reminder saved, event stays unpublished.' : 'Publishing scheduled, approved for this event only.' };
   });

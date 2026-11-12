@@ -83,11 +83,11 @@ export const runLinkedInApproval = createServerFn({ method: "POST" })
 
 export const LINKEDIN_WELCOME = (accountName: string) => `Hi! I'm your **LinkedIn agent**, connected to **${accountName}**. What do you want me to do? Here's what I can take off your plate:
 
-- **Share a post** — announce an event, a win, a volunteer call or a partner shout-out, with a photo if you'd like
-- **Create a LinkedIn event** — with a cover image, then promote it
-- **Post on a schedule** — weekly updates, monthly impact recaps or reminders before each event
-- **Grow partnerships** — draft outreach-ready posts that spotlight local partners and sponsors
+- **Share a post**, announce an event, a win, a volunteer call or a partner shout-out, with a photo if you'd like
+- **Create a LinkedIn event**, with a cover image, then promote it
+- **Post on a schedule**, weekly updates, monthly impact recaps or reminders before each event
+- **Grow partnerships**, draft outreach-ready posts that spotlight local partners and sponsors
 
-I'd suggest starting with a quick post about what you're working on right now — or just let me know what you need. Nothing goes live without your OK.
+I'd suggest starting with a quick post about what you're working on right now, or just let me know what you need. Nothing goes live without your OK.
 
 [[choices: Share a post | Create a LinkedIn event | Set up a weekly post | Just let me know what you need]]`;

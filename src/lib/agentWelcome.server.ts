@@ -1,3 +1,4 @@
+import { noLongDashes, withNoDashes } from "./punctuation.shared";
 import { safeTimeZone } from "./zonedTime.shared";
 import { generateResponse } from "@lovable.dev/ai-gateway";
 
@@ -30,9 +31,9 @@ export async function buildAgentWelcome(db: Db, userId: string, agent: AgentKind
     const instructions = [
       `You are Civi's ${c.label} agent, a warm, proactive community organizer, opening a brand-new chat. Today is ${today}.`,
       `Write the first message. Start with one line: "Hi! I'm your **${c.label} agent**, connected to **${accountName}**. What would you like me to do? Here are a few ideas for ${org?.name ?? "your organization"}:"`,
-      `Then one bullet per capability below. Each bullet: **bold capability name** — then a SPECIFIC, creative suggestion phrased as an offer ("Want me to…?", "I can make an event for…", "Should I…?"), tied to THIS org's mission, location, season/upcoming dates, goals, partners or existing events. Name real specifics (neighborhood, date, partner, audience). No generic filler.`,
+      `Then one bullet per capability below. Each bullet: **bold capability name**, then a SPECIFIC, creative suggestion phrased as an offer ("Want me to…?", "I can make an event for…", "Should I…?"), tied to THIS org's mission, location, season/upcoming dates, goals, partners or existing events. Name real specifics (neighborhood, date, partner, audience). No generic filler.`,
       `Capabilities:\n- ${c.caps.join("\n- ")}`,
-      `End with one short line: "Pick one, tweak it, or just let me know what you need — nothing goes live without your OK."`,
+      `End with one short line: "Pick one, tweak it, or just let me know what you need, nothing goes live without your OK."`,
       `Last line exactly: [[choices: A | B | C | Something else]] where A-C are 2-6 word labels for your three best ideas above.`,
       "Plain markdown, under 170 words, no headings, no invented facts about the org (if unknown, keep the idea broadly applicable but still concrete).",
     ].join("\n");
@@ -44,9 +45,9 @@ export async function buildAgentWelcome(db: Db, userId: string, agent: AgentKind
       `Recent forms: ${(polls ?? []).map((p: { title: string }) => p.title).join("; ") || "none"}`,
       extra,
     ].join("\n");
-    const out = await generateResponse({ model: "openai/gpt-6.1-terra", instructions, input });
+    const out = await generateResponse({ model: "openai/gpt-6.1-terra", instructions: withNoDashes(instructions), input });
     let text = "";
-    for (const item of out.output ?? []) if (item.type === "message") for (const p of item.content ?? []) if (p.type === "output_text") text += p.text;
+    for (const item of out.output ?? []) if (item.type === "message") for (const p of item.content ?? []) if (p.type === "output_text") text += noLongDashes(p.text);
     text = text.trim();
     if (text.length < 80 || !/\[\[choices:/.test(text)) return fallback;
     return text;

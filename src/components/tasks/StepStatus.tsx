@@ -1,4 +1,5 @@
 import type { ReactNode, SyntheticEvent } from "react";
+import { noLongDashes } from "@/lib/punctuation.shared";
 import { useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
@@ -20,6 +21,7 @@ export type StepEvent = { title: string; date: string | null; location: string; 
 export function StepStatus({ s, active = false, compact = false, event }: { s: PlanStep; active?: boolean; compact?: boolean; event?: StepEvent }) {
   const state = s.step_state ?? (s.done ? "done" : active ? "running" : "waiting");
   const shown = stepDisplay(state, s.done, s.step_note);
+  if (shown.text) shown.text = noLongDashes(shown.text);
   const info = stepInfo(s.title, s.step_key);
   let icon: ReactNode = null;
   let dot = "bg-secondary";
@@ -72,7 +74,7 @@ function StepActionButton({ action, step, draft, small }: { action: StepAction; 
   }
   if (action === "copy_draft") {
     return (
-      <button type="button" className={cls} onClick={async (e) => { stop(e); try { await navigator.clipboard.writeText(draft ?? ""); toast.success("Draft copied — paste it into the app"); } catch { toast.error("Couldn't copy — open the event chat to copy it"); } }}>
+      <button type="button" className={cls} onClick={async (e) => { stop(e); try { await navigator.clipboard.writeText(draft ?? ""); toast.success("Draft copied, paste it into the app"); } catch { toast.error("Couldn't copy, open the event chat to copy it"); } }}>
         <Copy className="h-3 w-3" /> {STEP_ACTION_LABEL.copy_draft}
       </button>
     );

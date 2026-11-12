@@ -1,4 +1,5 @@
 import { LetterheadCheck, missingLetterhead, shouldShowLetterheadReminder } from "@/components/LetterheadCheck";
+import { noLongDashes } from "@/lib/punctuation.shared";
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRef, useState } from "react";
@@ -14,9 +15,9 @@ import { DocumentPhoto } from "@/components/DocumentPhoto";
 export const Route = createFileRoute("/_authenticated/documents/$id")({
   head: () => ({
     meta: [
-      { title: "Document — Civi Meet" },
+      { title: "Document, Civi Meet" },
       { name: "description", content: "An official document prepared by Civi for your organization." },
-      { property: "og:title", content: "Document — Civi Meet" },
+      { property: "og:title", content: "Document, Civi Meet" },
       { property: "og:description", content: "An official document prepared by Civi for your organization." },
       { property: "og:type", content: "article" },
       { name: "twitter:card", content: "summary" },
@@ -98,7 +99,7 @@ function DocumentPage() {
           <div className="doc-body mt-6">
             <ReactMarkdown remarkPlugins={[remarkGfm]} urlTransform={(url) => url.startsWith("document-photo:") ? url : /^(https?:|mailto:|#|\/)/i.test(url) ? url : ""} components={{
               img: ({ src, alt }) => typeof src === "string" && src.startsWith("document-photo:") ? <DocumentPhoto path={src.slice("document-photo:".length)} alt={alt ?? "Document photograph"} /> : null,
-            }}>{d.content}</ReactMarkdown>
+            }}>{noLongDashes(d.content)}</ReactMarkdown>
           </div>
           <footer className="mt-12 flex justify-between border-t pt-4 text-xs text-muted-foreground">
             <span>{o?.name}</span><span>Prepared with Civi Meet · {date}</span>

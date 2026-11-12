@@ -5,13 +5,13 @@ import logo from "@/assets/civimeet-logo.png.asset.json";
 export const Route = createFileRoute("/privacy")({
   head: () => ({
     meta: [
-      { title: "Privacy Policy — Civi Meet" },
+      { title: "Privacy Policy, Civi Meet" },
       {
         name: "description",
         content:
           "How Civi Meet collects, uses and protects your organization's information, saved logins and connected accounts.",
       },
-      { property: "og:title", content: "Privacy Policy — Civi Meet" },
+      { property: "og:title", content: "Privacy Policy, Civi Meet" },
       {
         property: "og:description",
         content:
@@ -57,7 +57,7 @@ const COLLECTED = [
   },
   {
     title: "What Civi remembers and learns",
-    body: "Facts you or Civi record as durable memory, your focus areas, and the vendor, venue and group leads Civi collects — with the source page for each one.",
+    body: "Facts you or Civi record as durable memory, your focus areas, and the vendor, venue and group leads Civi collects, with the source page for each one.",
   },
   {
     title: "Connected platform accounts",
@@ -248,7 +248,7 @@ function PrivacyPage() {
           <h2 className="font-display text-2xl font-semibold">8. Children and unrelated visitors</h2>
           <p className="mt-4 text-muted-foreground">
             Civi Meet is for adults running organizations. We do not knowingly collect information from children. When
-            Civi reads public community pages, it is there to find groups, vendors and venues — not to build profiles of
+            Civi reads public community pages, it is there to find groups, vendors and venues, not to build profiles of
             individual people.
           </p>
         </section>

@@ -5,9 +5,9 @@ import logo from "@/assets/civimeet-logo.png.asset.json";
 export const Route = createFileRoute("/terms")({
   head: () => ({
     meta: [
-      { title: "Terms of Service — Civi Meet" },
+      { title: "Terms of Service, Civi Meet" },
       { name: "description", content: "The terms for using Civi Meet, including connected accounts, Google and other APIs, the live browser, calls, documents and approvals." },
-      { property: "og:title", content: "Terms of Service — Civi Meet" },
+      { property: "og:title", content: "Terms of Service, Civi Meet" },
       { property: "og:description", content: "Rules for using Civi Meet's AI organizer, connectors, browser automation, calling and document tools." },
       { property: "og:type", content: "article" },
       { name: "twitter:card", content: "summary" },
@@ -79,7 +79,7 @@ function TermsPage() {
         <p className="text-sm text-muted-foreground">Effective November 12, 2026</p>
         <h1 className="mt-3 font-display text-5xl font-semibold tracking-tight md:text-6xl">Terms of Service</h1>
         <p className="mt-6 text-lg text-muted-foreground">
-          These Terms cover everything Civi Meet does — the AI organizer, connected accounts and APIs, the live browser, calls, documents and approvals.
+          These Terms cover everything Civi Meet does, the AI organizer, connected accounts and APIs, the live browser, calls, documents and approvals.
           See also our <Link to="/privacy" className="text-primary underline">Privacy Policy</Link>.
         </p>
         {SECTIONS.map((s, i) => (

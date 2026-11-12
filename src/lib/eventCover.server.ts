@@ -1,4 +1,4 @@
-/** Shared event-cover helpers. Server-only — import only from server function handlers. */
+/** Shared event-cover helpers. Server-only, import only from server function handlers. */
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 /** Downloads a user-uploaded picture from the event-images bucket, scoped to the owning user. */

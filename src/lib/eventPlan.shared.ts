@@ -15,7 +15,7 @@ type Timing = { days: number; hour: number; closesDays?: number };
 export type StepDef = { key: StepKey; title: string; channel: Channel; dependsOn: StepKey[]; when?: Timing; after?: boolean; info: string };
 
 export const EVENT_PLAN: readonly StepDef[] = [
-  { key: "essentials", title: "Pick the date, budget & helpers", channel: "none", dependsOn: [], info: "Set the date, budget and expected turnout — tap to fill in what you know." },
+  { key: "essentials", title: "Pick the date, budget & helpers", channel: "none", dependsOn: [], info: "Set the date, budget and expected turnout, tap to fill in what you know." },
   { key: "venue", title: "Book the venue", channel: "none", dependsOn: ["essentials"], info: "Find, check availability and reserve the space." },
   { key: "rsvp", title: "RSVP sign-up", channel: "forms", dependsOn: ["essentials"], info: "A shareable sign-up so you know who's coming." },
   { key: "eventbrite", title: "Eventbrite", channel: "eventbrite", dependsOn: ["venue"], info: "List the event and open ticketing." },
@@ -134,7 +134,7 @@ export function decideStep(row: PlanRow, byKey: Map<string, PlanRow>, ctx: PlanC
     if (ctx.now < at.getTime()) return { state: "waiting", reason: `Runs ${at.toLocaleString("en-US", { timeZone: tz, month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}` };
   }
   if (def.channel !== "none" && def.channel !== "forms" && !ctx.connected(def.channel))
-    return { state: "skipped", reason: `${channelName(def.channel)} isn't connected — ready-to-paste draft is in the chat` };
+    return { state: "skipped", reason: `${channelName(def.channel)} isn't connected, ready-to-paste draft is in the chat` };
 
   const st = row.step_state ?? "";
   if (PARKED.includes(st)) {
@@ -160,7 +160,7 @@ export function decideStep(row: PlanRow, byKey: Map<string, PlanRow>, ctx: PlanC
   return { state: "ready" };
 }
 
-/** One-line plan status for Civi and the chat, e.g. "Step 6 of 16 — ✅ Eventbrite · ⏳ Post on X …". */
+/** One-line plan status for Civi and the chat, e.g. "Step 6 of 16, ✅ Eventbrite · ⏳ Post on X …". */
 export function planStatus(rows: { step_key: string | null; title: string; step_state: string | null; done: boolean; result_url: string | null }[]): string {
   const ordered = [...rows].filter((r) => stepDef(r.step_key)).sort((a, b) => PLAN_KEYS.indexOf(a.step_key as StepKey) - PLAN_KEYS.indexOf(b.step_key as StepKey));
   const icon = (r: (typeof ordered)[number]) => r.step_state === "skipped" ? "⏭️" : r.done ? "✅" : r.step_state === "awaiting_approval" ? "🟦 approval" : r.step_state === "awaiting_reply" ? "💬 waiting on reply" : r.step_state === "waiting_on" ? "📨 waiting on an outside reply" : r.step_state === "on_hold" ? "⏸️ on hold" : r.step_state === "your_pick" ? "🗳️ organizer's pick" : r.step_state === "declined" ? "↩️ last proposal declined" : r.step_state === "interrupted" ? "⏸️ interrupted" : r.step_state === "failed" ? "⚠️ failed" : r.step_state === "ready" || r.step_state === "running" ? "⏳" : "⬜";
@@ -172,10 +172,10 @@ export function skipDraft(def: StepDef, ev: { title: string; date: string | null
   const when = ev.date ? new Date(`${ev.date}T12:00:00Z`).toLocaleDateString("en-US", { timeZone: "UTC", weekday: "long", month: "long", day: "numeric" }) : "soon";
   const where = ev.location ? ` at ${ev.location}` : "";
   const link = ev.link ? `\nRSVP: ${ev.link}` : "";
-  if (def.key === "tiktok") return `Caption: Come hang out with us! ${ev.title} — ${when}${where}. Free, friendly, and all are welcome 💙${link} #community #Tucson`;
-  if (def.key === "instagram") return `📅 ${ev.title}\n${when}${where}\n\nBring a friend — everyone's welcome.${link ? `\nLink in bio · ${ev.link}` : ""}\n#community #Tucson #getinvolved`;
+  if (def.key === "tiktok") return `Caption: Come hang out with us! ${ev.title}, ${when}${where}. Free, friendly, and all are welcome 💙${link} #community #Tucson`;
+  if (def.key === "instagram") return `📅 ${ev.title}\n${when}${where}\n\nBring a friend, everyone's welcome.${link ? `\nLink in bio · ${ev.link}` : ""}\n#community #Tucson #getinvolved`;
   if (def.channel === "gmail") return `Subject: ${def.key === "thank_you" ? `Thank you for coming to ${ev.title}` : def.key.startsWith("reminder") ? `Reminder: ${ev.title} is ${def.key === "reminder_day" ? "tomorrow" : "next week"}` : `You're invited: ${ev.title}`}\n\nHi there,\n\n${def.key === "thank_you" ? `Thank you for being part of ${ev.title}. We'd love to hear how it went.` : `Join us for ${ev.title} on ${when}${where}.`}${link}\n\nSee you there!`;
-  return `📅 ${ev.title} — ${when}${where}.${link}`;
+  return `📅 ${ev.title}, ${when}${where}.${link}`;
 }
 
 /** Check-ins the scheduler writes into a chat on Civi's behalf; they are not the organizer replying. */

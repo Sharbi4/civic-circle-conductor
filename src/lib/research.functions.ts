@@ -1,3 +1,4 @@
+import { noLongDashes, withNoDashes } from "./punctuation.shared";
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { researchOrganization } from "@/lib/research.server";
@@ -48,10 +49,10 @@ export const scanOrgProfile = createServerFn({ method: "POST" })
     const { generateResponse } = await import("@lovable.dev/ai-gateway");
     const res = await generateResponse({
       model: "openai/gpt-6.1-terra",
-      instructions: `Write a concise organization profile for "${name}" (location: ${org?.address ?? "unknown"}; mission: ${org?.mission ?? "unknown"}) that an AI organizer will use as background. Plain text, 5 short labeled lines: Who they are, Audience, Programs & events, Voice & tone, Online presence (what needs TLC). Under 120 words total. Only use facts from the sources; say "unknown" when missing.`,
+      instructions: withNoDashes(`Write a concise organization profile for "${name}" (location: ${org?.address ?? "unknown"}; mission: ${org?.mission ?? "unknown"}) that an AI organizer will use as background. Plain text, 5 short labeled lines: Who they are, Audience, Programs & events, Voice & tone, Online presence (what needs TLC). Under 120 words total. Only use facts from the sources; say "unknown" when missing.`),
       input: `${scraped.filter(Boolean).join("\n\n")}\n\n# Web results\n${formatHits(hits, 12)}`,
     });
     let text = "";
-    for (const it of res.output ?? []) if (it.type === "message") for (const c of it.content ?? []) if (c.type === "output_text") text += c.text;
+    for (const it of res.output ?? []) if (it.type === "message") for (const c of it.content ?? []) if (c.type === "output_text") text += noLongDashes(c.text);
     return { profile: text.trim(), scanned: scraped.filter(Boolean).length, found: hits.length };
   });

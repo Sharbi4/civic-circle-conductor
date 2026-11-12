@@ -26,7 +26,7 @@ export const startBrowserSession = createServerFn({ method: "POST" })
       thread_id: data.threadId,
       user_id: userId,
       role: "assistant",
-      content: `I've opened a live browser to work on: **${data.task}**. Watch it below — you can click into it and take over anytime.\n\n[[browser: ${id} | ${data.task}]]`,
+      content: `I've opened a live browser to work on: **${data.task}**. Watch it below, you can click into it and take over anytime.\n\n[[browser: ${id} | ${data.task}]]`,
     });
 
     return { id };
@@ -66,7 +66,7 @@ export const endBrowserSession = createServerFn({ method: "POST" })
           connKey,
         );
       } catch {
-        // Best effort — sessions also expire on their own.
+        // Best effort, sessions also expire on their own.
       }
     }
 
@@ -139,7 +139,7 @@ export const startFacebookSetup = createServerFn({ method: "POST" })
     await closeOtherBrowsers(supabase, row.thread_id, row.id);
     await supabase.from("messages").insert({
       thread_id: row.thread_id, user_id: userId, role: "assistant",
-      content: `Great — I'm searching Facebook for groups near **${data.location}** and checking your organization's Page. I won't join anything or post until you approve. Watch along in the browser above.`,
+      content: `Great, I'm searching Facebook for groups near **${data.location}** and checking your organization's Page. I won't join anything or post until you approve. Watch along in the browser above.`,
     });
     return { ok: true };
   });

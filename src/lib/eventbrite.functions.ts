@@ -25,7 +25,7 @@ export const startEventbriteConnect = createServerFn({ method: "POST" })
   .handler(async () => {
     const clientId = process.env["EVENTBRITE_CLIENT_ID"];
     if (!clientId) {
-      throw new Error("Eventbrite isn't configured yet — the app key still needs to be added.");
+      throw new Error("Eventbrite isn't configured yet, the app key still needs to be added.");
     }
     const params = new URLSearchParams({
       response_type: "code",
@@ -43,7 +43,7 @@ export const completeEventbriteConnect = createServerFn({ method: "POST" })
     const clientId = process.env["EVENTBRITE_CLIENT_ID"];
     const clientSecret = process.env["EVENTBRITE_CLIENT_SECRET"];
     if (!clientId || !clientSecret) {
-      throw new Error("Eventbrite isn't configured yet — the app credentials still need to be added.");
+      throw new Error("Eventbrite isn't configured yet, the app credentials still need to be added.");
     }
 
     const tokenRes = await fetch(TOKEN_URL, {
@@ -160,10 +160,10 @@ export const runEventbriteApproval = createServerFn({ method: "POST" })
 
 export const EVENTBRITE_WELCOME = (accountName: string) => `Hi! I'm your **Eventbrite agent**, connected to **${accountName}**. Here's what I can do for you:
 
-- **Create events** — I'll suggest the name, best day and time, capacity and an AI cover image, then save it as a draft for you to publish
-- **Update events** — change details, dates, capacity or the cover on events you already have
-- **See your events** — list what's upcoming and what's still in draft
-- **Promote events** — share them on your connected social accounts once you approve
+- **Create events**, I'll suggest the name, best day and time, capacity and an AI cover image, then save it as a draft for you to publish
+- **Update events**, change details, dates, capacity or the cover on events you already have
+- **See your events**, list what's upcoming and what's still in draft
+- **Promote events**, share them on your connected social accounts once you approve
 
 For anything Eventbrite's connection can't do (like attendee messages, ticket settings or reports), I'll open a live browser and do it on Eventbrite.com while you watch. Nothing goes live without your OK.
 

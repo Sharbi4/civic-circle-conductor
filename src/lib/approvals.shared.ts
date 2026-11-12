@@ -24,7 +24,7 @@ export function approvalAction(payload: unknown, actionType = ''): string {
     case 'linkedin_event_publish': return 'Publish this LinkedIn event';
     case 'eventbrite_create': return 'Create this event as an Eventbrite draft';
     case 'eventbrite_publish': return 'Publish this Eventbrite event';
-    case 'venue_call': return `Place a research call to ${typeof p['recipient'] === 'string' ? p['recipient'] : 'the venue'} — no booking or payment`;
+    case 'venue_call': return `Place a research call to ${typeof p['recipient'] === 'string' ? p['recipient'] : 'the venue'}, no booking or payment`;
     case 'fb_join_group': return 'Join this Facebook group in the live browser';
     case 'fb_page_post': return 'Post this update on your Facebook Page';
     case 'civi_suggestion': return 'Start this suggested action';
@@ -61,10 +61,10 @@ export function executionOutcome(result: { ok?: boolean; started?: boolean; queu
 
 export function approvalStateLabel(state: string | null, payload: unknown) {
   if (state === 'running') return approvalKind(payload) === 'eventbrite_publish' ? 'Publishing…' : approvalKind(payload).includes('post') ? 'Posting…' : 'Working…';
-  if (state === 'succeeded') return approvalKind(payload) === 'eventbrite_create' ? 'Draft saved — not published' : approvalKind(payload) === 'eventbrite_publish' ? 'Published — live' : 'Success';
-  if (state === 'failed') return 'Didn\'t complete — nothing was sent';
+  if (state === 'succeeded') return approvalKind(payload) === 'eventbrite_create' ? 'Draft saved, not published' : approvalKind(payload) === 'eventbrite_publish' ? 'Published, live' : 'Success';
+  if (state === 'failed') return 'Didn\'t complete, nothing was sent';
   if (state === 'queued') return 'In progress';
-  if (state === 'needs_review') return 'Please confirm — Civi couldn\'t verify this finished';
+  if (state === 'needs_review') return 'Please confirm, Civi couldn\'t verify this finished';
   // Older approvals and plain go-aheads have nothing left to run; don't present them as stuck.
   return 'Approved';
 }

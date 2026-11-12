@@ -35,7 +35,7 @@ export const Route = createFileRoute("/api/oauth/eventbrite/return")({
 <html>
 <head><title>Finishing Eventbrite connection…</title></head>
 <body>
-  <p>${result.success ? "Eventbrite connected — you can close this window." : "Connection failed."}</p>
+  <p>${result.success ? "Eventbrite connected, you can close this window." : "Connection failed."}</p>
   <script>
     const result = ${safeJson};
     const msg = { type: result.success ? "civiOauthComplete" : "civiOauthFailed", connectorId: result.connectorId, code: result.code ?? null, error: result.error ?? null };

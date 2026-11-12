@@ -81,8 +81,8 @@ describe("step wording", () => {
     expect(stepDisplay("skipped", true, "X isn't connected — ready-to-paste draft is in the chat")).toMatchObject({ text: "Not connected", actions: ["copy_draft"] });
   });
   it("approval states use plain words", () => {
-    expect(approvalStateLabel("failed", {})).toBe("Didn't complete — nothing was sent");
-    expect(approvalStateLabel("needs_review", {})).toBe("Please confirm — Civi couldn't verify this finished");
+    expect(approvalStateLabel("failed", {})).toBe("Didn't complete, nothing was sent");
+    expect(approvalStateLabel("needs_review", {})).toBe("Please confirm, Civi couldn't verify this finished");
     expect(approvalStateLabel("queued", {})).toBe("In progress");
   });
   it("old step headings lose the 🔁 and use a dot", () => {

@@ -70,7 +70,7 @@ async function recordLaunchProgress(db: Db, userId: string, payload: unknown, er
     // A step only finishes when its action really went out; an "ok: false" result is a failure, not success.
     const failed = !!error || (result as { ok?: boolean } | undefined)?.ok === false;
     if (failed) {
-      await db.from('tasks').update({ step_state: 'failed', step_note: NEEDS_ATTENTION, last_error: 'Step failed — see Approvals for details' }).eq('id', taskId).eq('user_id', userId).eq('done', false);
+      await db.from('tasks').update({ step_state: 'failed', step_note: NEEDS_ATTENTION, last_error: 'Step failed, see Approvals for details' }).eq('id', taskId).eq('user_id', userId).eq('done', false);
       return;
     }
     if ((result as { queued?: number } | undefined)?.queued) return;
@@ -88,12 +88,12 @@ async function recordLaunchProgress(db: Db, userId: string, payload: unknown, er
     const { data: task } = await db.from('tasks').select('title, goal_id, thread_id, step_key').eq('id', taskId).maybeSingle();
     if (!task?.thread_id) return;
     const noun = task.step_key ? 'Event step' : 'Launch step';
-    let line = `✅ ${noun} done: **${task.title}**${url ? ` — [see it](${url})` : ''}.`;
+    let line = `✅ ${noun} done: **${task.title}**${url ? `, [see it](${url})` : ''}.`;
     if (task.goal_id) {
       const { data: sibs } = await db.from('tasks').select('done').eq('goal_id', task.goal_id);
       const total = sibs?.length ?? 0;
       const doneN = (sibs ?? []).filter((s) => s.done).length;
-      if (total) line = `${line.slice(0, -1)} — ${doneN}/${total} steps complete.${doneN === total ? ' 🎉 Every step is finished!' : task.step_key ? " I'll start whatever this unlocks on the next check." : ''}`;
+      if (total) line = `${line.slice(0, -1)}, ${doneN}/${total} steps complete.${doneN === total ? ' 🎉 Every step is finished!' : task.step_key ? " I'll start whatever this unlocks on the next check." : ''}`;
     }
     await db.from('messages').insert({ thread_id: task.thread_id, user_id: userId, role: 'assistant', content: line });
   } catch (e) { console.error('Launch progress update failed', e); }

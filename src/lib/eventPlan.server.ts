@@ -160,8 +160,8 @@ async function advanceGoal(db: Db, userId: string, goal: { id: string; title: st
     if (d.state === "skipped" && !r.done) {
       await db.from("tasks").update({ done: true, done_at: now, step_state: "skipped", step_note: d.reason ?? null, scheduled_for: null }).eq("id", r.id).eq("user_id", userId).eq("done", false);
       Object.assign(r, { done: true, step_state: "skipped" });
-      if (def.channel !== "none" && !connected(def.channel)) skippedDrafts.push(`**${def.title}** — ${d.reason}\n\n\`\`\`\n${skipDraft(def, { title: info.title, date: eventDate, location: info.location, link: info.eventbrite ?? info.rsvp })}\n\`\`\``);
-      else skippedDrafts.push(`**${def.title}** — ${d.reason}.`);
+      if (def.channel !== "none" && !connected(def.channel)) skippedDrafts.push(`**${def.title}**, ${d.reason}\n\n\`\`\`\n${skipDraft(def, { title: info.title, date: eventDate, location: info.location, link: info.eventbrite ?? info.rsvp })}\n\`\`\``);
+      else skippedDrafts.push(`**${def.title}**, ${d.reason}.`);
       continue;
     }
     if (d.state === "ready") ready.push(r);
@@ -192,7 +192,7 @@ const STEP_WORK: Record<StepKey, string> = {
   linkedin_event: `Queue [[linkedin_event_create: ...]] with the RSVP or Eventbrite link and a cover image_prompt.`,
   x_post: `Queue one [[x_post: ...]] (280 characters max) with the RSVP or Eventbrite link and an image_prompt.`,
   linkedin_post: `Queue one [[linkedin_post: ...]] with the RSVP or Eventbrite link and an image_prompt.`,
-  facebook: `Queue one [[browse: ...]] task that creates the event or an announcement post on the organization's official Facebook Page only (saved login), with the details and RSVP link, pausing for approval before publishing. Never send personal messages, DMs, friend requests or group invitations from the browser — Meta suspends accounts for automated messaging. Personal invitations go by email.`,
+  facebook: `Queue one [[browse: ...]] task that creates the event or an announcement post on the organization's official Facebook Page only (saved login), with the details and RSVP link, pausing for approval before publishing. Never send personal messages, DMs, friend requests or group invitations from the browser, Meta suspends accounts for automated messaging. Personal invitations go by email.`,
   instagram: `Prepare the Instagram caption and photo concept for approval.`,
   tiktok: `Prepare the TikTok caption and photo concept for approval.`,
   email_invites: `Queue the invitation with [[gmail_send: ...]]: "to" = the organization's own email, invitees in "bcc" so nobody sees anyone else's address. Only email people who have a relationship with the organization (event-page contacts, members, partners). If you don't have an invite list yet, ask once who should get it, with [[choices: ...]]. Include date, place and the RSVP link.`,
@@ -228,7 +228,7 @@ export async function runPlanStep(db: Db, userId: string, task: Task, threadId: 
   const { data: orgTz } = await db.from("organizations").select("time_zone").eq("user_id", userId).maybeSingle();
   const tz = safeTimeZone(orgTz?.time_zone);
   const run = parseStepRun(task.run_prompt);
-  const retryLine = run.retry === "another" ? "The organizer passed on your last proposal for this step. Propose a different option this time — don't repeat the one they passed on."
+  const retryLine = run.retry === "another" ? "The organizer passed on your last proposal for this step. Propose a different option this time, don't repeat the one they passed on."
     : run.retry === "resume" ? "You were cut off partway through this step. Check what's already in this chat and continue from there; don't redo or resend anything that already went out."
     : run.retry === "retry" ? "The organizer asked you to try this step again. Check what's already in this chat first, then finish it." : null;
   const all = rows ?? [];
@@ -237,9 +237,9 @@ export async function runPlanStep(db: Db, userId: string, task: Task, threadId: 
   const n = [...planOnly].sort((a, b) => PLAN_KEYS.indexOf(a.step_key as StepKey) - PLAN_KEYS.indexOf(b.step_key as StepKey)).findIndex((r) => r.id === task.id) + 1;
   const emails = def.channel === "gmail" && def.key !== "email_invites" ? await rsvpEmails(db, userId, info.rsvp) : [];
   const content = [
-    `[Plan step — picked up automatically] Event: ${info.title}${info.date ? ` on ${info.date}` : ""}. Step ${n} of ${planOnly.length}: "${def.title}" (task id ${task.id}).`,
-    `Saved plan state (this is the truth — don't redo finished steps):\n${planStatus(all)}`,
-    `Links: Eventbrite ${info.eventbrite ?? "—"} · RSVP ${info.rsvp ?? "—"} · Venue ${info.location || "—"} · Organization email ${org?.contact_email || "—"}`,
+    `[Plan step, picked up automatically] Event: ${info.title}${info.date ? ` on ${info.date}` : ""}. Step ${n} of ${planOnly.length}: "${def.title}" (task id ${task.id}).`,
+    `Saved plan state (this is the truth, don't redo finished steps):\n${planStatus(all)}`,
+    `Links: Eventbrite ${info.eventbrite ?? "none"} · RSVP ${info.rsvp ?? "none"} · Venue ${info.location || "none"} · Organization email ${org?.contact_email || "none"}`,
     ...(def.channel === "gmail" && def.key !== "email_invites" ? [`RSVP emails (${emails.length}): ${emails.join(", ") || "nobody has signed up yet"}`] : []),
     ...(retryLine ? [retryLine] : []),
     `Do this step now, in this one message: ${STEP_WORK[def.key].replaceAll("ID", task.id)}`,

@@ -50,7 +50,7 @@ export function PollsPanel() {
         <div className="mx-1 mb-3"><Button size="sm" variant="outline" className="w-full rounded-full" onClick={exportAll} disabled={exporting}>
           <Download className="mr-1 h-3.5 w-3.5" />{exporting ? "Preparing…" : "Export all responses (CSV)"}</Button></div>
       )}
-      {polls.data?.length === 0 && <p className="px-3 py-2 text-sm text-muted-foreground">Nothing yet — try "Make a quick poll asking which Saturday works for our cleanup."</p>}
+      {polls.data?.length === 0 && <p className="px-3 py-2 text-sm text-muted-foreground">Nothing yet, try "Make a quick poll asking which Saturday works for our cleanup."</p>}
       {(polls.data ?? []).map((p) => (
         <button key={p.id} onClick={() => setOpen(p.id)} className="flex w-full items-center gap-2 rounded-2xl px-3 py-2.5 text-left hover:bg-sidebar-accent">
           <BarChart3 className="h-4 w-4 shrink-0 text-muted-foreground" />
@@ -154,12 +154,12 @@ function PollDetail({ id, onBack }: { id: string; onBack: () => void }) {
             })()}
             {qq.type === "rating" && (() => {
               const nums = answers.filter((a): a is number => typeof a === "number");
-              const avg = nums.length ? (nums.reduce((s, n) => s + n, 0) / nums.length).toFixed(1) : "—";
+              const avg = nums.length ? (nums.reduce((s, n) => s + n, 0) / nums.length).toFixed(1) : "none";
               const max = Math.max(0, ...[1, 2, 3, 4, 5].map((s) => nums.filter((n) => n === s).length));
               return <><div className="text-2xl font-semibold">{avg}<span className="text-sm text-muted-foreground"> / 5</span></div>{[5, 4, 3, 2, 1].map((s) => <Bar key={s} label={`${s} ★`} n={nums.filter((n) => n === s).length} max={max} />)}</>;
             })()}
             {qq.type === "text" && (answers.length ? answers.slice(0, 8).map((a, i) => <p key={i} className="rounded-xl bg-secondary px-3 py-2 text-sm">{String(a)}</p>) : <p className="text-xs text-muted-foreground">No comments yet.</p>)}
-            {qq.type === "contact" && <p className="text-sm text-muted-foreground">{answers.length} {answers.length === 1 ? "person" : "people"} shared contact details — download the CSV to see them.</p>}
+            {qq.type === "contact" && <p className="text-sm text-muted-foreground">{answers.length} {answers.length === 1 ? "person" : "people"} shared contact details, download the CSV to see them.</p>}
           </section>
         );
       })}

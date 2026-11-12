@@ -1,4 +1,5 @@
 import { planInsertRows } from "@/lib/eventPlan.shared";
+import { noLongDashes } from "@/lib/punctuation.shared";
 import { runMyDueWork } from "@/lib/jobs.functions";
 import { setAppTimeZone, deviceTimeZone, isValidTimeZone, formatAppTime } from "@/lib/appTimeZone";
 import { createFileRoute, Link, Outlet, useNavigate, useParams, useRouter } from "@tanstack/react-router";
@@ -50,9 +51,9 @@ import { startNextdoorConnect, completeNextdoorConnect, getNextdoorStatus, disco
 export const Route = createFileRoute("/_authenticated/chat")({
   head: () => ({
     meta: [
-      { title: "Organizer — Civi Meet" },
+      { title: "Organizer, Civi Meet" },
       { name: "description", content: "Chat with your AI community organizer." },
-      { property: "og:title", content: "Organizer — Civi Meet" },
+      { property: "og:title", content: "Organizer, Civi Meet" },
       { property: "og:description", content: "Chat with your AI community organizer." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
@@ -249,7 +250,7 @@ function Sidebar({ orgName, mobileOpen, onClose }: { orgName: string; mobileOpen
     const { data: g } = await supabase.from("tasks").insert({ user_id: uid, kind: "goal", title: "Event: New event", created_by: "civi", thread_id: data.id }).select("id").single();
     if (g) await supabase.from("tasks").insert(planInsertRows(uid, g.id, data.id, null));
     await supabase.from("messages").insert({ thread_id: data.id, user_id: uid, role: "assistant",
-      content: "🎉 Let's build an event! Tell me what you have in mind — or pick a starting point and I'll propose a name, date, venue, budget and turnout. Once it's set, I'll create it on Eventbrite, share it through your connected accounts, set up the RSVP and follow-up feedback, and track every step under **Event goals**.\n\n[[choices: Community meetup | Fundraiser | Volunteer day | Workshop or training]]" });
+      content: "🎉 Let's build an event! Tell me what you have in mind, or pick a starting point and I'll propose a name, date, venue, budget and turnout. Once it's set, I'll create it on Eventbrite, share it through your connected accounts, set up the RSVP and follow-up feedback, and track every step under **Event goals**.\n\n[[choices: Community meetup | Fundraiser | Volunteer day | Workshop or training]]" });
     await Promise.all([qc.invalidateQueries({ queryKey: ["threads"] }), qc.invalidateQueries({ queryKey: ["tasks"] })]);
     navigate({ to: "/chat/$threadId", params: { threadId: data.id } });
   }
@@ -466,7 +467,7 @@ function EventbriteConnectorRow() {
   async function connect() {
     setBusy(true);
     const popup = window.open("", "civi-eventbrite-oauth", "width=600,height=720");
-    if (!popup) { setBusy(false); toast.error("Popup blocked — allow popups and try again."); return; }
+    if (!popup) { setBusy(false); toast.error("Popup blocked, allow popups and try again."); return; }
     try {
       const { authorizationUrl } = await startEventbriteConnect();
       const completion = waitForOAuth(popup);
@@ -576,7 +577,7 @@ function NextdoorConnectorRow() {
   async function connect() {
     setBusy(true);
     const popup = window.open("", "civi-nextdoor-oauth", "width=600,height=720");
-    if (!popup) { setBusy(false); toast.error("Popup blocked — allow popups and try again."); return; }
+    if (!popup) { setBusy(false); toast.error("Popup blocked, allow popups and try again."); return; }
     try {
       const { authorizationUrl } = await startNextdoorConnect();
       const completion = waitForOAuth(popup);
@@ -688,7 +689,7 @@ function LinkedInConnectorRow() {
   async function connect() {
     setBusy(true);
     const popup = window.open("", "civi-linkedin-oauth", "width=600,height=720");
-    if (!popup) { setBusy(false); toast.error("Popup blocked — allow popups and try again."); return; }
+    if (!popup) { setBusy(false); toast.error("Popup blocked, allow popups and try again."); return; }
     try {
       const { authorizationUrl } = await startLinkedInConnect();
       const completion = waitForOAuth(popup);
@@ -801,7 +802,7 @@ function XConnectorRow() {
   async function connect() {
     setBusy(true);
     const popup = window.open("", "civi-x-oauth", "width=600,height=720");
-    if (!popup) { setBusy(false); toast.error("Popup blocked — allow popups and try again."); return; }
+    if (!popup) { setBusy(false); toast.error("Popup blocked, allow popups and try again."); return; }
     try {
       const { authorizationUrl } = await startXConnect({ data: { origin: window.location.origin } });
       const completion = waitForOAuth(popup);
@@ -905,7 +906,7 @@ function GmailConnectorRow() {
   async function connect() {
     setBusy(true);
     const popup = window.open("", "civi-gmail-oauth", "width=600,height=720");
-    if (!popup) { setBusy(false); toast.error("Popup blocked — allow popups and try again."); return; }
+    if (!popup) { setBusy(false); toast.error("Popup blocked, allow popups and try again."); return; }
     try {
       const { authorizationUrl } = await startGmailConnect({ data: { origin: window.location.origin } });
       const completion = waitForOAuth(popup);
@@ -1003,7 +1004,7 @@ function GoogleAppConnectorRow({ connectorId, name }: { connectorId: "google_cal
   async function connect() {
     setBusy(true);
     const popup = window.open("", `civi-${connectorId}-oauth`, "width=600,height=720");
-    if (!popup) { setBusy(false); toast.error("Popup blocked — allow popups and try again."); return; }
+    if (!popup) { setBusy(false); toast.error("Popup blocked, allow popups and try again."); return; }
     try {
       const { authorizationUrl } = await startGoogleAppConnect({ data: { connectorId, origin: window.location.origin } });
       const completion = waitForOAuth(popup);
@@ -1103,7 +1104,7 @@ function ApprovalsPanel() {
     setBusyId(null);
     if(error) {toast.error("Couldn't ignore this item");return;}
     await qc.invalidateQueries({queryKey:['approvals']});
-    toast('Ignored — no action will be taken', {action:{label:'Undo',onClick:async()=>{await supabase.from('approvals').update({status:'pending',resolved_at:null}).eq('id',id).eq('status','ignored');qc.invalidateQueries({queryKey:['approvals']});}}});
+    toast('Ignored, no action will be taken', {action:{label:'Undo',onClick:async()=>{await supabase.from('approvals').update({status:'pending',resolved_at:null}).eq('id',id).eq('status','ignored');qc.invalidateQueries({queryKey:['approvals']});}}});
   }
 
   const card = (a: NonNullable<typeof approvals.data>[number]) => (
@@ -1205,7 +1206,7 @@ function ScoutPanel({ onConnect, onOpenChat }: { onConnect: () => void; onOpenCh
     setForm({ city: "", state: "", neighborhoods: "", interests: "", priorities: "", partner_types: "" });
     setShowForm(false);
     await qc.invalidateQueries({ queryKey: ["focus_areas"] });
-    toast.success("Focus area added — Community Scout will research it on its next run.");
+    toast.success("Focus area added, Community Scout will research it on its next run.");
   }
 
   async function removeArea(id: string) {
@@ -1278,7 +1279,7 @@ function ScoutPanel({ onConnect, onOpenChat }: { onConnect: () => void; onOpenCh
           </div>
         ))}
         {areas.data?.length === 0 && !showForm && (
-          <p className="px-3 py-2 text-sm text-muted-foreground">No focus areas yet — add one so the Scout knows where to look.</p>
+          <p className="px-3 py-2 text-sm text-muted-foreground">No focus areas yet, add one so the Scout knows where to look.</p>
         )}
       </div>
 
@@ -1290,7 +1291,7 @@ function ScoutPanel({ onConnect, onOpenChat }: { onConnect: () => void; onOpenCh
               <div key={f.id} className="rounded-2xl border bg-card p-3 text-sm shadow-soft">
                 <div className="text-xs text-muted-foreground">{formatAppTime(f.created_at)}</div>
                 <div className="prose prose-sm mt-1 max-w-none leading-relaxed dark:prose-invert prose-a:text-primary">
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{f.summary}</ReactMarkdown>
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{noLongDashes(f.summary)}</ReactMarkdown>
                 </div>
                 <div className="mt-3 divide-y border-t">
                   {discoveryIdeas(f.ideas, f.summary).map((idea, i) => <div key={`${f.id}:${i}`} className="py-3">
@@ -1307,7 +1308,7 @@ function ScoutPanel({ onConnect, onOpenChat }: { onConnect: () => void; onOpenCh
       )}
 
       <div className="mt-5 px-3 text-sm font-semibold">Resource directory</div>
-      <p className="px-3 pb-1 text-xs text-muted-foreground">Vendors, venues and partners Civi has saved — reused across events so research is never repeated.</p>
+      <p className="px-3 pb-1 text-xs text-muted-foreground">Vendors, venues and partners Civi has saved, reused across events so research is never repeated.</p>
       <div className="mt-1 space-y-1">
         {resources.data?.map((r) => (
           <div key={r.id} className="group flex items-start justify-between rounded-2xl px-3 py-2 hover:bg-sidebar-accent">
@@ -1329,7 +1330,7 @@ function ScoutPanel({ onConnect, onOpenChat }: { onConnect: () => void; onOpenCh
           </div>
         ))}
         {resources.data?.length === 0 && (
-          <p className="px-3 py-2 text-sm text-muted-foreground">Nothing saved yet — ask Civi to research vendors or venues and it will file them here.</p>
+          <p className="px-3 py-2 text-sm text-muted-foreground">Nothing saved yet, ask Civi to research vendors or venues and it will file them here.</p>
         )}
       </div>
     </div>
@@ -1351,7 +1352,7 @@ function MemoryPanel() {
         {mem.data?.map((m) => (
           <li key={m.id} className="rounded-xl bg-secondary px-3 py-2">{m.content}</li>
         ))}
-        {mem.data?.length === 0 && <li className="text-muted-foreground">Nothing yet — just chat.</li>}
+        {mem.data?.length === 0 && <li className="text-muted-foreground">Nothing yet, just chat.</li>}
       </ul>
     </div>
   );
@@ -1407,7 +1408,7 @@ function Onboarding({ existing }: { existing: { name: string | null; mission: st
         if (!profile && Object.keys(p).length) {
           setScanning(true);
           try { const r = await scan({ data: { pages: p } }); setProfile(r.profile); }
-          catch (e) { console.error(e); toast.error("Couldn't scan your pages — you can write your profile instead."); }
+          catch (e) { console.error(e); toast.error("Couldn't scan your pages, you can write your profile instead."); }
           finally { setScanning(false); }
         }
         return;
@@ -1428,7 +1429,7 @@ function Onboarding({ existing }: { existing: { name: string | null; mission: st
       const { data: t } = await supabase.from("threads").insert({ user_id: uid, kind: "main", title: "Main chat" }).select("id").single();
       if (t) await supabase.from("messages").insert({
         thread_id: t.id, user_id: uid, role: "assistant",
-        content: `Hi! I'm Civi, your AI organizer for **${name || "your organization"}**. 👋\n\nI've read your public pages and saved your profile. I can find local groups and vendors, plan and list events, run outreach, and keep your pages fresh — and I always ask before anything goes out.\n\nHow would you like to get started?\n\n[[choices: Set up now with Civi | I'll set up over time]]`,
+        content: `Hi! I'm Civi, your AI organizer for **${name || "your organization"}**. 👋\n\nI've read your public pages and saved your profile. I can find local groups and vendors, plan and list events, run outreach, and keep your pages fresh, and I always ask before anything goes out.\n\nHow would you like to get started?\n\n[[choices: Set up now with Civi | I'll set up over time]]`,
       });
     }
     setResearching(true);
@@ -1451,7 +1452,7 @@ function Onboarding({ existing }: { existing: { name: string | null; mission: st
           const buf = new Uint8Array(await blob.arrayBuffer()); let bin = "";
           for (let i = 0; i < buf.length; i += 0x8000) bin += String.fromCharCode(...buf.subarray(i, i + 0x8000));
           const { text } = await transcribe({ data: { audio: btoa(bin), mime: blob.type } });
-          if (text) setProfile((p) => (p ? `${p}\n${text}` : text)); else toast("I didn't catch that — try again.");
+          if (text) setProfile((p) => (p ? `${p}\n${text}` : text)); else toast("I didn't catch that, try again.");
         } catch (e) { toast.error(e instanceof Error ? e.message : "Couldn't hear that"); }
         finally { setRec("idle"); }
       };
@@ -1565,14 +1566,14 @@ function DocumentsPanel() {
   return (
     <div className="flex-1 overflow-y-auto px-2 pb-4">
       <h2 className="px-3 pb-1 font-medium">Documents</h2>
-      <p className="px-3 pb-3 text-xs text-muted-foreground">Checklists, plans and letters Civi drafts — on your letterhead, ready to download.</p>
+      <p className="px-3 pb-3 text-xs text-muted-foreground">Checklists, plans and letters Civi drafts, on your letterhead, ready to download.</p>
       <div className="mx-1 mb-3 flex items-center gap-3 rounded-2xl border bg-card p-3">
         {org.data?.logo_url ? <img src={org.data.logo_url} alt="Organization logo" className="h-9 w-9 shrink-0 object-contain" /> : <span className="grid h-9 w-9 shrink-0 place-items-center rounded-md bg-secondary"><ImagePlus className="h-4 w-4 text-muted-foreground" /></span>}
         <span className="min-w-0 flex-1 text-sm">{org.data?.logo_url ? "Letterhead logo" : "Add your logo to documents"}</span>
         <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={(e) => uploadLogo(e.target.files?.[0])} />
         <Button size="sm" variant="outline" className="rounded-full" onClick={() => fileRef.current?.click()}>{org.data?.logo_url ? "Change" : "Upload"}</Button>
       </div>
-      {(docs.data ?? []).length === 0 && <p className="px-3 py-2 text-sm text-muted-foreground">No documents yet — ask Civi for an event checklist or a plan.</p>}
+      {(docs.data ?? []).length === 0 && <p className="px-3 py-2 text-sm text-muted-foreground">No documents yet, ask Civi for an event checklist or a plan.</p>}
       {(docs.data ?? []).map((d) => (
         <div key={d.id} className="group flex items-center gap-2 rounded-2xl px-3 py-2.5 hover:bg-sidebar-accent">
           <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />

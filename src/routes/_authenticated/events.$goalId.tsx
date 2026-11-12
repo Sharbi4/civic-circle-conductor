@@ -1,4 +1,5 @@
 import { mapsUrl } from "@/lib/addressLinks";
+import { noLongDashes } from "@/lib/punctuation.shared";
 import { formatAppTime } from "@/lib/appTimeZone";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -19,9 +20,9 @@ import { actionForStep, actionStateLabel, resultUrlOf } from "@/lib/eventActivit
 export const Route = createFileRoute("/_authenticated/events/$goalId")({
   head: () => ({
     meta: [
-      { title: "Event overview — Civi Meet" },
+      { title: "Event overview, Civi Meet" },
       { name: "description", content: "Venue, budget, team, vendors, progress and ideas for your event in one place." },
-      { property: "og:title", content: "Event overview — Civi Meet" },
+      { property: "og:title", content: "Event overview, Civi Meet" },
       { property: "og:description", content: "Venue, budget, team, vendors, progress and ideas for your event in one place." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
@@ -195,13 +196,13 @@ function EventPage() {
                 {actions.map((a) => (
                   <li key={a.id} className="relative">
                     <span className={`absolute -left-[21px] top-1 grid h-3 w-3 place-items-center rounded-full ${a.state === "done" ? "bg-primary" : a.state === "failed" ? "bg-warning" : "bg-muted-foreground/40"}`} />
-                    <p className="text-sm">{a.text}</p>
+                    <p className="text-sm">{noLongDashes(a.text)}</p>
                     <p className={`text-xs ${a.state === "failed" ? "font-medium text-warning-foreground" : "text-muted-foreground"}`}>{actionStateLabel(a.state)} · {formatAppTime(a.at)}{a.url && <> · <a href={a.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-0.5 font-medium text-primary hover:underline">View <ExternalLink className="h-3 w-3" /></a></>}
-                      {a.state === "not_connected" && draftFor(a.id) && <> · <button type="button" onClick={async () => { try { await navigator.clipboard.writeText(draftFor(a.id) ?? ""); toast.success("Draft copied — paste it into the app"); } catch { toast.error("Couldn't copy — open the event chat to copy it"); } }} className="inline-flex items-center gap-0.5 font-medium text-primary hover:underline">Copy draft <Copy className="h-3 w-3" /></button></>}</p>
+                      {a.state === "not_connected" && draftFor(a.id) && <> · <button type="button" onClick={async () => { try { await navigator.clipboard.writeText(draftFor(a.id) ?? ""); toast.success("Draft copied, paste it into the app"); } catch { toast.error("Couldn't copy, open the event chat to copy it"); } }} className="inline-flex items-center gap-0.5 font-medium text-primary hover:underline">Copy draft <Copy className="h-3 w-3" /></button></>}</p>
                   </li>
                 ))}
               </ol>
-            ) : <p className="text-sm text-muted-foreground">Nothing yet — actions show up here as Civi works on this event.</p>}
+            ) : <p className="text-sm text-muted-foreground">Nothing yet, actions show up here as Civi works on this event.</p>}
           </Card>
 
           <Card icon={<Lightbulb className="h-4 w-4" />} title="Suggestions" className="lg:col-span-3"
@@ -212,7 +213,7 @@ function EventPage() {
                   <div key={i} className="group flex flex-col rounded-2xl border bg-background/50 p-3">
                     <p className="text-sm font-semibold">{s.title}</p>
                     <p className="mt-1 flex-1 text-sm text-muted-foreground">{s.detail}</p>
-                    <button onClick={() => { addNote(`${s.title} — ${s.detail}`); toast.success("Pinned to your board"); }} className="mt-2 inline-flex items-center gap-1 self-start rounded-full px-2 py-0.5 text-xs text-primary hover:bg-primary/10"><Pin className="h-3 w-3" /> Pin to board</button>
+                    <button onClick={() => { addNote(`${s.title}, ${s.detail}`); toast.success("Pinned to your board"); }} className="mt-2 inline-flex items-center gap-1 self-start rounded-full px-2 py-0.5 text-xs text-primary hover:bg-primary/10"><Pin className="h-3 w-3" /> Pin to board</button>
                   </div>
                 ))}
               </div>

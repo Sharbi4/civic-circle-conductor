@@ -17,7 +17,7 @@ export function hiddenTurnLabel(content: string): string | null {
   const step = content.match(/^\[Plan step[^\n]*Step (\d+) of (\d+): "([^"]+)"/);
   if (step) return `Civi picked up step ${step[1]} of ${step[2]} · ${step[3]}`;
   if (/^\[Resume\b/.test(content)) return "Civi picked up where this left off";
-  if (/^Scheduled task: /.test(content)) return `Scheduled task ran — ${content.slice(16).split("\n")[0]!.slice(0, 80)}`;
+  if (/^Scheduled task: /.test(content)) return `Scheduled task ran · ${content.slice(16).split("\n")[0]!.slice(0, 80)}`;
   return null;
 }
 

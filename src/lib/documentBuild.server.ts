@@ -1,3 +1,4 @@
+import { noLongDashes, withNoDashes } from "./punctuation.shared";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { DOCUMENT_STANDARD } from "./documentStandards";
 import { docKind, documentGaps, hasDocumentImage, KIND_REQUIREMENTS } from "./documentCompleteness";
@@ -20,7 +21,7 @@ async function documentFacts(db: SupabaseClient, owner: string, ctx: Ctx) {
     if (ev.id === ctx.threadId) continue;
     const { data: g } = await db.from("tasks").select("id").eq("user_id", owner).eq("thread_id", ev.id).eq("kind", "goal").limit(1).maybeSingle();
     const { data: p } = g ? await db.from("event_profiles").select("venue, venue_status, budget, headcount").eq("goal_id", g.id).maybeSingle() : { data: null };
-    lines.push(`Upcoming event: ${ev.title}${ev.event_date ? ` on ${ev.event_date}` : ""}${p ? ` — ${JSON.stringify(p)}` : ""}`);
+    lines.push(`Upcoming event: ${ev.title}${ev.event_date ? ` on ${ev.event_date}` : ""}${p ? `, ${JSON.stringify(p)}` : ""}`);
   }
   if (ctx.threadId) {
     const { data: thread } = await db.from("threads").select("title, kind, event_date").eq("id", ctx.threadId).eq("user_id", owner).maybeSingle();
@@ -46,24 +47,24 @@ async function complete(title: string, kind: string, draft: string, facts: strin
   const k = docKind(kind, title);
   const res = await generateResponse({
     model: "openai/gpt-6.1-terra",
-    instructions: [
+    instructions: withNoDashes([
       DOCUMENT_STANDARD,
-      `You are finishing the document "${title}" (${k}). It must be complete and ready to use the moment it is saved — every section fully written, nothing left for the organizer to fill in.`,
+      `You are finishing the document "${title}" (${k}). It must be complete and ready to use the moment it is saved, every section fully written, nothing left for the organizer to fill in.`,
       `Required for this kind of document: ${KIND_REQUIREMENTS[k]}`,
       "Use the organization and event facts supplied. Where a detail isn't known, make a clear, sensible recommendation labeled '(recommended)' or '(to confirm)' instead of a blank or placeholder. Never invent prices, availability, partners, quotes or contact details.",
       "Return ONLY the finished markdown body: no document title line (the letterhead shows it), no image tags, no notes about photos, no commentary before or after.",
-    ].join("\n\n"),
+    ].join("\n\n")),
     input: [{ role: "user" as const, content: `Facts:\n${facts}\n\nCurrent draft:\n${draft}\n\nWhat's missing: ${gaps.join("; ")}` }],
   });
   let text = "";
-  for (const item of res.output ?? []) if (item.type === "message") for (const c of item.content ?? []) if (c.type === "output_text") text += c.text;
+  for (const item of res.output ?? []) if (item.type === "message") for (const c of item.content ?? []) if (c.type === "output_text") text += noLongDashes(c.text);
   return text.replace(/^```(?:markdown)?\s*|\s*```$/g, "").replace(/^#\s+.+\n+/, "").trim();
 }
 
 /**
  * Every saved document goes through here: thin drafts are completed against the
- * organization's facts, and a real licensed photo — or a labeled Civi
- * illustration — is always added. Throws DocumentIncomplete rather than saving
+ * organization's facts, and a real licensed photo, or a labeled Civi
+ * illustration, is always added. Throws DocumentIncomplete rather than saving
  * something unfinished.
  */
 export async function buildDocument(db: SupabaseClient, owner: string, doc: { title: string; kind: string; body: string }, ctx: Ctx = {}): Promise<string> {

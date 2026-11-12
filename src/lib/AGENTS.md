@@ -16,3 +16,6 @@
 - Steps park in waiting_on / on_hold / your_pick / awaiting_reply via Civi's [[step_status]] marker or inferStepStatus on its reply; failed, interrupted and declined steps never replay on their own, only on a reply or a step button, so unchanged steps aren't re-run.
 - Step times, follow-ups and "today" use the organization's time_zone (zonedTime.shared), never a fixed zone.
 - New chats reuse a browser only after reusableBrowser confirms the provider still has it open; closed ones are marked ended so tasks open a fresh browser.
+
+# Writing style
+- Every model call adds the shared punctuation rule via withNoDashes and every model text output passes noLongDashes; chat, document, step and approval displays also run noLongDashes so older saved text matches. Internal note formats that code parses (page notes, document "Read" notes) keep their separators.
