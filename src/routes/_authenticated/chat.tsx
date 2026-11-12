@@ -1,7 +1,7 @@
 import { planInsertRows } from "@/lib/eventPlan.shared";
 import { runMyDueWork } from "@/lib/jobs.functions";
 import { setAppTimeZone, deviceTimeZone, isValidTimeZone, formatAppTime } from "@/lib/appTimeZone";
-import { createFileRoute, Link, Outlet, useNavigate, useParams } from "@tanstack/react-router";
+import { createFileRoute, Link, Outlet, useNavigate, useParams, useRouter } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import type React from "react";
@@ -109,6 +109,10 @@ function ChatLayout() {
     ...threads.data.filter((t) => isChatUnread(t.latest_assistant_at, t.last_read_at)).map((t) => `chat:${t.id}:${t.latest_assistant_at}`),
   ] : undefined;
   const [navOpen, setNavOpen] = useState(false);
+  // Any navigation (chat tap, approval "Open chat", toast action) closes the mobile menu,
+  // even when it points at the chat already open behind it.
+  const router = useRouter();
+  useEffect(() => router.subscribe("onResolved", () => setNavOpen(false)), [router]);
   // Every time the app shows uses the organization's time zone; a new org adopts the device's zone once.
   setAppTimeZone(org.data?.time_zone);
   useEffect(() => {
@@ -318,6 +322,7 @@ function Sidebar({ orgName, mobileOpen, onClose }: { orgName: string; mobileOpen
               <Link
                 to="/chat/$threadId"
                 params={{ threadId: main.id }}
+                onClick={onClose}
                 className={`block rounded-2xl px-3 py-2.5 font-medium ${params.threadId === main.id ? "bg-sidebar-accent" : "hover:bg-sidebar-accent"}`}
               >
                 Main chat <DecisionBadge count={pendingHere.get(main.id) ?? 0} className="ml-2" />{params.threadId !== main.id && isChatUnread(main.latest_assistant_at, main.last_read_at) && <span aria-label="Unread messages" className="ml-2 inline-block h-2 w-2 rounded-full bg-primary" />}
@@ -332,7 +337,7 @@ function Sidebar({ orgName, mobileOpen, onClose }: { orgName: string; mobileOpen
                 <div className="mt-1 space-y-0.5">
                   {events.map((t) => (
                     <div key={t.id} className={`group flex items-center rounded-2xl ${params.threadId === t.id ? "bg-sidebar-accent" : "hover:bg-sidebar-accent"}`}>
-                      <Link to="/chat/$threadId" params={{ threadId: t.id }} className="flex min-w-0 flex-1 items-center gap-2 px-3 py-2">
+                      <Link to="/chat/$threadId" params={{ threadId: t.id }} onClick={onClose} className="flex min-w-0 flex-1 items-center gap-2 px-3 py-2">
                         {eventCovers.data?.[t.id]
                           ? <img src={eventCovers.data[t.id]} alt="" className="h-9 w-9 shrink-0 rounded-lg object-cover" />
                           : <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-primary/10"><CalendarHeart className="h-4 w-4 text-primary" /></span>}
@@ -356,7 +361,7 @@ function Sidebar({ orgName, mobileOpen, onClose }: { orgName: string; mobileOpen
             <div className="mt-1 space-y-0.5">
               {[...side].sort((a, b) => Number(b.pinned) - Number(a.pinned)).map((t) => (
                 <div key={t.id} className={`group flex items-center rounded-2xl ${params.threadId === t.id ? "bg-sidebar-accent" : "hover:bg-sidebar-accent"}`}>
-                  <Link to="/chat/$threadId" params={{ threadId: t.id }} className="flex min-w-0 flex-1 items-center gap-2 px-3 py-2.5">
+                  <Link to="/chat/$threadId" params={{ threadId: t.id }} onClick={onClose} className="flex min-w-0 flex-1 items-center gap-2 px-3 py-2.5">
                     {t.pinned && <Pin className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />}
                     {t.kind === "scheduled" && <Clock className="h-3.5 w-3.5 shrink-0 text-primary" aria-label="Scheduled task" />}
                     <span className="truncate">{t.title}</span>
