@@ -109,40 +109,54 @@ export function ApprovalCard({ approval: a, onIgnore, extra, threadTitle, thread
     }
   }
 
-  return (
-    <div className="rounded-2xl border bg-card p-3 shadow-soft">
-      <div className="flex items-start gap-3">
-        {image ? (
-          <ApprovalPhoto path={image} alt={`Photo for ${a.title}`} fallback={<Icon className={`h-7 w-7 ${tile.split(" ")[1] ?? "text-accent"}`} />} />
-        ) : (
-          <span className={`grid h-14 w-14 shrink-0 place-items-center rounded-xl border ${tile}`}><Icon className="h-7 w-7" /></span>
-        )}
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <span className="rounded-full bg-secondary px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</span>
-            {!pending && (
-              <span className={`rounded-full bg-secondary px-2 py-0.5 text-[11px] ${a.status === "approved" ? "text-foreground" : "text-muted-foreground line-through"}`}>
-                {a.status === "approved" ? approvalStateLabel(a.run_state, a.payload) : a.status}
-              </span>
-            )}
-            {pending && onIgnore && (
-              <Button variant="ghost" size="icon" className="ml-auto h-6 w-6" aria-label={`Ignore ${a.title}`} title="Ignore" disabled={busy} onClick={() => onIgnore(a.id)}>
-                <X className="h-3.5 w-3.5" />
-              </Button>
-            )}
-          </div>
-          <p className="mt-1.5 line-clamp-2 text-sm font-medium leading-snug">{a.title}</p>
-          {chatId && (
-            <Link to="/chat/$threadId" params={{ threadId: chatId }} className="mt-1 inline-flex max-w-full items-center gap-1 text-xs text-muted-foreground hover:text-accent" title={`Open chat: ${chatName}`}>
-              <MessageSquare className="h-3 w-3 shrink-0" /><span className="truncate">{pending ? "Will happen in" : "Happened in"}: <span className="font-medium text-accent">{chatName}</span></span><ArrowUpRight className="h-3 w-3 shrink-0" />
-            </Link>
+  /** Card content. Tapping anywhere on it opens the chat where the action happens. */
+  const body = (
+    <div className="flex items-start gap-3">
+      {image ? (
+        <ApprovalPhoto path={image} alt={`Photo for ${a.title}`} fallback={<Icon className={`h-7 w-7 ${tile.split(" ")[1] ?? "text-accent"}`} />} />
+      ) : (
+        <span className={`grid h-14 w-14 shrink-0 place-items-center rounded-xl border ${tile}`}><Icon className="h-7 w-7" /></span>
+      )}
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2 pr-7">
+          <span className="rounded-full bg-secondary px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</span>
+          {!pending && (
+            <span className={`rounded-full bg-secondary px-2 py-0.5 text-[11px] ${a.status === "approved" ? "text-foreground" : "text-muted-foreground line-through"}`}>
+              {a.status === "approved" ? approvalStateLabel(a.run_state, a.payload) : a.status}
+            </span>
           )}
-          {pending && <p className="mt-0.5 line-clamp-1 text-xs font-medium text-accent">{approvalAction(a.payload, a.action_type)}</p>}
-          {a.details && <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{a.details}</p>}
-          {a.approval_mode === "always" && <p className="mt-1 text-[11px] text-muted-foreground">Always approved for this action and account</p>}
-          {a.run_error && <p className="mt-1 text-xs text-destructive">{a.run_error}</p>}
         </div>
+        <p className="mt-1.5 line-clamp-2 text-sm font-medium leading-snug group-hover:text-accent">{a.title}</p>
+        {chatId && (
+          <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
+            <MessageSquare className="h-3 w-3 shrink-0" /><span className="truncate">{pending ? "Will happen in" : "Happened in"}: <span className="font-medium text-accent">{chatName}</span></span><ArrowUpRight className="h-3 w-3 shrink-0 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+          </p>
+        )}
+        {pending && <p className="mt-0.5 line-clamp-1 text-xs font-medium text-accent">{approvalAction(a.payload, a.action_type)}</p>}
+        {a.details && <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{a.details}</p>}
+        {a.approval_mode === "always" && <p className="mt-1 text-[11px] text-muted-foreground">Always approved for this action and account</p>}
+        {a.run_error && <p className="mt-1 text-xs text-destructive">{a.run_error}</p>}
       </div>
+    </div>
+  );
+
+  return (
+    <div className={`group relative rounded-2xl border bg-card p-3 shadow-soft transition-colors ${chatId ? "border-transparent hover:border-accent/50" : ""}`}>
+      {chatId ? (
+        <Link
+          to="/chat/$threadId"
+          params={{ threadId: chatId }}
+          title={`Open the chat where this happens: ${chatName}`}
+          className="block rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          {body}
+        </Link>
+      ) : body}
+      {pending && onIgnore && (
+        <Button variant="ghost" size="icon" className="absolute right-2 top-2 z-10 h-6 w-6" aria-label={`Ignore ${a.title}`} title="Ignore" disabled={busy} onClick={() => onIgnore(a.id)}>
+          <X className="h-3.5 w-3.5" />
+        </Button>
+      )}
       {extra}
       {busy && (
         <p role="status" className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
