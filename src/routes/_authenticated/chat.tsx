@@ -27,6 +27,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { CONNECTORS } from "@/lib/connectors";
+import { ConnectorLogo } from "@/components/ConnectorLogo";
 import { startLinkedInConnect, completeLinkedInConnect, getLinkedInStatus, disconnectLinkedIn, runLinkedInApproval, setLinkedInOrgPage, LINKEDIN_WELCOME } from "@/lib/linkedin.functions";
 import { startEventbriteConnect, completeEventbriteConnect, getEventbriteStatus, disconnectEventbrite, runEventbriteApproval, EVENTBRITE_WELCOME } from "@/lib/eventbrite.functions";
 import { LINKEDIN_APP_ORIGINS } from "@/lib/linkedinDirect.shared";
@@ -325,8 +326,8 @@ function Sidebar({ orgName, mobileOpen, onClose }: { orgName: string; mobileOpen
             <p className="px-3 pb-3 text-sm text-muted-foreground">
               Connect a channel and a dedicated agent opens as its own side chat.
             </p>
-            {CONNECTORS.map((c) =>
-              c.id === "eventbrite" ? (
+            {CONNECTORS.map((c) => (
+              <div key={c.id} className="flex items-center gap-1 pl-1"><ConnectorLogo id={c.id} /><div className="min-w-0 flex-1">{c.id === "eventbrite" ? (
                 <EventbriteConnectorRow key={c.id} />
               ) : c.id === "nextdoor" ? (
                 <NextdoorConnectorRow key={c.id} />
@@ -343,8 +344,8 @@ function Sidebar({ orgName, mobileOpen, onClose }: { orgName: string; mobileOpen
                   <span>{c.name}</span>
                   <span className="rounded-full bg-secondary px-2 py-0.5 text-xs text-muted-foreground">Soon</span>
                 </div>
-              ),
-            )}
+              )}</div></div>
+            ))}
           </div>
         )}
         {tab === "approvals" && <ApprovalsPanel />}
