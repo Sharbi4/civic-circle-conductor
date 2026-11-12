@@ -26,7 +26,8 @@ export async function planConnections(db: Db, userId: string): Promise<(c: Chann
   const { connectedGoogle } = await import("./googleActions.server");
   const google = await connectedGoogle(userId).catch(() => null);
   const browser = !!(process.env["LOVABLE_API_KEY"] && process.env["UDC_BROWSERBASE_API_KEY"]);
-  const facebook = browser && (creds.data ?? []).some((c) => /facebook\.com/i.test(c.domain));
+  // Matches Connectors, which lists Facebook as coming soon: its step gets a ready-to-paste draft for now.
+  const facebook = false && browser && (creds.data ?? []).some((c) => /facebook\.com/i.test(c.domain));
   const map: Record<Channel, boolean> = {
     none: true, forms: true, eventbrite: !!eb.data, linkedin, x: !!x.data, facebook, instagram: false, tiktok: false,
     gmail: !!google?.gmail, social: linkedin || !!x.data || facebook,
