@@ -45,5 +45,5 @@ export async function executeXApproval(supabase: SupabaseClient<Database>, userI
     if (!res.ok) { const body = await res.text(); console.error(`X post failed [${res.status}]: ${body}`); await say(`⚠️ X didn't accept the post (${res.status}): ${body.slice(0, 300)}`); return { ok: false, threadId }; }
     const id = ((await res.json()) as { data?: { id?: string } }).data?.id;
     await say(`✅ Posted on X${mediaId ? " with photo" : ""}${id ? ` — [view it](https://x.com/i/web/status/${id})` : ""}.`);
-    return { ok: true, threadId };
+    return { ok: true, threadId, url: id ? `https://x.com/i/web/status/${id}` : undefined };
 }

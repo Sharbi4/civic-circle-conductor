@@ -1,4 +1,4 @@
-import { EVENT_STEPS } from "@/lib/eventSteps.shared";
+import { planInsertRows } from "@/lib/eventPlan.shared";
 import { createFileRoute, Link, Outlet, useNavigate, useParams } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -216,8 +216,7 @@ function Sidebar({ orgName, mobileOpen, onClose }: { orgName: string; mobileOpen
     const { data, error } = await supabase.from("threads").insert({ user_id: uid, kind: "event", title: "New event" }).select().single();
     if (error) { toast.error(error.message); return; }
     const { data: g } = await supabase.from("tasks").insert({ user_id: uid, kind: "goal", title: "Event: New event", created_by: "civi", thread_id: data.id }).select("id").single();
-    if (g) await supabase.from("tasks").insert([...EVENT_STEPS]
-      .map((title) => ({ user_id: uid, kind: "task", title, created_by: "civi", goal_id: g.id, thread_id: data.id })));
+    if (g) await supabase.from("tasks").insert(planInsertRows(uid, g.id, data.id, null));
     await supabase.from("messages").insert({ thread_id: data.id, user_id: uid, role: "assistant",
       content: "🎉 Let's build an event! Tell me what you have in mind — or pick a starting point and I'll propose a name, date, venue, budget and turnout. Once it's set, I'll create it on Eventbrite, share it through your connected accounts, set up the RSVP and follow-up feedback, and track every step under **Event goals**.\n\n[[choices: Community meetup | Fundraiser | Volunteer day | Workshop or training]]" });
     await Promise.all([qc.invalidateQueries({ queryKey: ["threads"] }), qc.invalidateQueries({ queryKey: ["tasks"] })]);

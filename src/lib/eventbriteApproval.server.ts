@@ -42,7 +42,7 @@ async function createEventCover(cover: { bytes: Uint8Array<ArrayBuffer>; type: s
 
 
 export async function executeEventbriteApproval(supabase: SupabaseClient<Database>, userId: string, approvalId: string) {
-    const { data: ap } = await supabase.from("approvals").select("id, status, payload").eq("id", approvalId).maybeSingle();
+    const { data: ap } = await supabase.from("approvals").select("id, status, payload, thread_id").eq("id", approvalId).maybeSingle();
     if (!ap || ap.status !== "approved") throw new Error("This action isn't approved.");
     const p = EventPayload.parse(ap.payload);
 
@@ -135,7 +135,9 @@ export async function executeEventbriteApproval(supabase: SupabaseClient<Databas
 
     const { data: thread } = await supabase.from("threads").select("id").eq("kind", "side").eq("title", "Eventbrite Agent").maybeSingle();
     const { data: main } = await supabase.from("threads").select("id").eq("kind", "main").maybeSingle();
-    const threadId = thread?.id ?? main?.id;
+    // Results go back to the event chat the listing was planned in, when there is one.
+    const { data: origin } = ap.thread_id ? await supabase.from("threads").select("id, kind").eq("id", ap.thread_id).maybeSingle() : { data: null };
+    const threadId = (origin?.kind === "event" ? origin.id : null) ?? thread?.id ?? main?.id;
     if (threadId) {
       await supabase.from("messages").insert({
         thread_id: threadId, user_id: userId, role: "assistant",

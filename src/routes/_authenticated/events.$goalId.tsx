@@ -9,7 +9,8 @@ import type { Database } from "@/integrations/supabase/types";
 import { Button } from "@/components/ui/button";
 import { refreshEventSuggestions } from "@/lib/eventProfile.functions";
 import { resetEventProgress, signedCover, uploadEventCover } from "@/lib/eventGoal";
-import { stepInfo, isEssentialsStep, sortSteps } from "@/lib/eventSteps.shared";
+import { isEssentialsStep, sortSteps } from "@/lib/eventSteps.shared";
+import { StepStatus } from "@/components/tasks/StepStatus";
 import { EventEssentialsDialog } from "@/components/tasks/EventEssentialsDialog";
 
 export const Route = createFileRoute("/_authenticated/events/$goalId")({
@@ -172,11 +173,8 @@ function EventPage() {
           <Card icon={<CheckCircle2 className="h-4 w-4" />} title="Steps">
             <ul className="space-y-1">
               {steps.map((s) => {
-                const info = stepInfo(s.title); const ess = isEssentialsStep(s.title);
-                const inner = (<>
-                  <span className={`mt-0.5 grid h-4 w-4 shrink-0 place-items-center rounded-full ${s.done ? "bg-primary text-primary-foreground" : "bg-secondary"}`}>{s.done && <Check className="h-3 w-3" />}</span>
-                  <span className="min-w-0"><span className={`block text-sm ${s.done ? "text-muted-foreground" : ""}`}>{s.title}</span>{info && <span className="block text-xs text-muted-foreground">{info}</span>}</span>
-                </>);
+                const ess = isEssentialsStep(s.title, s.step_key);
+                const inner = <StepStatus s={s} />;
                 return <li key={s.id}>{ess ? <button onClick={() => setEssentials(true)} className="flex w-full items-start gap-2 rounded-lg px-1.5 py-1.5 text-left hover:bg-secondary">{inner}</button> : <div className="flex items-start gap-2 px-1.5 py-1.5">{inner}</div>}</li>;
               })}
               {!steps.length && <p className="text-sm text-muted-foreground">No steps yet.</p>}

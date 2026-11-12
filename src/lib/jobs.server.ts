@@ -23,7 +23,11 @@ export async function runSharedJob(kind: 'scheduler' | 'recovery' | 'reports') {
     }
     if (kind === 'recovery') return await recoverRuns(db);
     await ensureSystemTasks(db, kind === 'reports');
-    if (kind === 'scheduler') { try { const { queueStalledEventSteps } = await import('./resume.server'); await queueStalledEventSteps(db); } catch (e) { console.error('Resume scan failed', e); } }
+    if (kind === 'scheduler') {
+      // Event plans first: every ready step of every event is queued, not only the first unfinished one.
+      try { const { advanceEventPlans } = await import('./eventPlan.server'); await advanceEventPlans(db); } catch (e) { console.error('Event plan scan failed', e); }
+      try { const { queueStalledEventSteps } = await import('./resume.server'); await queueStalledEventSteps(db); } catch (e) { console.error('Resume scan failed', e); }
+    }
     const { error: enqueueError } = await db.rpc('enqueue_due_agent_tasks');
     if (enqueueError) throw new Error('Could not enqueue due work');
     const { data: queued } = await db.from('agent_task_runs').select('id, task_id, user_id').eq('status', 'queued').order('created_at').limit(100);
@@ -55,6 +59,15 @@ export async function runSharedJob(kind: 'scheduler' | 'recovery' | 'reports') {
           const {runCommunityScout}=await import('@/lib/scout.server');
           await runCommunityScout(run.user_id);
         }
+        else if (task.job_kind === 'launch_step' && task.step_key) {
+          const { runPlanStep } = await import('./eventPlan.server');
+          const outcome = await runPlanStep(scopedDb(db, run.user_id), run.user_id, task, threadId);
+          const { error: e0 } = await db.rpc('finish_agent_task', { p_run: run.id, p_next: 'infinity' });
+          if (e0) throw new Error('Work completed but progress could not be saved');
+          // On hold the step stays open; the plan scan decides when it is ready again.
+          if (outcome === 'hold') await db.from('tasks').update({ done: false, done_at: null, scheduled_for: null }).eq('id', task.id).eq('user_id', run.user_id);
+          continue;
+        }
         else if (task.job_kind === 'launch_step') {
           const { runResumeStep } = await import('./resume.server');
           const next = await runResumeStep(scopedDb(db, run.user_id), run.user_id, task, threadId);
@@ -80,7 +93,7 @@ export async function runSharedJob(kind: 'scheduler' | 'recovery' | 'reports') {
       } catch(e) {
         await noteJobFailure(run.user_id, e);
         await db.from('agent_task_runs').update({ status: 'needs_review', phase: 'provider_started', lease_until: null, error: 'Interrupted; verify existing results before retrying' }).eq('id', run.id);
-        await db.from('tasks').update({ last_error: 'Interrupted — review existing results before retrying' }).eq('id', task.id);
+        await db.from('tasks').update({ last_error: 'Interrupted — review existing results before retrying', ...(task.step_key ? { step_state: 'failed', step_note: 'Interrupted — check the event chat, then reply to retry', scheduled_for: null } : {}) }).eq('id', task.id);
       }
     }
     if(kind==='scheduler') {

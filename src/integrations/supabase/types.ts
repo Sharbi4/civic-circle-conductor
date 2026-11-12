@@ -1151,6 +1151,7 @@ export type Database = {
           assignee: string
           created_at: string
           created_by: string
+          depends_on: string[]
           done: boolean
           done_at: string | null
           due_date: string | null
@@ -1161,11 +1162,16 @@ export type Database = {
           last_error: string | null
           last_run_at: string | null
           repeat: string | null
+          result_url: string | null
           run_prompt: string | null
           schedule_key: string | null
           scheduled_for: string | null
+          step_key: string | null
+          step_note: string | null
+          step_state: string | null
           thread_id: string | null
           title: string
+          trigger_at: string | null
           user_id: string
         }
         Insert: {
@@ -1173,6 +1179,7 @@ export type Database = {
           assignee?: string
           created_at?: string
           created_by?: string
+          depends_on?: string[]
           done?: boolean
           done_at?: string | null
           due_date?: string | null
@@ -1183,11 +1190,16 @@ export type Database = {
           last_error?: string | null
           last_run_at?: string | null
           repeat?: string | null
+          result_url?: string | null
           run_prompt?: string | null
           schedule_key?: string | null
           scheduled_for?: string | null
+          step_key?: string | null
+          step_note?: string | null
+          step_state?: string | null
           thread_id?: string | null
           title: string
+          trigger_at?: string | null
           user_id: string
         }
         Update: {
@@ -1195,6 +1207,7 @@ export type Database = {
           assignee?: string
           created_at?: string
           created_by?: string
+          depends_on?: string[]
           done?: boolean
           done_at?: string | null
           due_date?: string | null
@@ -1205,11 +1218,16 @@ export type Database = {
           last_error?: string | null
           last_run_at?: string | null
           repeat?: string | null
+          result_url?: string | null
           run_prompt?: string | null
           schedule_key?: string | null
           scheduled_for?: string | null
+          step_key?: string | null
+          step_note?: string | null
+          step_state?: string | null
           thread_id?: string | null
           title?: string
+          trigger_at?: string | null
           user_id?: string
         }
         Relationships: [

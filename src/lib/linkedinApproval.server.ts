@@ -168,7 +168,7 @@ export async function executeLinkedinApproval(supabase: SupabaseClient<Database>
       await say(post.ok
         ? `✅ **${p.title}** is live on LinkedIn — [view the event](${link}).${backgroundImage ? " Custom cover image added." : "\n\n(I couldn't add a cover image this time — you can set one on the event page, or ask me to try again.)"}`
         : `⚠️ LinkedIn created **${p.title}** but wouldn't publish it${organizer.includes("organization") ? " under your company page (the app may need page-posting permission from LinkedIn)" : ""}. It stays hidden until posted — ask me to try publishing again.`);
-      return { threadId, ok: post.ok };
+      return { threadId, ok: post.ok, url: link };
     }
 
     if (kind === "linkedin_event_publish") {
@@ -187,7 +187,7 @@ export async function executeLinkedinApproval(supabase: SupabaseClient<Database>
       if (!post.ok) await fail(post, "publish the event");
       await supabase.from("linkedin_events").update({ status: "live", post_urn: post.headers.get("x-restli-id"), updated_at: new Date().toISOString() }).eq("event_id", p.event_id);
       await say(`✅ **${row.name}** is now published — [view the event](https://www.linkedin.com/events/${p.event_id}/).`);
-      return { threadId, ok: true };
+      return { threadId, ok: true, url: `https://www.linkedin.com/events/${p.event_id}/` };
     }
 
     if (kind === "linkedin_event_update") {
@@ -288,5 +288,5 @@ export async function executeLinkedinApproval(supabase: SupabaseClient<Database>
     if (!res.ok) await fail(res, "publish the post");
     const postId = res.headers.get("x-restli-id") ?? "";
     await say(`✅ Posted to LinkedIn${imageUrn ? " with photo" : ""}${asPage ? " from your company page" : ""}${postId ? ` — [view it](https://www.linkedin.com/feed/update/${postId})` : ""}.\n\n> ${p.text.slice(0, 280).replace(/\n/g, "\n> ")}`);
-    return { threadId, ok: true };
+    return { threadId, ok: true, url: postId ? `https://www.linkedin.com/feed/update/${postId}` : undefined };
 }

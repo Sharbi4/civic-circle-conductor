@@ -1,41 +1,29 @@
+import { EVENT_PLAN, PLAN_KEYS, keyForTitle, stepDef, type StepKey } from "./eventPlan.shared";
+
 // Plain-language checklist every event goal starts with, in the order Civi works it.
-export const EVENT_STEPS = [
-  "Pick the date, budget & helpers",
-  "Book the venue",
-  "RSVP sign-up",
-  "Eventbrite",
-  "LinkedIn event",
-  "Post on X",
-  "Post on LinkedIn",
-  "Facebook event & groups",
-  "Instagram",
-  "Email invites",
-  "Reminders (week & day before)",
-  "Thank-you & feedback poll",
-] as const;
+export const EVENT_STEPS = EVENT_PLAN.map((s) => s.title);
 
 // Short descriptions shown under each step. Steps are completed by Civi, not ticked by the user.
-const INFO: [RegExp, string][] = [
-  [/budget|date|helper|people/i, "Set the budget, expected turnout and venue — tap to fill in what you know."],
-  [/venue/i, "Find, check availability and reserve the space."],
-  [/rsvp|sign-?up/i, "A shareable sign-up so you know who's coming."],
-  [/eventbrite/i, "List the event and open ticketing."],
-  [/linkedin event/i, "Create the event on your LinkedIn page."],
-  [/\bx\b/i, "Announce it to your followers on X."],
-  [/post on linkedin/i, "Share an update with a photo on LinkedIn."],
-  [/facebook/i, "Create the Facebook event and share it in local groups."],
-  [/instagram/i, "Post the event photo and details."],
-  [/email/i, "Send invitations to your contacts."],
-  [/remind/i, "Nudge everyone a week and a day before."],
-  [/thank|feedback/i, "Thank attendees and collect feedback."],
-];
-export function stepInfo(title: string): string | null {
-  return INFO.find(([r]) => r.test(title))?.[1] ?? null;
+export function stepInfo(title: string, key?: string | null): string | null {
+  return stepDef(key ?? keyForTitle(title))?.info ?? null;
 }
-export function isEssentialsStep(title: string): boolean {
-  return /budget/i.test(title);
+export function isEssentialsStep(title: string, key?: string | null): boolean {
+  return (key ?? keyForTitle(title)) === "essentials";
 }
-export function sortSteps<T extends { title: string; created_at: string }>(steps: T[]): T[] {
-  const idx = (t: string) => { const i = (EVENT_STEPS as readonly string[]).indexOf(t); return i < 0 ? 99 : i; };
-  return [...steps].sort((a, b) => idx(a.title) - idx(b.title) || a.created_at.localeCompare(b.created_at));
+export function sortSteps<T extends { title: string; created_at: string; step_key?: string | null }>(steps: T[]): T[] {
+  const idx = (t: T) => { const i = PLAN_KEYS.indexOf((t.step_key ?? keyForTitle(t.title)) as StepKey); return i < 0 ? 99 : i; };
+  return [...steps].sort((a, b) => idx(a) - idx(b) || a.created_at.localeCompare(b.created_at));
+}
+
+/** Human label for a step's live state, shown under the step in Goals and on the event page. */
+export function stepStateLabel(state: string | null | undefined, done: boolean): string | null {
+  if (state === "skipped") return "Skipped";
+  if (done) return null;
+  switch (state) {
+    case "ready": case "running": return "Working on it";
+    case "awaiting_approval": return "Waiting for your approval";
+    case "awaiting_reply": return "Waiting on a reply";
+    case "failed": return "Didn't go through";
+    default: return null;
+  }
 }

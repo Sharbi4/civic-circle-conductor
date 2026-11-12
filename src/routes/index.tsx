@@ -74,10 +74,9 @@ function Index() {
           The organizer for nonprofits, governments, parties and campaigns. Connect your channels and Civi runs the outreach.
         </p>
 
-        <p className="mt-14 text-muted-foreground">Private preview</p>
         <Link
           to="/auth"
-          className="mt-4 flex w-full max-w-md items-center justify-between rounded-3xl bg-card px-6 py-4 text-left transition-colors hover:bg-secondary"
+          className="mt-14 flex w-full max-w-md items-center justify-between rounded-3xl bg-card px-6 py-4 text-left transition-colors hover:bg-secondary"
         >
           <span>
             <span className="block font-medium">Continue to Civi Meet</span>

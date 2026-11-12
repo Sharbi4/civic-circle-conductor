@@ -14,6 +14,7 @@ import { sendOrganizerMessage } from "@/lib/organizer.functions";
 import { endBrowserSession, browserAgentStep, setBrowserDriving, startFacebookSetup } from "@/lib/browser.functions";
 import { useThreads, useOrg } from "./chat";
 import { isScoutBriefing } from "@/lib/discovery.shared";
+import { isAutomatedPrompt, automatedPromptLabel } from "@/lib/eventPlan.shared";
 import { ChatSearch } from "@/components/ChatSearch";
 import { FormLibrary } from "@/components/polls/FormLibrary";
 import { LetterheadCheck, shouldShowLetterheadReminder } from "@/components/LetterheadCheck";
@@ -689,7 +690,11 @@ function ChatWindow({ threadId }: { threadId: string }) {
           )}
           <div className="space-y-5">
             {all.map((m) =>
-              m.role === "user" ? (
+              m.role === "user" && isAutomatedPrompt(m.content) ? (
+                <div key={m.id} id={`msg-${m.id}`} className="flex justify-center">
+                  <span className="rounded-full bg-secondary px-3 py-1 text-xs text-muted-foreground">{automatedPromptLabel(m.content)}</span>
+                </div>
+              ) : m.role === "user" ? (
                 <div key={m.id} id={`msg-${m.id}`} className="flex justify-end rounded-3xl">
                   <div className="bubble-premium max-w-[80%] whitespace-pre-wrap rounded-3xl px-5 py-3">
                     {m.content.replace(/\n*\[\[image:(?:cover|inspiration)\|[^\]]+\]\]/g, "").trim()}

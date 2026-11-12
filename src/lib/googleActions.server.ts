@@ -54,7 +54,7 @@ const b64 = (s: string) => btoa(Array.from(new TextEncoder().encode(s), (b) => S
 const hdr = (v: string) => (/^[\x00-\x7F]*$/.test(v) ? v : `=?UTF-8?B?${b64(v)}?=`);
 const clean = (v: string) => v.replace(/[\r\n]+/g, " ").trim();
 
-export const gmailSendSchema = z.object({ kind: z.enum(["gmail_send", "gmail_draft"]), to: z.string().min(3).max(500), cc: z.string().max(500).nullish(), subject: z.string().min(1).max(300), body: z.string().min(1).max(20000), reply_to: z.string().max(100).nullish() });
+export const gmailSendSchema = z.object({ kind: z.enum(["gmail_send", "gmail_draft"]), to: z.string().min(3).max(500), cc: z.string().max(500).nullish(), bcc: z.string().max(8000).nullish(), subject: z.string().min(1).max(300), body: z.string().min(1).max(20000), reply_to: z.string().max(100).nullish() });
 export const calendarSchema = z.object({ kind: z.enum(["calendar_create", "calendar_update", "calendar_cancel"]), event_id: z.string().max(200).nullish(), summary: z.string().max(300).nullish(), start: z.string().max(40).nullish(), end: z.string().max(40).nullish(), timezone: z.string().max(60).nullish(), location: z.string().max(500).nullish(), description: z.string().max(8000).nullish(), attendees: z.array(z.string().email()).max(50).nullish() });
 export const gmailModifySchema = z.object({ kind: z.literal("gmail_modify"), message_ids: z.array(z.string().min(1).max(100)).min(1).max(50), archive: z.boolean().nullish(), mark_read: z.boolean().nullish(), add_labels: z.array(z.string().min(1).max(100)).max(10).nullish(), remove_labels: z.array(z.string().min(1).max(100)).max(10).nullish() });
 export const driveDocSchema = z.object({ kind: z.literal("drive_doc"), file_id: z.string().max(200).nullish(), title: z.string().min(1).max(200), content: z.string().min(1).max(100000) });
@@ -94,15 +94,16 @@ export async function executeGoogleApproval(db: Db, userId: string, approvalId: 
       threadId = m.threadId; const mid = m.payload?.headers?.find((h) => h.name.toLowerCase() === "message-id")?.value;
       if (mid) refs = `In-Reply-To: ${mid}\r\nReferences: ${mid}\r\n`;
     }
-    const raw = b64(`To: ${clean(p.to)}\r\n${p.cc ? `Cc: ${clean(p.cc)}\r\n` : ""}Subject: ${hdr(clean(p.subject))}\r\n${refs}MIME-Version: 1.0\r\nContent-Type: text/plain; charset="UTF-8"\r\n\r\n${p.body}`).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+    const raw = b64(`To: ${clean(p.to)}\r\n${p.cc ? `Cc: ${clean(p.cc)}\r\n` : ""}${p.bcc ? `Bcc: ${clean(p.bcc)}\r\n` : ""}Subject: ${hdr(clean(p.subject))}\r\n${refs}MIME-Version: 1.0\r\nContent-Type: text/plain; charset="UTF-8"\r\n\r\n${p.body}`).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
     if (kind === "gmail_draft") {
       await call(userId, "google_mail", "/gmail/v1/users/me/drafts", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message: threadId ? { raw, threadId } : { raw } }) });
       await say(`✅ Saved a draft to **${clean(p.to)}** — “${clean(p.subject)}” in your Gmail Drafts.`);
       return { ok: true };
     }
-    await call(userId, "google_mail", "/gmail/v1/users/me/messages/send", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(threadId ? { raw, threadId } : { raw }) });
-    await say(`✅ Email sent to **${clean(p.to)}** — “${clean(p.subject)}”.`);
-    return { ok: true };
+    const sent = (await (await call(userId, "google_mail", "/gmail/v1/users/me/messages/send", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(threadId ? { raw, threadId } : { raw }) })).json().catch(() => ({}))) as { id?: string };
+    const bccCount = p.bcc ? p.bcc.split(",").filter((x) => x.trim()).length : 0;
+    await say(`✅ Email sent to **${clean(p.to)}**${bccCount ? ` and ${bccCount} people (privately, by Bcc)` : ""} — “${clean(p.subject)}”.`);
+    return { ok: true, url: sent.id ? `https://mail.google.com/mail/u/0/#sent/${sent.id}` : undefined };
   }
   if (kind === "calendar_cancel") {
     const p = calendarSchema.parse(ap.payload);

@@ -1,7 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 
 export async function resetEventProgress(goalId: string) {
-  const { error } = await supabase.from("tasks").update({ done: false, done_at: null }).eq("goal_id", goalId);
+  const { error } = await supabase.from("tasks").update({ done: false, done_at: null, step_state: null, step_note: null, result_url: null, scheduled_for: null, last_error: null, run_prompt: null }).eq("goal_id", goalId);
   if (error) throw error;
   await supabase.from("tasks").update({ done: false, done_at: null }).eq("id", goalId);
 }

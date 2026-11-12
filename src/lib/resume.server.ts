@@ -7,7 +7,7 @@ type Task = Database["public"]["Tables"]["tasks"]["Row"];
 /** Marks the first open step of each event goal for resumption when its chat has gone quiet. */
 export async function queueStalledEventSteps(db: Db) {
   const { data: open } = await db.from("tasks").select("id, user_id, goal_id, thread_id, job_kind, scheduled_for, last_run_at, created_at")
-    .eq("kind", "task").eq("done", false).not("goal_id", "is", null).not("thread_id", "is", null)
+    .eq("kind", "task").eq("done", false).is("step_key", null).not("goal_id", "is", null).not("thread_id", "is", null)
     .order("created_at").limit(500);
   const firstPerGoal = new Map<string, NonNullable<typeof open>[number]>();
   for (const t of open ?? []) if (!firstPerGoal.has(t.goal_id!)) firstPerGoal.set(t.goal_id!, t);

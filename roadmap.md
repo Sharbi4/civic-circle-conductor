@@ -63,3 +63,6 @@
 
 - [x] Correct LinkedIn image transfers to authenticated PUT; never silently publish text-only after a photo failure. Transfer regression tests passed.
 - [ ] Verify a real LinkedIn photo upload and post after the correction; requires a new approved attempt, without automatically replaying earlier approved posts.
+- [x] Remove the "Private preview" label from the public homepage.
+- [x] Event plan engine: each event step knows its channel, what it waits for (steps or a time relative to the event), its state and result link; scheduler runs every ready step; approvals finish steps; unconnected channels skip with a draft; post-event recap/thank-you/feedback on a timer; Facebook kept to Page posts, personal invites by email.
+- [ ] Publish so the sitemap is live, then rescan SEO and confirm homepage, sign-in, Terms, Privacy and Data Deletion pass.

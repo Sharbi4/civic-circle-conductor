@@ -78,6 +78,19 @@ const stripHtml = (s: string) => s.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ")
  */
 export async function startEventLaunchChain(db: Db, userId: string, ev: LaunchEvent): Promise<void> {
   try {
+    // Event chats run on their event plan: record the listing there and let the scheduler start what it unlocks.
+    if (ev.threadId) {
+      const { data: goal } = await db.from("tasks").select("id, due_date").eq("thread_id", ev.threadId).eq("kind", "goal").eq("user_id", userId).order("created_at").limit(1).maybeSingle();
+      const { data: planned } = goal ? await db.from("tasks").select("id").eq("goal_id", goal.id).eq("user_id", userId).not("step_key", "is", null).limit(1) : { data: null };
+      if (goal && planned?.length) {
+        const { finishPlanStep } = await import("./eventPlan.server");
+        await finishPlanStep(db, userId, goal.id, "eventbrite", ev.url);
+        if (ev.rsvpId) await finishPlanStep(db, userId, goal.id, "rsvp", `https://civimeet.com/p/${ev.rsvpId}`);
+        if (!goal.due_date && /^\d{4}-\d{2}-\d{2}/.test(ev.start)) await db.from("tasks").update({ due_date: ev.start.slice(0, 10) }).eq("id", goal.id).eq("user_id", userId);
+        await db.from("messages").insert({ thread_id: ev.threadId, user_id: userId, role: "assistant", content: `🚀 **Eventbrite is set for “${ev.title}”.** That unlocks the promotion steps — the LinkedIn event, posts on X and LinkedIn, the Facebook Page post and email invites now run side by side, each waiting for your approval before anything goes out. Reminders and the thank-you follow-up are on a timer around the event date.\n\n- 📅 Add to Google Calendar: ${addToCalendarUrl(ev)}\n- 📋 Listing: ${ev.url}` });
+        return;
+      }
+    }
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { getDirectLinkedInConnection } = await import("./linkedinDirect.server");
     const { linkedInTokenUsable } = await import("./linkedinDirect.shared");

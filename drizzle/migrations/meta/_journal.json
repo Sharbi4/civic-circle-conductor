@@ -309,6 +309,20 @@
       "when": 1794444642021,
       "tag": "0043_event_cover_photo",
       "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1794461653340,
+      "tag": "0044_event_plan_steps",
+      "breakpoints": true
+    },
+    {
+      "idx": 45,
+      "version": "7",
+      "when": 1794461808542,
+      "tag": "0045_event_plan_step_note",
+      "breakpoints": true
     }
   ]
 }

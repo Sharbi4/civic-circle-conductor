@@ -2,14 +2,15 @@ import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { CalendarDays, CalendarHeart, Check, ChevronDown, ChevronRight, Loader2, MessagesSquare, MoreHorizontal, Plus, RotateCcw, Target, Trash2 } from "lucide-react";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { stepInfo, isEssentialsStep, sortSteps } from "@/lib/eventSteps.shared";
+import { isEssentialsStep, sortSteps } from "@/lib/eventSteps.shared";
+import { StepStatus } from "./StepStatus";
 import { resetEventProgress, openScheduledTaskChat, signedCover } from "@/lib/eventGoal";
 import { EventEssentialsDialog } from "./EventEssentialsDialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
-type Task = { id: string; goal_id: string | null; kind: string; title: string; due_date: string | null; done: boolean; created_by: string; created_at: string; repeat?: string | null; scheduled_for?: string | null; last_error?: string | null; thread_id?: string | null };
+type Task = { id: string; goal_id: string | null; kind: string; title: string; due_date: string | null; done: boolean; created_by: string; created_at: string; repeat?: string | null; scheduled_for?: string | null; last_error?: string | null; thread_id?: string | null; step_key?: string | null; step_state?: string | null; step_note?: string | null; result_url?: string | null };
 
 const today = () => new Date().toISOString().slice(0, 10);
 function dueLabel(d: string) {
@@ -215,7 +216,9 @@ function GoalCard({ g, kids, open, showDone, onToggle, onRemove, onChanged }: { 
   const doneN = kids.filter((t) => t.done).length;
   const pct = kids.length ? Math.round((doneN / kids.length) * 100) : g.done ? 100 : 0;
   const name = g.title.replace(/^(Event|Launch):\s*/, "");
-  const next = kids.find((t) => !t.done);
+  const active = kids.filter((t) => !t.done && (t.step_state === "running" || t.step_state === "ready" || t.step_state === "awaiting_approval"));
+  const next = active[0] ?? kids.find((t) => !t.done);
+  const nextLabel = next ? (active.length > 1 ? `Working on ${active.length} steps · ${next.title}` : next.step_state === "awaiting_approval" ? `Waiting for your approval · ${next.title}` : `Next: ${next.title}`) : null;
   async function reset() {
     if (!confirm(`Reset progress for "${name}"? Every step goes back to not started.`)) return;
     try { await resetEventProgress(g.id); onChanged(); qc.invalidateQueries({ queryKey: ["event-page", g.id] }); toast.success("Progress reset"); } catch { toast.error("Couldn't reset progress"); }
@@ -229,7 +232,7 @@ function GoalCard({ g, kids, open, showDone, onToggle, onRemove, onChanged }: { 
         </div>
         <div className="px-3 pb-1 pt-2">
           <p className="truncate text-sm font-semibold group-hover:text-primary">{name}</p>
-          <p className="truncate text-[11px] text-muted-foreground">{next ? `Next: ${next.title}` : kids.length ? "All steps complete" : "Open to plan"}</p>
+          <p className="truncate text-[11px] text-muted-foreground">{nextLabel ?? (kids.length ? "All steps complete" : "Open to plan")}</p>
         </div>
       </Link>
       <div className="flex items-center gap-1.5 px-3 pb-2">
@@ -249,19 +252,8 @@ function GoalCard({ g, kids, open, showDone, onToggle, onRemove, onChanged }: { 
       {open && (
         <ol className="border-t px-2 py-1.5">
           {kids.filter((t) => showDone || !t.done).map((t) => {
-            const info = stepInfo(t.title); const ess = isEssentialsStep(t.title); const isNext = t.id === next?.id;
-            const body = (
-              <>
-                <span aria-label={t.done ? "Done by Civi" : isNext ? "In progress" : "Not started"} className={`mt-0.5 grid h-4 w-4 shrink-0 place-items-center rounded-full ${t.done ? "bg-primary text-primary-foreground" : isNext ? "bg-primary/15 text-primary" : "bg-secondary"}`}>
-                  {t.done ? <Check className="h-2.5 w-2.5" /> : isNext ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : null}
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className={`block text-[13px] leading-snug ${t.done ? "text-muted-foreground" : ""}`}>{t.title}</span>
-                  {info && <span className="block text-[11px] leading-snug text-muted-foreground">{info}</span>}
-                  {t.last_error && <span className="block text-[11px] text-destructive">{t.last_error}</span>}
-                </span>
-              </>
-            );
+            const ess = isEssentialsStep(t.title, t.step_key);
+            const body = <StepStatus s={t} compact active={!t.step_key && t.id === next?.id} />;
             return <li key={t.id}>{ess
               ? <button onClick={() => setEssentials(true)} className="flex w-full items-start gap-2 rounded-lg px-1.5 py-1.5 text-left hover:bg-sidebar-accent">{body}</button>
               : <div className="flex items-start gap-2 px-1.5 py-1.5">{body}</div>}</li>;

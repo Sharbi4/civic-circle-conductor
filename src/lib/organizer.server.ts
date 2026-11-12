@@ -1,4 +1,5 @@
 import { EVENT_STEPS } from "@/lib/eventSteps.shared";
+import { planInsertRows } from "@/lib/eventPlan.shared";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 import { generateResponse, GatewayError } from "@lovable.dev/ai-gateway";
@@ -14,7 +15,7 @@ const MODEL = "openai/gpt-6.1-terra";
  * Runs one organizer turn: saves the user message, generates Civi's reply, and applies its markers.
  * Used by the chat (as the signed-in user) and by the scheduler (with a client scoped to one org's user id).
  */
-export async function runOrganizer(supabase: SupabaseClient<Database>, userId: string, data: { threadId: string; content: string }) {
+export async function runOrganizer(supabase: SupabaseClient<Database>, userId: string, data: { threadId: string; content: string; planStepId?: string }) {
   {
 
     const { data: thread, error: tErr } = await supabase
@@ -160,7 +161,7 @@ All Google actions wait for approval.`,
       eventProfileLine,
       memories?.length ? `Organization memory:\n- ${memories.map((m) => m.content).join("\n- ")}` : "",
       thread.kind === "event"
-        ? `This is an EVENT CHAT for "${thread.title}"${thread.event_date ? ` on ${thread.event_date}` : " (date not set yet)"}. Everything here works this one event to completion, following its Event goal checklist in order: ${EVENT_STEPS.map((t, i) => `${i + 1}) ${t}`).join("; ")}. Use connected APIs for Eventbrite, LinkedIn, X, email and the RSVP/feedback forms; the live browser only for the venue booking page, Facebook and Instagram. When a step is finished, mark its task done. As soon as the name or date is decided or changes, add [[event_chat: {"title":"<event name>","date":"YYYY-MM-DD"}]] so the chat and its Event goal tile update.`
+        ? `This is an EVENT CHAT for "${thread.title}"${thread.event_date ? ` on ${thread.event_date}` : " (date not set yet)"}. Everything here works this one event to completion through its EVENT PLAN: ${EVENT_STEPS.map((t, i) => `${i + 1}) ${t}`).join("; ")}. The app runs the plan: each step starts as soon as what it waits for is finished (so the X post, LinkedIn post, Facebook Page post and email invites run side by side once the Eventbrite or RSVP link exists), reminders run 7 days and 1 day before, and the recap, feedback poll and thank-you email run the day after. Steps for channels that aren't connected are skipped with a ready-to-paste draft. Queue each step's action with its marker — the step finishes when that action really goes out. Use [[task_done: <id>]] only for steps finished without an approval (date and budget locked, venue confirmed booked). Use connected APIs for Eventbrite, LinkedIn, X, email and the RSVP/feedback forms; the live browser only for the venue booking page and the organization's Facebook Page — never for personal messages or group invitations. As soon as the name or date is decided or changes, add [[event_chat: {"title":"<event name>","date":"YYYY-MM-DD"}]] so the chat and its Event goal tile update.`
         : `${thread.kind === "side" ? `This is a side chat titled "${thread.title}".` : "This is the main organizer chat."} EVENT CHAT OFFER: when the organizer starts planning a specific event here, ask once "Want to make this an event chat?" with [[choices: Yes, make it an event chat | Keep chatting here]]. If they agree, add [[event_chat: {"title":"<event name or working title>","date":"YYYY-MM-DD or omit if unknown"}]] — the app turns it into an event chat (name + date) with its own Event goal checklist.`,
       `API FIRST, BROWSER LAST: for any platform with a connected API (Eventbrite, X, LinkedIn, Gmail, polls, documents, calls) ALWAYS use its API markers, never the browser. Do research from your own knowledge, memory, the resource directory and Community Scout rather than opening the browser. Use the live browser mainly for Facebook and Instagram (events, Page/profile/group posts, Messenger/DMs) and for sites with no API (e.g. a venue booking page).`,
       `OFFER A SCHEDULE: when the organizer asks for an action that naturally repeats (posts, reminders, volunteer calls, event promotion, check-ins, roundups, notification checks), after handling it ask once whether they'd like it on a schedule, suggesting a fitting cadence, e.g. [[choices: Every Monday | Every week before an event | Every month | Just this once]]. Skip it for one-off actions (a single event, a booking, a payment). If they pick a schedule, save a REAL scheduled task with the marker [[task: {"title":"Every Monday: X post — weekly events roundup","due":"<next run date YYYY-MM-DD>","repeat":"daily|weekly|biweekly|monthly","prompt":"the exact instruction you should follow each time, e.g. Draft this week's X roundup post of our upcoming events for approval"}]]. The scheduler runs it automatically on each due date: it puts a "Scheduled:" item in Approvals, and once they approve you carry it out in this chat (posts still get their own approval). Tell them that in one line and that they can change or stop it in Goals & tasks.`,
@@ -278,6 +279,7 @@ All Google actions wait for approval.`,
         source: "Civi chat",
         status: "suggested",
       }));
+    const pollIds: string[] = [];
     const { pollSpecSchema } = await import("@/lib/polls.shared");
     for (const m of [...text.matchAll(/\[\[poll:\s*(\{.+?\})\s*\]\]/gs)].slice(0, 2)) {
       let card = "";
@@ -298,6 +300,7 @@ All Google actions wait for approval.`,
           text = text.replace(m[0], card);
           continue;
         }
+        pollIds.push(pl.id);
         card = `\n📊 **${spec.title}** — [open the ${spec.kind === "feedback" ? "feedback form" : spec.kind === "signup" ? "sign-up" : "poll"}](/p/${pl.id}). ✅ Tested: I opened the public link and all ${spec.questions.length} questions loaded. Share link: https://civimeet.com/p/${pl.id} · results under **Polls** in the left bar.\n`;
       } catch (e) { console.error("Failed to create poll", e); card = "\n⚠️ I couldn't create that poll — try asking again.\n"; }
       text = text.replace(m[0], card);
@@ -315,16 +318,14 @@ All Google actions wait for approval.`,
           if (g) await supabase.from("tasks").update({ title: `Event: ${title}`, ...(date ? { due_date: date } : {}) }).eq("id", g.id);
           else {
             const { data: ng } = await supabase.from("tasks").insert({ user_id: userId, kind: "goal", title: `Event: ${title}`, created_by: "civi", thread_id: data.threadId, due_date: date }).select("id").single();
-            if (ng) await supabase.from("tasks").insert([...EVENT_STEPS]
-              .map((t) => ({ user_id: userId, kind: "task", title: t, created_by: "civi", goal_id: ng.id, thread_id: data.threadId })));
+            if (ng) await supabase.from("tasks").insert(planInsertRows(userId, ng.id, data.threadId, date));
           }
         } else {
           // The main chat stays main: spin off a dedicated event chat instead.
           const { data: nt } = await supabase.from("threads").insert({ user_id: userId, kind: "event", title, event_date: date }).select("id").single();
           if (nt) {
             const { data: ng } = await supabase.from("tasks").insert({ user_id: userId, kind: "goal", title: `Event: ${title}`, created_by: "civi", thread_id: nt.id, due_date: date }).select("id").single();
-            if (ng) await supabase.from("tasks").insert([...EVENT_STEPS]
-              .map((t) => ({ user_id: userId, kind: "task", title: t, created_by: "civi", goal_id: ng.id, thread_id: nt.id })));
+            if (ng) await supabase.from("tasks").insert(planInsertRows(userId, ng.id, nt.id, date));
             await supabase.from("messages").insert({ thread_id: nt.id, user_id: userId, role: "assistant", content: `🎉 This is the event chat for **${title}**${date ? ` (${date})` : ""}. I'll pick up from what we discussed in the main chat — budget, people and venue first, then Eventbrite and sharing.` });
             text += `\n\n📅 I opened a dedicated event chat for **${title}** under **Events** in the left bar, with its checklist in Event goals.`;
           }
@@ -345,16 +346,18 @@ All Google actions wait for approval.`,
     });
     if (taskRows.length) { const { error: tErr } = await supabase.from("tasks").insert(taskRows); if (tErr) console.error("Failed to save tasks", tErr.message); }
     const doneIds = [...text.matchAll(/\[\[task_done:\s*([0-9a-f-]{36})\s*\]\]/gi)].map((m) => m[1]!).slice(0, 10);
-    if (doneIds.length) await supabase.from("tasks").update({ done: true, done_at: new Date().toISOString() }).in("id", doneIds);
+    if (doneIds.length) await supabase.from("tasks").update({ done: true, done_at: new Date().toISOString(), step_note: null }).in("id", doneIds);
     text = text.replace(/\n?\[\[(?:task|goal|task_done):.+?\]\]/gs, "");
     const docMatches = [...text.matchAll(/\[\[document:\s*([^\]|]+?)(?:\|\s*([a-z]+)\s*)?\]\]([\s\S]*?)\[\[\/document\]\]/g)].slice(0, 2);
+    let callsQueued = 0;
     for (const call of [...text.matchAll(/\[\[venue_call:\s*(\{.+?\})\s*\]\]/gs)].slice(0, 1)) {
       try {
         const { callRequestSchema } = await import('./calling.shared');
-        const payload = callRequestSchema.parse({ ...JSON.parse(call[1] ?? '{}'), thread: data.threadId, kind: 'venue_call' });
+        const payload = { ...callRequestSchema.parse({ ...JSON.parse(call[1] ?? '{}'), thread: data.threadId, kind: 'venue_call' }), ...(data.planStepId ? { launch_task_id: data.planStepId } : {}) };
         if (!payload.callback) { text = text.replace(call[0], '\nCall not queued yet: what callback number should the venue use to reach you?'); continue; }
         const { error } = await supabase.from('approvals').insert({ user_id: userId, thread_id: data.threadId, action_type: 'outreach', title: `Call ${payload.recipient} — availability`, details: `${payload.to} · callback ${payload.callback}\n${payload.brief}\nResearch only; no binding booking or payment.`, payload });
         if (error) throw error;
+        callsQueued++;
         text = text.replace(call[0], '\nAvailability call queued in Approvals. No call has been placed yet.');
       } catch { text = text.replace(call[0], '\nCall not queued: a verified business phone number and specific calling brief are required.'); }
     }
@@ -429,6 +432,10 @@ All Google actions wait for approval.`,
     if (facts.length) {
       await supabase.from("memories").insert(facts.map((content) => ({ user_id: userId, content })));
     }
+    // Actions queued while working an event-plan step are tied to it, so the step finishes when they really go out.
+    if (data.planStepId) for (const r of approvalRows as unknown as { payload?: unknown }[]) {
+      if (r.payload && typeof r.payload === "object" && (r.payload as { kind?: unknown }).kind) r.payload = { ...(r.payload as object), launch_task_id: data.planStepId };
+    }
     if (approvalRows.length) {
       const { data: savedApprovals, error: apErr } = await supabase.from("approvals").insert(approvalRows.map((r) => ({ ...r, thread_id: data.threadId }))).select("id, payload");
       if (savedApprovals) {
@@ -451,6 +458,6 @@ All Google actions wait for approval.`,
     if (thread.kind === "side" && thread.title === "New chat") patch.title = data.content.slice(0, 40);
     await supabase.from("threads").update(patch).eq("id", data.threadId);
 
-    return { content: clean, remembered: facts.length };
+    return { content: clean, remembered: facts.length, pollIds, approvalsQueued: approvalRows.length + callsQueued };
   }
 }
