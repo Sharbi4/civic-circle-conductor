@@ -8,12 +8,12 @@ const BASE = ["https://www.googleapis.com/auth/userinfo.email", "https://www.goo
 export const GOOGLE_APPS = {
   google_drive: {
     env: "GOOGLE_DRIVE_APP_USER_CONNECTOR_CLIENT_API_KEY",
-    scopes: [...BASE, "https://www.googleapis.com/auth/drive.file", "https://www.googleapis.com/auth/drive.readonly"],
+    scopes: [...BASE, "https://www.googleapis.com/auth/drive.file"],
     profilePath: "/drive/v3/about?fields=user(emailAddress)",
   },
   google_calendar: {
     env: "GOOGLE_CALENDAR_APP_USER_CONNECTOR_CLIENT_API_KEY",
-    scopes: [...BASE, "https://www.googleapis.com/auth/calendar.events", "https://www.googleapis.com/auth/calendar.readonly"],
+    scopes: [...BASE, "https://www.googleapis.com/auth/calendar.events"],
     profilePath: "/calendar/v3/calendars/primary",
   },
 } as const;

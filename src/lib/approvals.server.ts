@@ -85,6 +85,10 @@ async function runApprovalDispatch(db: Db, userId: string, id: string, payload: 
     const { executeLinkedinApproval } = await import('./linkedinApproval.server');
     return executeApproval(db, userId, id, () => executeLinkedinApproval(db, userId, id));
   }
+  if (['gmail_send', 'calendar_create', 'calendar_update', 'drive_doc'].includes(kind)) {
+    const { executeGoogleApproval } = await import('./googleActions.server');
+    return executeApproval(db, userId, id, () => executeGoogleApproval(db, userId, id));
+  }
   if (kind === 'x_post') {
     const { executeXApproval } = await import('./xApproval.server');
     return executeApproval(db, userId, id, () => executeXApproval(db, userId, id));

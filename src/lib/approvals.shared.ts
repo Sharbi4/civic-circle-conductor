@@ -28,6 +28,10 @@ export function approvalAction(payload: unknown, actionType = ''): string {
     case 'fb_join_group': return 'Join this Facebook group in the live browser';
     case 'fb_page_post': return 'Post this update on your Facebook Page';
     case 'civi_suggestion': return 'Start this suggested action';
+    case 'gmail_send': return `Send this email${typeof p['to'] === 'string' ? ` to ${p['to']}` : ''} from your Gmail`;
+    case 'calendar_create': return 'Add this event to your Google Calendar';
+    case 'calendar_update': return 'Update this Google Calendar event';
+    case 'drive_doc': return 'Create this Google Doc in your Drive';
     default:
       if (actionType === 'payment') return 'Make this payment';
       if (actionType === 'booking') return 'Make this booking';

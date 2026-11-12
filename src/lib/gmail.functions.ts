@@ -7,9 +7,7 @@ const GATEWAY = "https://connector-gateway.lovable.dev";
 export const GMAIL_SCOPES = [
   "https://www.googleapis.com/auth/userinfo.email",
   "https://www.googleapis.com/auth/userinfo.profile",
-  "https://www.googleapis.com/auth/gmail.readonly",
-  "https://www.googleapis.com/auth/gmail.send",
-  "https://www.googleapis.com/auth/gmail.compose",
+  // gmail.modify covers reading, sending, drafts and labels — the one Gmail scope Civi needs.
   "https://www.googleapis.com/auth/gmail.modify",
 ];
 
