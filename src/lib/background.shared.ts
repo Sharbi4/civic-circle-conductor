@@ -3,8 +3,9 @@
 
 /** Event that wakes one organization's background worker. */
 export const WAKE_EVENT = "civi/owner.work_due";
-/** How often the background sweep looks for waiting work. */
-export const SWEEP_CRON = "3-59/15 * * * *";
+/** Event that runs a shared job's bookkeeping (scheduler, recovery, reports) in the background service. */
+export const SHARED_JOB_EVENT = "civi/shared-job.due";
+export type SharedJobKind = "scheduler" | "recovery" | "reports";
 /** Queued tasks one wake may run; the rest wait for the next sweep. */
 export const RUNS_PER_WAKE = 3;
 /** Browser steps one wake may drive; a browser that still has work continues on the next sweep. */
@@ -18,6 +19,11 @@ const SLOT_MS = 15 * 60_000;
 /** One wake per organization per 15-minute slot: a repeated sweep in the same slot is dropped as a duplicate. */
 export function wakeEventId(userId: string, now = Date.now()): string {
   return `owner-work-${userId}-${Math.floor(now / SLOT_MS)}`;
+}
+
+/** One background run per shared job per 15-minute slot, however many callers ask for it. */
+export function sharedJobEventId(kind: SharedJobKind, now = Date.now()): string {
+  return `shared-${kind}-${Math.floor(now / SLOT_MS)}`;
 }
 
 /** Organizations with waiting work, without paused ones or duplicates, capped per sweep. */

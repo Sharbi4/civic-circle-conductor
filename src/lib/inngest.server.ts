@@ -1,6 +1,6 @@
 import { Inngest } from "inngest";
 import { serve } from "inngest/edge";
-import { BROWSER_STEPS_PER_WAKE, RUNS_PER_WAKE, SWEEP_CRON, WAKE_EVENT } from "./background.shared";
+import { BROWSER_STEPS_PER_WAKE, RUNS_PER_WAKE, SHARED_JOB_EVENT, WAKE_EVENT, type SharedJobKind } from "./background.shared";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -14,12 +14,30 @@ export function inngestHandler() {
   if (!signingKey) throw new Error("Background job service is not connected");
   const client = new Inngest({ id: "civi-meet", isDev: false, checkpointing: false, signingKey });
 
-  const sweep = client.createFunction(
-    { id: "background-sweep", name: "Find organizations with waiting work", triggers: [{ cron: SWEEP_CRON }], retries: 0, concurrency: { limit: 1 } },
-    async ({ step }) => step.run("wake-organizations", async () => {
-      const { sweepBackgroundWork } = await import("./background.server");
-      return sweepBackgroundWork();
-    }),
+  // Scheduler, recovery and daily reports: bookkeeping without the five-second cut-off, then the scheduler
+  // and reports wake only the organizations that have waiting work.
+  const sharedJob = client.createFunction(
+    {
+      id: "shared-job",
+      name: "Run a shared scheduled job",
+      triggers: [{ event: SHARED_JOB_EVENT }],
+      retries: 0,
+      concurrency: [{ key: "event.data.kind", limit: 1 }],
+    },
+    async ({ event, step }) => {
+      const kind = String((event.data as { kind?: unknown } | undefined)?.kind ?? "") as SharedJobKind;
+      if (!["scheduler", "recovery", "reports"].includes(kind)) return { skipped: "unknown job" };
+      const bookkeeping = await step.run("bookkeeping", async () => {
+        const { runSharedJob } = await import("./jobs.server");
+        return runSharedJob(kind);
+      });
+      if (kind === "recovery") return { bookkeeping };
+      const sweep = await step.run("wake-organizations", async () => {
+        const { sweepBackgroundWork } = await import("./background.server");
+        return sweepBackgroundWork();
+      });
+      return { bookkeeping, sweep };
+    },
   );
 
   const ownerWork = client.createFunction(
@@ -55,5 +73,5 @@ export function inngestHandler() {
     },
   );
 
-  return serve({ client, functions: [sweep, ownerWork] });
+  return serve({ client, functions: [sharedJob, ownerWork] });
 }

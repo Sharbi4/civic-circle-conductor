@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 import { scopedDb } from "./scopedDb.server";
-import { WAKE_EVENT, browserIsUnattended, ownersToWake, wakeEventId } from "./background.shared";
+import { SHARED_JOB_EVENT, WAKE_EVENT, browserIsUnattended, ownersToWake, sharedJobEventId, wakeEventId, type SharedJobKind } from "./background.shared";
 
 type Db = SupabaseClient<Database>;
 const GATEWAY_URL = "https://connector-gateway.lovable.dev/inngest";
@@ -33,6 +33,21 @@ export async function sendBackgroundEvents(events: { id: string; name: string; d
     throw new Error(`Background wake failed [${res.status}]: ${body.slice(0, 300)}`);
   }
   return events.length;
+}
+
+/**
+ * Called by the managed schedules, whose HTTP call hangs up after about five seconds: hands the job to the
+ * background service and answers at once. If the service can't be reached, runs the job inline as before.
+ */
+export async function startSharedJob(kind: SharedJobKind) {
+  try {
+    await sendBackgroundEvents([{ id: sharedJobEventId(kind), name: SHARED_JOB_EVENT, data: { kind } }]);
+    return { ok: true, handedOff: true };
+  } catch (e) {
+    console.error("Background hand-off failed, running inline", e instanceof Error ? e.message : e);
+    const { runSharedJob } = await import("./jobs.server");
+    return runSharedJob(kind);
+  }
 }
 
 /**

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { browserIsUnattended, dailyReportIsQuiet, ownersToWake, reviewHasNews, wakeEventId } from "@/lib/background.shared";
+import { browserIsUnattended, dailyReportIsQuiet, ownersToWake, reviewHasNews, sharedJobEventId, wakeEventId } from "@/lib/background.shared";
 
 const A = "aaaaaaaa-0000-4000-8000-000000000001";
 const B = "bbbbbbbb-0000-4000-8000-000000000002";
@@ -52,5 +52,14 @@ describe("no AI spend when nothing has changed", () => {
   it("skips the daily report on a day with no messages and no waiting approvals", () => {
     expect(dailyReportIsQuiet(0, 0)).toBe(true);
     expect(dailyReportIsQuiet(0, 2)).toBe(false);
+  });
+});
+
+describe("shared jobs run once per slot in the background service", () => {
+  it("gives the scheduler the same id within 15 minutes and a new one after", () => {
+    const t = Date.UTC(2026, 10, 12, 19, 30, 0);
+    expect(sharedJobEventId("scheduler", t)).toBe(sharedJobEventId("scheduler", t + 10 * 60_000));
+    expect(sharedJobEventId("scheduler", t)).not.toBe(sharedJobEventId("scheduler", t + 15 * 60_000));
+    expect(sharedJobEventId("scheduler", t)).not.toBe(sharedJobEventId("reports", t));
   });
 });
