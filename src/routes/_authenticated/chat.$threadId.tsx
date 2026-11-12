@@ -25,6 +25,7 @@ import { EventbriteDraftControls } from '@/components/EventbriteDraftControls';
 import { AgentPreparing } from '@/components/AgentPreparing';
 import { PendingApprovalsBar } from '@/components/PendingApprovalsBar';
 import { refreshVenueCalls } from '@/lib/calling.functions';
+import { plainChoice } from '@/lib/browserProgress.shared';
 
 export const Route = createFileRoute("/_authenticated/chat/$threadId")({
   head: () => ({ meta: [
@@ -154,6 +155,13 @@ function friendlyStep(note: string): string {
   return base.replace(/\.$/, "");
 }
 
+function taskTitle(goal: string | null | undefined): string {
+  if (!goal) return "";
+  const g = goal.replace(/^APPROVED by the organizer:\s*/i, "").replace(/^NOTIFICATION CHECK[^:]*:?\s*/i, "Checking Facebook notifications ").trim();
+  const first = g.split(/(?<=[.!?])\s|\n/)[0] ?? g;
+  return first.length > 90 ? `${first.slice(0, 88)}…` : first;
+}
+
 function BrowserCard({ sessionRowId, task }: { sessionRowId: string; task: string }) {
   const qc = useQueryClient();
   const end = useServerFn(endBrowserSession);
@@ -166,12 +174,14 @@ function BrowserCard({ sessionRowId, task }: { sessionRowId: string; task: strin
     queryKey: ["browser_session", sessionRowId],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("browser_sessions").select("id, live_url, status, agent_status, steps, connect_url, site, signed_in, handoff_reason").eq("id", sessionRowId).maybeSingle();
+        .from("browser_sessions").select("id, live_url, status, agent_status, steps, connect_url, site, signed_in, handoff_reason, goal").eq("id", sessionRowId).maybeSingle();
       if (error) throw error;
       return data;
     },
   });
 
+  // The same browser can be handed new tasks; show the one it's working on now.
+  const title = taskTitle(session.data?.goal) || task;
   const running = session.data?.status === "running" && session.data.live_url;
   const agent = session.data?.agent_status ?? "idle";
   const [showSteps, setShowSteps] = useState(false);
@@ -291,7 +301,7 @@ function BrowserCard({ sessionRowId, task }: { sessionRowId: string; task: strin
       )}
       <div className="flex items-center gap-2 px-4 py-2.5">
         <MonitorUp className="h-4 w-4 shrink-0 text-accent" />
-        <span className="truncate text-sm font-medium">{task}</span>
+        <span className="truncate text-sm font-medium">{title}</span>
         {running && <span className="hidden shrink-0 text-xs text-muted-foreground sm:inline">· {AGENT_LABEL[agent] ?? "Watching"}</span>}
         {running ? (
           <span className="ml-auto flex shrink-0 items-center gap-1.5 rounded-full bg-secondary px-2 py-0.5 text-[11px] font-bold uppercase tracking-wider text-accent">
@@ -309,7 +319,7 @@ function BrowserCard({ sessionRowId, task }: { sessionRowId: string; task: strin
           <div className="relative border-t" style={{ height: frameH }}>
             <iframe
               src={session.data!.live_url!}
-              title={`Live browser: ${task}`}
+              title={`Live browser: ${title}`}
               className={`h-full w-full bg-background ${dragging ? "pointer-events-none" : ""}`}
               allow="clipboard-read; clipboard-write"
             />
@@ -722,7 +732,7 @@ function ChatWindow({ threadId }: { threadId: string }) {
                     if (!c) return null;
                     return (
                       <div className="mt-3 flex flex-wrap gap-2">
-                        {(c[1] ?? "").split("|").map((o) => o.trim()).filter(Boolean).map((o) => (
+                        {(c[1] ?? "").split("|").map((o) => plainChoice(o)).filter(Boolean).map((o) => (
                           <button key={o} onClick={() => submit(o)}
                             className="badge-premium rounded-full px-4 py-2 text-sm font-medium transition-colors hover:bg-secondary">
                             {o}

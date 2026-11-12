@@ -75,3 +75,10 @@
 - [ ] Phone: message box placeholder not cut off.
 - [ ] Demo account: clean believable nonprofit with logo + letterhead, one half-done event with result links, poll with responses, Discovery briefings; no test leftovers.
 - [ ] Demo safety: Assisted mode / no real social accounts in the demo.
+
+## Test round 2 (Elle)
+- [ ] Browser venue research: stop repeating searches; open forms it finds; handle Google check
+- [ ] Research plan dates: never give deadlines already past
+- [ ] Facebook group search: handle security check; browser panel shows current task title/page
+- [ ] Choice buttons on summaries show raw **asterisks**
+- [ ] Approve a real action from Approvals, confirm it lands in the right chat, show the chat history

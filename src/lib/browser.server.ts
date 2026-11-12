@@ -1,6 +1,6 @@
 import type { AgentAction } from "@/lib/browserAgent.server";
 import { VENDOR_SCOUT_BROWSER } from "@/lib/eventPlaybook";
-import { browserNeedsProgressReport, BROWSER_PROGRESS_INSTRUCTIONS } from "./browserProgress.shared";
+import { browserNeedsProgressReport, BROWSER_PROGRESS_INSTRUCTIONS, searchFallbackUrl, isFacebookSecurityCheck, repeatedStep } from "./browserProgress.shared";
 import { needsCallFollowUp, CALL_FOLLOW_UP_NOTE } from "./callFollowUp.shared";
 import { isLinkedInBrowserTask, isLinkedInUrl, LINKEDIN_API_ONLY } from "./linkedinRouting.shared";
 const GATEWAY = "https://connector-gateway.lovable.dev/udc_browserbase";
@@ -89,7 +89,7 @@ export async function retargetSession(supabase: SupabaseLike, id: string, goal: 
   const old = (Array.isArray(r?.steps) ? r.steps : []) as Step[];
   const steps = [...old.slice(-40), { action: "task", note: `New task: ${goal.slice(0, 300)}` }];
   await supabase.from("browser_sessions")
-    .update({ goal, agent_status: "driving", steps, submit_approved: false, handoff_reason: null }).eq("id", id);
+    .update({ goal, agent_status: "driving", steps, submit_approved: false, handoff_reason: null, site: null }).eq("id", id);
 }
 
 function parseMarker<T>(text: string, name: string): T | null {
@@ -178,7 +178,16 @@ export async function runAgentStep(supabase: any, userId: string, sessionRowId: 
 
     try {
       const result = await withPage(row.connect_url, async (page) => {
-        const state = await snapshot(page);
+        let state = await snapshot(page);
+        // Google answers automated browsers with a verification page: run the same search elsewhere instead of stopping.
+        const fallback = searchFallbackUrl(state.url);
+        if (fallback && (/\/sorry\//.test(state.url) || /unusual traffic|not a robot/i.test(state.text))) {
+          await perform(page, { action: "navigate", url: fallback });
+          state = await snapshot(page);
+        }
+        if (isFacebookSecurityCheck(state)) {
+          return { action: { action: "handoff", reason: "Facebook wants to confirm it's you with a quick security check. Tap into the browser, finish the check, then press Done — Civi, continue" } as AgentAction, note: "" };
+        }
         if (isLinkedInUrl(state.url)) return { action: { action: "done", summary: LINKEDIN_API_ONLY } as AgentAction, note: "LinkedIn browser disabled" };
         try {
           const host = new URL(state.url).hostname.replace(/^www\./, "");
@@ -186,10 +195,17 @@ export async function runAgentStep(supabase: any, userId: string, sessionRowId: 
         } catch { /* about:blank etc. */ }
         const { data: saved } = await supabase.from("site_credentials").select("domain").eq("user_id", userId);
         const savedSites = (saved ?? []).map((c: { domain: string }) => c.domain).join(", ") || "(none)";
-        const res = await generateResponse({
+        const { data: orgTz } = await supabase.from("organizations").select("time_zone").eq("user_id", userId).maybeSingle();
+        let today: string;
+        try { today = new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric", timeZone: orgTz?.time_zone || "America/Phoenix" }); }
+        catch { today = new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric", timeZone: "America/Phoenix" }); }
+        const ask = (extra = "") => generateResponse({
           model: "openai/gpt-6.1-terra",
           instructions: [
             "You are Civi, a community-organizing agent driving a real web browser one action at a time to reach the organizer's goal (e.g. find vendors on Eventbrite, fill a booking/inquiry form).",
+            `Today is ${today}. Never present a date or deadline that has already passed as upcoming.`,
+            "SEARCHING: search the web with https://duckduckgo.com/html/?q=your+words, never google.com (Google blocks automated browsers with a verification check). Better still, open an official site directly when you know it (e.g. the city's parks page).",
+            "NO LOOPS: never repeat a search or reopen a page already listed in 'Steps so far'. When a page shows a form, application, sign-up or PDF that fits the goal, open it next and note its fields — don't go back to searching. If two searches in a row turned up nothing new, finish with done.",
             "Reply with ONLY one JSON object. Allowed actions:",
             '{"action":"navigate","url":"https://..."} | {"action":"click","index":N} | {"action":"type","index":N,"text":"..."} | {"action":"select","index":N,"value":"..."} | {"action":"press_enter","index":N} | {"action":"scroll"} | {"action":"login","username_index":N,"password_index":N} | {"action":"submit","index":N} | {"action":"handoff","reason":"what the organizer needs to do"} | {"action":"request_approval","title":"...","details":"..."} | {"action":"done","summary":"markdown summary of what you found/did, with links"}',
             "Add a short \"reason\" field to every action. Use element indexes from the page state only.",
@@ -215,12 +231,18 @@ export async function runAgentStep(supabase: any, userId: string, sessionRowId: 
           ].join("\n"),
           input: [{
             role: "user" as const,
-            content: `Goal: ${goal}\n\nSaved logins available for: ${savedSites}\n\nEarlier in this same browser (already done — don't redo, build on it):\n${earlier.map((s) => `- ${s.note}`).join("\n") || "(nothing yet)"}\n\nSteps so far on this goal:\n${current.map((s, i) => `${i + 1}. ${s.note}`).join("\n") || "(none)"}\n\nCurrent page state:\n${JSON.stringify(state)}`,
+            content: `Goal: ${goal}\n\nSaved logins available for: ${savedSites}\n\nEarlier in this same browser (already done — don't redo, build on it):\n${earlier.map((s) => `- ${s.note}`).join("\n") || "(nothing yet)"}\n\nSteps so far on this goal:\n${current.map((s, i) => `${i + 1}. ${s.note}`).join("\n") || "(none)"}\n\nCurrent page state:\n${JSON.stringify(state)}${extra}`,
           }],
         });
-        let text = "";
-        for (const item of res.output ?? []) if (item.type === "message") for (const c of item.content ?? []) if (c.type === "output_text") text += c.text;
-        const action = parseAction(text);
+        const readAction = (r: Awaited<ReturnType<typeof ask>>) => {
+          let t = "";
+          for (const item of r.output ?? []) if (item.type === "message") for (const c of item.content ?? []) if (c.type === "output_text") t += c.text;
+          return parseAction(t);
+        };
+        let action = readAction(await ask());
+        const repeat = action && !progressReport ? repeatedStep(action as { action: string; url?: string; text?: string }, current.map((s) => s.note)) : null;
+        if (repeat) action = readAction(await ask(`\n\nYou just proposed ${repeat} — that was already done on this goal. Pick a different action: open the most relevant result, form or PDF you already found, or finish with done.`)) ?? action;
+        if (action?.action === "navigate") { const alt = searchFallbackUrl(action.url); if (alt) action = { ...action, url: alt }; }
         if (action?.action === "navigate" && isLinkedInUrl(action.url)) return { action: { action: "done", summary: LINKEDIN_API_ONLY } as AgentAction, note: "LinkedIn browser disabled" };
         if (progressReport && action?.action !== "done") return { action: { action: "done", summary: "**My recommendation:** lock in the strongest candidate from this search with a quick availability call, and keep the next-best option as backup.\n\n**The plan**\n1. Get the official booking contact for the top pick.\n2. Call to confirm the date, capacity and price — with your approval.\n3. Submit the rental application the same day it clears.\n\nNothing has been booked or paid yet.\n\n[[choices: Find booking contact | Prepare availability call | Compare alternatives]]" } as AgentAction, note: "Research checkpoint" };
         if (!action) return { action: null, note: "" };
@@ -237,7 +259,7 @@ export async function runAgentStep(supabase: any, userId: string, sessionRowId: 
           return { action, note: `${note} (${creds.label})` };
         }
         const note = await perform(page, action);
-        return { action, note };
+        return { action, note: action.action === "type" && note.startsWith("Filled") ? `Typed "${action.text.trim().slice(0, 80)}"` : note };
       });
 
       const a = result.action;
