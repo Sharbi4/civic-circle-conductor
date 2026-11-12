@@ -3,7 +3,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { ArrowRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import logo from "@/assets/civimeet-logo.png.asset.json";
+import logo from "@/assets/civimeet-logo-dark.png";
 
 export const Route = createFileRoute("/auth")({
   head: () => ({
@@ -39,7 +39,7 @@ function AuthPage() {
     <div className="dark relative flex min-h-screen flex-col bg-background text-foreground">
       <div className="pointer-events-none absolute inset-0 opacity-40 [background-image:linear-gradient(var(--border)_1px,transparent_1px),linear-gradient(90deg,var(--border)_1px,transparent_1px)] [background-size:56px_56px] [mask-image:radial-gradient(ellipse_at_center,black_20%,transparent_70%)]" />
       <header className="relative px-6 py-5 md:px-28">
-        <Link to="/"><img src={logo.url} alt="Civi Meet" className="h-9 w-auto rounded-xl bg-white px-3 py-1.5" /></Link>
+        <Link to="/"><img src={logo} alt="Civi Meet" className="logo-glow h-14 w-auto md:h-16" /></Link>
       </header>
       <main className="relative flex flex-1 flex-col items-center justify-center px-6 pb-24 text-center">
         <h1 className="text-4xl font-semibold tracking-tight md:text-5xl">Welcome back, organizer.</h1>
