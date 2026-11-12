@@ -82,3 +82,4 @@
 - [x] Facebook group search: handle security check; browser panel shows current task title/page
 - [x] Choice buttons on summaries show raw **asterisks**
 - [x] Approve a real action from Approvals, confirm it lands in the right chat, show the chat history (routing confirmed; Gmail itself needs Reconnect — Google expired its access)
+- [x] Documents are always complete (no thin outlines/placeholders) and always have a picture (real matching photo or labeled Civi illustration); demo documents redone
