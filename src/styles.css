@@ -253,3 +253,6 @@
   .official-doc { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .doc-body h2, .doc-body tr, .doc-body li { break-inside: avoid; }
 }
+
+html.snap-page { scroll-snap-type: y mandatory; scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html.snap-page { scroll-behavior: auto; } }

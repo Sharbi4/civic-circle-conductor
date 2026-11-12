@@ -44,18 +44,23 @@ function Index() {
     return () => clearInterval(t);
   }, []);
 
+  useEffect(() => {
+    document.documentElement.classList.add("snap-page");
+    return () => document.documentElement.classList.remove("snap-page");
+  }, []);
+
   const p = PHRASES[i]!;
 
   return (
-    <div className="dark min-h-screen bg-background text-foreground">
-      <header className="flex items-center justify-between px-6 py-5 md:px-28">
+    <div className="dark relative min-h-screen bg-background text-foreground">
+      <header className="absolute inset-x-0 top-0 z-10 flex items-center justify-between px-6 py-5 md:px-28">
         <img src={logo} alt="Civi Meet" className="logo-glow h-14 w-auto md:h-16" />
         <Link to="/auth" className="rounded-full bg-secondary px-5 py-2 text-sm font-medium hover:bg-card">
           Log in
         </Link>
       </header>
 
-      <main className="flex flex-col items-center px-6 pt-10 text-center md:pt-16">
+      <main className="snap-start flex min-h-[100svh] flex-col items-center justify-center px-6 pt-24 pb-10 text-center">
         <h1 className="mt-8 text-5xl font-semibold leading-[1.1] tracking-tight md:text-7xl">
           <span className="inline-flex items-center gap-1">Civi, AI that</span>
           <span className="block min-h-[1.2em]">
@@ -81,13 +86,14 @@ function Index() {
           <ChevronRight className="h-5 w-5 text-muted-foreground" />
         </Link>
 
-        <a href="#learn" className="mb-24 mt-20 inline-flex items-center gap-2 rounded-full bg-secondary px-5 py-2.5 text-sm font-medium">
+        <a href="#learn" className="mt-14 inline-flex animate-bounce items-center gap-2 rounded-full bg-secondary px-5 py-2.5 text-sm font-medium">
           Learn more <ArrowDown className="h-4 w-4" />
         </a>
 
       </main>
       <StoryScroll />
-      <section className="px-6 py-32 text-center">
+      <div className="snap-start flex min-h-[100svh] flex-col">
+      <section className="flex flex-1 flex-col justify-center px-6 py-20 text-center">
         <h2 className="text-4xl font-semibold tracking-tight md:text-5xl">Contribute. Connect. Convene.</h2>
         <p className="mx-auto mt-4 max-w-lg text-muted-foreground">Civi keeps your community engaged so people actually show up.</p>
         <InfoRequestForm />
@@ -107,6 +113,7 @@ function Index() {
           </Link>
         </div>
       </footer>
+      </div>
     </div>
   );
 }
