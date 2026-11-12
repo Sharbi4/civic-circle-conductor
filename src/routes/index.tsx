@@ -18,6 +18,8 @@ export const Route = createFileRoute("/")({
       { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
+  // The footer year comes from Civi's server, so a visitor's device clock can never change it.
+  loader: () => ({ year: new Date().getFullYear() }),
   component: Index,
 });
 
@@ -32,6 +34,7 @@ const PHRASES = [
 
 function Index() {
   const navigate = useNavigate();
+  const { year } = Route.useLoaderData();
   const [i, setI] = useState(0);
 
   useEffect(() => {
@@ -111,7 +114,7 @@ function Index() {
       </section>
 
       <footer className="flex flex-col items-center gap-4 border-t border-border/60 px-6 py-10 text-sm text-muted-foreground md:flex-row md:justify-between md:px-28">
-        <span>© {new Date().getFullYear()} Civi Meet</span>
+        <span>© {year} Civi Meet</span>
         <div className="flex items-center gap-6">
           <Link to="/privacy" className="hover:text-foreground">
             Privacy Policy

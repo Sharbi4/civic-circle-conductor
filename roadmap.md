@@ -100,3 +100,4 @@
 - [x] Failed "Reminder" Gmail draft (expired Gmail access, from a test) cleared; future LinkedIn posts keep their link
 - [ ] View link for the earlier demo LinkedIn post — needs the post's web address (LinkedIn doesn't let the app look it up)
 - [x] Demo account: keep today's town hall as second demo event, delete yesterday's
+- [x] Homepage footer year ("© 2025") now comes from Civi's server, not the visitor's device clock
