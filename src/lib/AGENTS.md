@@ -1,0 +1,4 @@
+# Connector status notes
+- LinkedIn profile photos travel with the encrypted owner-scoped connection and only their safe display URL enters connection status; account avatars share that refreshed status without replacing organization letterhead logos.
+- X status reads the authenticated member photo through the owner's stored connection; shared account avatars prefer LinkedIn then X, while X's connector row always uses its own photo. Cache status reads for five minutes and invalidate on connection changes to avoid unnecessary provider calls.
+- Eventbrite status retrieves only the authenticated member image (expanded image or its media ID) with the owner's encrypted token; its connector avatar is independent, and shared avatars use it after LinkedIn and X. Never substitute an event cover or organization logo for a member photo.

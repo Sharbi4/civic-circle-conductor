@@ -51,13 +51,10 @@ use the editor.
 - Browser execution and media helpers live in server-only modules; client-reachable function declarations dynamically load them only inside handlers to keep provider credentials and automation dependencies out of frontend bundles.
 - Server fetches never use redirect: 'error' (the Worker runtime throws on it); use 'manual' and reject 3xx explicitly.
 - OAuth return pages also broadcast results on BroadcastChannel 'civi-oauth' and openers tolerate a severed popup; why: providers like X cut window.opener.
-- LinkedIn profile photos travel with the encrypted owner-scoped connection and only their safe display URL enters connection status; account avatars share that refreshed status without replacing organization letterhead logos.
-- X status reads the authenticated member photo through the owner's stored connection; shared account avatars prefer LinkedIn then X, while X's connector row always uses its own photo. Cache status reads for five minutes and invalidate on connection changes to avoid unnecessary provider calls.
-- Eventbrite status retrieves only the authenticated member image (expanded image or its media ID) with the owner's encrypted token; its connector avatar is independent, and shared avatars use it after LinkedIn and X. Never substitute an event cover or organization logo for a member photo.
 - Eventbrite draft controls bind publication approval to an exact event and connection revision; reminders and scheduled publication are task rows consumed by the existing shared scheduler. Publication uses an atomic approval claim and a live-status readback; interrupted work requires review, not replay.
 - New channel welcome preparation is tracked per thread in the query cache and rendered inline by AgentPreparing; why: no corner toast.
 - Browser research limits return a summary and recommendation, not a takeover; scheduled tasks own a 'scheduled' thread.
-- Event steps are a keyed dependency/timer plan stored on task rows (step_key, depends_on, trigger_at, step_state, step_note, result_url); shared code decides readiness, the scheduler queues every ready step, and tagged approvals finish steps on real success, because a straight-line checklist let one blocked step stall the whole event.
+- Event steps are a keyed dependency/timer plan on task rows; shared code decides readiness, the scheduler queues every ready step, and tagged approvals finish steps on real success, so one blocked step never stalls an event.
 - LinkedIn browser tasks, session starts, retargets and direct navigation are blocked through shared routing guards; why: LinkedIn work uses the existing owner-bound API connection rather than browser authentication.
 - Event chats: threads kind 'event' + event_date, one linked Event goal; [[event_chat]] marker updates them; why: events are the central unit.
 - Event page data lives in owner-only event_profiles/sticky_notes keyed by goal; organizer prompt treats it as truth.
