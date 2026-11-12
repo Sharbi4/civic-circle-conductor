@@ -10,9 +10,9 @@ export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
       { title: "Civi Meet — The AI that organizes your community" },
-      { name: "description", content: "Civi, the AI organizer for nonprofits and political groups: outreach, events, pages and volunteers." },
+      { name: "description", content: "Civi, the AI organizer for nonprofits, governments, parties and campaigns: outreach, events, pages and volunteers." },
       { property: "og:title", content: "Civi Meet — The AI that organizes your community" },
-      { property: "og:description", content: "Civi, the AI organizer for nonprofits and political groups." },
+      { property: "og:description", content: "Civi, the AI organizer for nonprofits, governments, parties and campaigns." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
@@ -71,7 +71,7 @@ function Index() {
         </h1>
 
         <p className="mt-6 max-w-xl text-lg text-muted-foreground">
-          The organizer for nonprofits, parties and campaigns. Connect your channels and Civi runs the outreach.
+          The organizer for nonprofits, governments, parties and campaigns. Connect your channels and Civi runs the outreach.
         </p>
 
         <p className="mt-14 text-muted-foreground">Private preview</p>
