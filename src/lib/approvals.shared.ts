@@ -30,8 +30,11 @@ export function approvalAction(payload: unknown, actionType = ''): string {
     case 'civi_suggestion': return 'Start this suggested action';
     case 'gmail_send': return `Send this email${typeof p['to'] === 'string' ? ` to ${p['to']}` : ''} from your Gmail`;
     case 'calendar_create': return 'Add this event to your Google Calendar';
+    case 'gmail_draft': return 'Save this email as a Gmail draft';
+    case 'gmail_modify': return 'Archive or label these Gmail emails';
+    case 'calendar_cancel': return 'Cancel this Google Calendar event';
     case 'calendar_update': return 'Update this Google Calendar event';
-    case 'drive_doc': return 'Create this Google Doc in your Drive';
+    case 'drive_doc': return typeof p['file_id'] === 'string' ? 'Update this Google Doc in your Drive' : 'Create this Google Doc in your Drive';
     default:
       if (actionType === 'payment') return 'Make this payment';
       if (actionType === 'booking') return 'Make this booking';

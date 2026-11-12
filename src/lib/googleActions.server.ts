@@ -44,13 +44,20 @@ export async function upcomingEvents(userId: string, max = 10) {
   return (j.items ?? []).map((e) => ({ id: e.id, summary: e.summary ?? "(no title)", start: e.start?.dateTime ?? e.start?.date ?? "", location: e.location ?? "" }));
 }
 
+/** Docs Civi created in Drive (drive.file only sees these), for editing later. */
+export async function civiDriveFiles(userId: string, max = 10) {
+  const j = (await (await call(userId, "google_drive", `/drive/v3/files?pageSize=${max}&orderBy=modifiedTime%20desc&q=${encodeURIComponent("trashed=false")}&fields=files(id,name,modifiedTime)`)).json()) as { files?: { id: string; name: string; modifiedTime?: string }[] };
+  return j.files ?? [];
+}
+
 const b64 = (s: string) => btoa(Array.from(new TextEncoder().encode(s), (b) => String.fromCharCode(b)).join(""));
 const hdr = (v: string) => (/^[\x00-\x7F]*$/.test(v) ? v : `=?UTF-8?B?${b64(v)}?=`);
 const clean = (v: string) => v.replace(/[\r\n]+/g, " ").trim();
 
-export const gmailSendSchema = z.object({ kind: z.literal("gmail_send"), to: z.string().min(3).max(500), cc: z.string().max(500).nullish(), subject: z.string().min(1).max(300), body: z.string().min(1).max(20000), reply_to: z.string().max(100).nullish() });
-export const calendarSchema = z.object({ kind: z.enum(["calendar_create", "calendar_update"]), event_id: z.string().max(200).nullish(), summary: z.string().max(300).nullish(), start: z.string().max(40).nullish(), end: z.string().max(40).nullish(), timezone: z.string().max(60).nullish(), location: z.string().max(500).nullish(), description: z.string().max(8000).nullish(), attendees: z.array(z.string().email()).max(50).nullish() });
-export const driveDocSchema = z.object({ kind: z.literal("drive_doc"), title: z.string().min(1).max(200), content: z.string().min(1).max(100000) });
+export const gmailSendSchema = z.object({ kind: z.enum(["gmail_send", "gmail_draft"]), to: z.string().min(3).max(500), cc: z.string().max(500).nullish(), subject: z.string().min(1).max(300), body: z.string().min(1).max(20000), reply_to: z.string().max(100).nullish() });
+export const calendarSchema = z.object({ kind: z.enum(["calendar_create", "calendar_update", "calendar_cancel"]), event_id: z.string().max(200).nullish(), summary: z.string().max(300).nullish(), start: z.string().max(40).nullish(), end: z.string().max(40).nullish(), timezone: z.string().max(60).nullish(), location: z.string().max(500).nullish(), description: z.string().max(8000).nullish(), attendees: z.array(z.string().email()).max(50).nullish() });
+export const gmailModifySchema = z.object({ kind: z.literal("gmail_modify"), message_ids: z.array(z.string().min(1).max(100)).min(1).max(50), archive: z.boolean().nullish(), mark_read: z.boolean().nullish(), add_labels: z.array(z.string().min(1).max(100)).max(10).nullish(), remove_labels: z.array(z.string().min(1).max(100)).max(10).nullish() });
+export const driveDocSchema = z.object({ kind: z.literal("drive_doc"), file_id: z.string().max(200).nullish(), title: z.string().min(1).max(200), content: z.string().min(1).max(100000) });
 
 export async function executeGoogleApproval(db: Db, userId: string, approvalId: string) {
   const { data: ap } = await db.from("approvals").select("status, payload, thread_id").eq("id", approvalId).maybeSingle();
@@ -58,7 +65,28 @@ export async function executeGoogleApproval(db: Db, userId: string, approvalId: 
   const say = async (content: string) => { if (ap.thread_id) await db.from("messages").insert({ thread_id: ap.thread_id, user_id: userId, role: "assistant", content }); };
   const kind = (ap.payload as { kind?: string })?.kind;
 
-  if (kind === "gmail_send") {
+  if (kind === "gmail_modify") {
+    const p = gmailModifySchema.parse(ap.payload);
+    const labels = (await (await call(userId, "google_mail", "/gmail/v1/users/me/labels")).json()) as { labels?: { id: string; name: string }[] };
+    const all = labels.labels ?? [];
+    const idFor = async (name: string, create: boolean) => {
+      const hit = all.find((l) => l.id === name || l.name.toLowerCase() === name.toLowerCase());
+      if (hit) return hit.id;
+      if (!create) return null;
+      const made = (await (await call(userId, "google_mail", "/gmail/v1/users/me/labels", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name, labelListVisibility: "labelShow", messageListVisibility: "show" }) })).json()) as { id: string };
+      all.push({ id: made.id, name }); return made.id;
+    };
+    const add = (await Promise.all((p.add_labels ?? []).map((n) => idFor(n, true)))).filter((x): x is string => !!x);
+    const remove = (await Promise.all((p.remove_labels ?? []).map((n) => idFor(n, false)))).filter((x): x is string => !!x);
+    if (p.archive) remove.push("INBOX");
+    if (p.mark_read) remove.push("UNREAD");
+    if (!add.length && !remove.length) throw new Error("Nothing to change on those emails.");
+    await call(userId, "google_mail", "/gmail/v1/users/me/messages/batchModify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ids: p.message_ids, addLabelIds: add, removeLabelIds: remove }) });
+    const did = [p.archive && "archived", p.mark_read && "marked read", add.length && `labeled ${(p.add_labels ?? []).join(", ")}`].filter(Boolean).join(", ");
+    await say(`✅ ${p.message_ids.length} email${p.message_ids.length === 1 ? "" : "s"} ${did || "updated"} in Gmail.`);
+    return { ok: true };
+  }
+  if (kind === "gmail_send" || kind === "gmail_draft") {
     const p = gmailSendSchema.parse(ap.payload);
     let threadId: string | undefined; let refs = "";
     if (p.reply_to) {
@@ -67,8 +95,20 @@ export async function executeGoogleApproval(db: Db, userId: string, approvalId: 
       if (mid) refs = `In-Reply-To: ${mid}\r\nReferences: ${mid}\r\n`;
     }
     const raw = b64(`To: ${clean(p.to)}\r\n${p.cc ? `Cc: ${clean(p.cc)}\r\n` : ""}Subject: ${hdr(clean(p.subject))}\r\n${refs}MIME-Version: 1.0\r\nContent-Type: text/plain; charset="UTF-8"\r\n\r\n${p.body}`).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+    if (kind === "gmail_draft") {
+      await call(userId, "google_mail", "/gmail/v1/users/me/drafts", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message: threadId ? { raw, threadId } : { raw } }) });
+      await say(`✅ Saved a draft to **${clean(p.to)}** — “${clean(p.subject)}” in your Gmail Drafts.`);
+      return { ok: true };
+    }
     await call(userId, "google_mail", "/gmail/v1/users/me/messages/send", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(threadId ? { raw, threadId } : { raw }) });
     await say(`✅ Email sent to **${clean(p.to)}** — “${clean(p.subject)}”.`);
+    return { ok: true };
+  }
+  if (kind === "calendar_cancel") {
+    const p = calendarSchema.parse(ap.payload);
+    if (!p.event_id) throw new Error("Which calendar event should be cancelled?");
+    await call(userId, "google_calendar", `/calendar/v3/calendars/primary/events/${encodeURIComponent(p.event_id)}?sendUpdates=all`, { method: "DELETE" });
+    await say(`✅ Cancelled **${p.summary ?? "the event"}** on your Google Calendar.`);
     return { ok: true };
   }
   if (kind === "calendar_create" || kind === "calendar_update") {
@@ -96,8 +136,9 @@ export async function executeGoogleApproval(db: Db, userId: string, approvalId: 
     const p = driveDocSchema.parse(ap.payload);
     const boundary = `civi${crypto.randomUUID()}`;
     const multipart = `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify({ name: p.title, mimeType: "application/vnd.google-apps.document" })}\r\n--${boundary}\r\nContent-Type: text/plain; charset=UTF-8\r\n\r\n${p.content}\r\n--${boundary}--`;
-    const f = (await (await call(userId, "google_drive", "/upload/drive/v3/files?uploadType=multipart&fields=id,webViewLink", { method: "POST", headers: { "Content-Type": `multipart/related; boundary=${boundary}` }, body: multipart })).json()) as { webViewLink?: string };
-    await say(`✅ Created the Google Doc **${p.title}** in your Drive.${f.webViewLink ? ` [Open it](${f.webViewLink})` : ""}`);
+    const path = p.file_id ? `/upload/drive/v3/files/${encodeURIComponent(p.file_id)}?uploadType=multipart&fields=id,webViewLink` : "/upload/drive/v3/files?uploadType=multipart&fields=id,webViewLink";
+    const f = (await (await call(userId, "google_drive", path, { method: p.file_id ? "PATCH" : "POST", headers: { "Content-Type": `multipart/related; boundary=${boundary}` }, body: multipart })).json()) as { webViewLink?: string };
+    await say(`✅ ${p.file_id ? "Updated" : "Created"} the Google Doc **${p.title}** in your Drive.${f.webViewLink ? ` [Open it](${f.webViewLink})` : ""}`);
     return { ok: true };
   }
   throw new Error("Unknown Google action");
