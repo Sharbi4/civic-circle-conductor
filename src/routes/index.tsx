@@ -99,6 +99,9 @@ function Index() {
           <Link to="/privacy" className="hover:text-foreground">
             Privacy Policy
           </Link>
+          <Link to="/terms" className="hover:text-foreground">
+            Terms of Service
+          </Link>
           <Link to="/auth" className="hover:text-foreground">
             Log in
           </Link>
