@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Eye, EyeOff } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import logo from "@/assets/civimeet-logo-dark.png";
 
@@ -23,6 +23,7 @@ function AuthPage() {
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [busy, setBusy] = useState(false);
 
   // Still signed in (e.g. a brief network hiccup sent you here): go straight back to Civi.
@@ -53,7 +54,18 @@ function AuthPage() {
         <p className="mt-3 text-muted-foreground">Sign in to your organization’s organizer</p>
         <form onSubmit={submit} className="mt-10 w-full max-w-md space-y-3 rounded-[2rem] border border-border/60 bg-card/80 p-6 text-left shadow-2xl backdrop-blur-xl">
           <input className={field} type="email" required placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} />
-          <input className={field} type="password" required placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} />
+          <div className="relative">
+            <input className={`${field} pr-12`} type={showPassword ? "text" : "password"} required placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} />
+            <button
+              type="button"
+              onClick={() => setShowPassword((v) => !v)}
+              aria-label={showPassword ? "Hide password" : "Show password"}
+              aria-pressed={showPassword}
+              className="absolute right-2 top-1/2 grid h-9 w-9 -translate-y-1/2 place-items-center rounded-xl text-muted-foreground hover:bg-secondary hover:text-foreground"
+            >
+              {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+            </button>
+          </div>
           <button type="submit" disabled={busy} className="flex h-12 w-full items-center justify-between rounded-2xl bg-primary px-5 font-medium text-primary-foreground disabled:opacity-60">
             {busy ? "Signing in…" : "Continue to Civi Meet"} <ArrowRight className="h-5 w-5" />
           </button>
