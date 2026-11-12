@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { ConnectorLogos } from "./ConnectorLogos";
 import { Check, Search, CalendarDays, MessageCircle, ShieldCheck } from "lucide-react";
 
 const STEPS = [
@@ -94,6 +95,7 @@ export function StoryScroll() {
                 <p className="mt-6 font-mono text-sm text-primary">{s.k}</p>
                 <h2 className="mt-2 text-3xl font-semibold tracking-tight md:text-5xl">{s.title}</h2>
                 <p className="mt-4 max-w-md text-base text-muted-foreground md:text-lg">{s.body}</p>
+                {s.k === "02" && <ConnectorLogos className="mt-8" />}
               </div>
               <div className={`rounded-[2rem] border border-border/60 bg-card/80 p-5 shadow-2xl backdrop-blur-xl transition-all delay-150 duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] md:p-6 ${on ? "translate-y-0 scale-100 opacity-100" : "translate-y-10 scale-95 opacity-0"}`}>
                 <div className="mb-4 flex items-center gap-1.5 md:mb-5">{[0, 1, 2].map((x) => <span key={x} className="h-2.5 w-2.5 rounded-full bg-secondary" />)}<span className="ml-3 text-xs text-muted-foreground">civi · live</span></div>
