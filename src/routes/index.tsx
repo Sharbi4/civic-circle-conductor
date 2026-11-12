@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { ArrowDown, ChevronRight } from "lucide-react";
+import { ArrowDown, ArrowRight, LogIn } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { InfoRequestForm } from "@/components/landing/InfoRequestForm";
 import { StoryScroll } from "@/components/landing/StoryScroll";
@@ -53,9 +53,13 @@ function Index() {
 
   return (
     <div className="dark relative min-h-screen bg-background text-foreground">
-      <header className="absolute inset-x-0 top-0 z-10 flex items-center justify-between px-6 py-5 md:px-28">
-        <img src={logo} alt="Civi Meet" className="logo-glow h-14 w-auto md:h-16" />
-        <Link to="/auth" className="rounded-full bg-secondary px-5 py-2 text-sm font-medium hover:bg-card">
+      <header className="absolute inset-x-0 top-0 z-10 flex items-center justify-between gap-4 px-5 py-5 md:px-28">
+        <img src={logo} alt="Civi Meet" className="logo-glow h-10 w-auto min-w-0 sm:h-14 md:h-16" />
+        <Link
+          to="/auth"
+          className="surface-premium inline-flex h-10 shrink-0 items-center gap-2 whitespace-nowrap rounded-full px-4 text-sm font-medium transition hover:shadow-glow sm:px-5"
+        >
+          <LogIn className="h-4 w-4 text-primary" />
           Log in
         </Link>
       </header>
@@ -76,13 +80,18 @@ function Index() {
 
         <Link
           to="/auth"
-          className="mt-14 flex w-full max-w-md items-center justify-between rounded-3xl bg-card px-6 py-4 text-left transition-colors hover:bg-secondary"
+          className="surface-premium group mt-14 flex w-full max-w-md items-center gap-4 rounded-[1.75rem] p-3 pr-3 text-left transition hover:shadow-glow"
         >
-          <span>
-            <span className="block font-medium">Continue to Civi Meet</span>
-            <span className="text-sm text-muted-foreground">Sign in to your organizer</span>
+          <span className="grid h-12 w-12 shrink-0 place-items-center rounded-[1.1rem] bg-accent text-accent-foreground">
+            <LogIn className="h-5 w-5" />
           </span>
-          <ChevronRight className="h-5 w-5 text-muted-foreground" />
+          <span className="min-w-0 flex-1">
+            <span className="block font-semibold tracking-tight">Continue to Civi Meet</span>
+            <span className="block text-sm text-muted-foreground">Sign in to your organizer</span>
+          </span>
+          <span className="cta-primary grid h-11 w-11 shrink-0 place-items-center rounded-full transition-transform group-hover:translate-x-0.5">
+            <ArrowRight className="h-5 w-5" />
+          </span>
         </Link>
 
         <a href="#learn" className="mt-14 inline-flex animate-bounce items-center gap-2 rounded-full bg-secondary px-5 py-2.5 text-sm font-medium">
