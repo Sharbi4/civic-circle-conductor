@@ -1,8 +1,8 @@
 import { useState, type ReactNode } from "react";
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { ArrowUpRight, CalendarCheck, Check, ChevronDown, CreditCard, Facebook, Globe, Linkedin, Loader2, Megaphone, Phone, Sparkles, Twitter, X } from "lucide-react";
+import { ArrowUpRight, CalendarCheck, Check, ChevronDown, CreditCard, Facebook, Globe, Linkedin, Loader2, Megaphone, MessageSquare, Phone, Sparkles, Twitter, X } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { decideApproval } from "@/lib/approvals.functions";
@@ -61,7 +61,7 @@ function ApprovalPhoto({ path, alt, fallback }: { path: string; alt: string; fal
 }
 
 /** One compact, consistent approval card — used in the Approvals inbox and the floating chat bar. */
-export function ApprovalCard({ approval: a, onIgnore, extra, threadTitle }: { approval: ApprovalRow; onIgnore?: (id: string) => void; extra?: ReactNode; threadTitle?: string | undefined }) {
+export function ApprovalCard({ approval: a, onIgnore, extra, threadTitle, threadId: threadIdProp }: { approval: ApprovalRow; onIgnore?: (id: string) => void; extra?: ReactNode; threadTitle?: string | undefined; threadId?: string | undefined }) {
   const qc = useQueryClient();
   const runDecision = useServerFn(decideApproval);
   const [busy, setBusy] = useState(false);
@@ -69,6 +69,10 @@ export function ApprovalCard({ approval: a, onIgnore, extra, threadTitle }: { ap
   const { Icon, label, tile } = kindMeta(a.payload, a.action_type);
   const image = approvalImage(a.payload);
   const pending = a.status === "pending";
+  const navigate = useNavigate();
+  const chatId = a.thread_id ?? threadIdProp;
+  const chatName = threadTitle ?? "Main chat";
+  const openChat = () => { if (chatId) navigate({ to: "/chat/$threadId", params: { threadId: chatId } }); };
 
   async function respond(decision: "approved" | "declined", mode: "once" | "always" = "once") {
     if (busy) return;
@@ -81,17 +85,17 @@ export function ApprovalCard({ approval: a, onIgnore, extra, threadTitle }: { ap
         return;
       }
       const result = await runDecision({ data: { approvalId: a.id, mode } });
-      if (kind.startsWith("fb_")) toast("Queued — waiting for Facebook to finish");
-      else if (kind === "venue_call") toast("Call initiated — not a booking confirmation");
+      if (kind.startsWith("fb_")) toast("Queued — waiting for Facebook to finish", { description: `Happening in: ${chatName}`, action: chatId ? { label: "Open chat", onClick: openChat } : undefined });
+      else if (kind === "venue_call") toast("Call initiated — not a booking confirmation", { description: `Happening in: ${chatName}`, action: chatId ? { label: "Open chat", onClick: openChat } : undefined });
       else if (a.browser_session_id) {
         const { error } = await supabase.from("browser_sessions").update({ agent_status: "driving", submit_approved: true, active_approval_id: a.id }).eq("id", a.browser_session_id);
         if (error) throw error;
         await supabase.from("approvals").update({ run_state: "running" }).eq("id", a.id);
-        toast("Working in the browser");
-      } else if ("ok" in result && result.ok === false) toast.error("Failed — see the chat for details");
-      else if (kind === "eventbrite_create") toast.success("Draft saved on Eventbrite — not published");
-      else if (kind.startsWith("linkedin_") || kind === "x_post") toast.success("Success — confirmed by the service");
-      else toast("Approved");
+        toast("Working in the browser", { description: `Happening in: ${chatName}`, action: chatId ? { label: "Open chat", onClick: openChat } : undefined });
+      } else if ("ok" in result && result.ok === false) toast.error("Failed — see the chat for details", { description: `Happening in: ${chatName}`, action: chatId ? { label: "Open chat", onClick: openChat } : undefined });
+      else if (kind === "eventbrite_create") toast.success("Draft saved on Eventbrite — not published", { description: `Happening in: ${chatName}`, action: chatId ? { label: "Open chat", onClick: openChat } : undefined });
+      else if (kind.startsWith("linkedin_") || kind === "x_post") toast.success("Success — confirmed by the service", { description: `Happening in: ${chatName}`, action: chatId ? { label: "Open chat", onClick: openChat } : undefined });
+      else toast("Approved", { description: `Happening in: ${chatName}`, action: chatId ? { label: "Open chat", onClick: openChat } : undefined });
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Couldn't complete this action");
     } finally {
@@ -121,16 +125,6 @@ export function ApprovalCard({ approval: a, onIgnore, extra, threadTitle }: { ap
                 {a.status === "approved" ? approvalStateLabel(a.run_state, a.payload) : a.status}
               </span>
             )}
-            {a.thread_id && threadTitle && (
-              <Link
-                to="/chat/$threadId"
-                params={{ threadId: a.thread_id }}
-                className="inline-flex items-center gap-0.5 rounded-full bg-secondary px-2 py-0.5 text-[11px] font-medium text-accent hover:underline"
-                title={`Open chat: ${threadTitle}`}
-              >
-                {threadTitle} <ArrowUpRight className="h-3 w-3" />
-              </Link>
-            )}
             {pending && onIgnore && (
               <Button variant="ghost" size="icon" className="ml-auto h-6 w-6" aria-label={`Ignore ${a.title}`} title="Ignore" disabled={busy} onClick={() => onIgnore(a.id)}>
                 <X className="h-3.5 w-3.5" />
@@ -138,6 +132,11 @@ export function ApprovalCard({ approval: a, onIgnore, extra, threadTitle }: { ap
             )}
           </div>
           <p className="mt-1.5 line-clamp-2 text-sm font-medium leading-snug">{a.title}</p>
+          {chatId && (
+            <Link to="/chat/$threadId" params={{ threadId: chatId }} className="mt-1 inline-flex max-w-full items-center gap-1 text-xs text-muted-foreground hover:text-accent" title={`Open chat: ${chatName}`}>
+              <MessageSquare className="h-3 w-3 shrink-0" /><span className="truncate">{pending ? "Will happen in" : "Happened in"}: <span className="font-medium text-accent">{chatName}</span></span><ArrowUpRight className="h-3 w-3 shrink-0" />
+            </Link>
+          )}
           {pending && <p className="mt-0.5 line-clamp-1 text-xs font-medium text-accent">{approvalAction(a.payload, a.action_type)}</p>}
           {a.details && <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{a.details}</p>}
           {a.approval_mode === "always" && <p className="mt-1 text-[11px] text-muted-foreground">Always approved for this action and account</p>}

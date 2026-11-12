@@ -1055,7 +1055,8 @@ function ApprovalsPanel() {
       <ApprovalCard
         approval={a}
         onIgnore={ignore}
-        threadTitle={a.thread_id ? (threads.data?.find((t) => t.id === a.thread_id)?.title ?? "See chat") : undefined}
+        threadTitle={a.thread_id ? (threads.data?.find((t) => t.id === a.thread_id)?.title ?? "Chat") : "Main chat"}
+        threadId={a.thread_id ?? main?.id}
         extra={approvalKind(a.payload) === 'eventbrite_create' && a.payload && typeof a.payload === 'object' && 'event_id' in a.payload && typeof a.payload['event_id'] === 'string'
           ? <EventbriteDraftControls eventId={a.payload['event_id']} />
           : undefined}
