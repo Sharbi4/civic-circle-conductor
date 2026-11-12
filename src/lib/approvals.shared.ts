@@ -59,6 +59,18 @@ export function executionOutcome(result: { ok?: boolean; started?: boolean; queu
   return 'succeeded' as const;
 }
 
+/** Actions Civi can actually carry out once an approval is accepted. A plain go-ahead has none. */
+export function isRunnableApproval(kind: string): boolean {
+  return kind === 'venue_call'
+    || kind.startsWith('linkedin_')
+    || kind.startsWith('fb_')
+    || kind === 'x_post'
+    || kind === 'eventbrite_create'
+    || kind === 'eventbrite_publish'
+    || kind === 'civi_suggestion'
+    || ['gmail_send', 'gmail_draft', 'gmail_modify', 'calendar_create', 'calendar_update', 'calendar_cancel', 'drive_doc'].includes(kind);
+}
+
 export function approvalStateLabel(state: string | null, payload: unknown) {
   if (state === 'running') return approvalKind(payload) === 'eventbrite_publish' ? 'Publishing…' : approvalKind(payload).includes('post') ? 'Posting…' : 'Working…';
   if (state === 'succeeded') return approvalKind(payload) === 'eventbrite_create' ? 'Draft saved, not published' : approvalKind(payload) === 'eventbrite_publish' ? 'Published, live' : 'Success';

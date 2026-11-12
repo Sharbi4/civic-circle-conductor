@@ -15,7 +15,7 @@ import { isEssentialsStep, sortSteps } from "@/lib/eventSteps.shared";
 import { skipDraft, stepDef } from "@/lib/eventPlan.shared";
 import { StepStatus } from "@/components/tasks/StepStatus";
 import { EventEssentialsDialog } from "@/components/tasks/EventEssentialsDialog";
-import { actionForStep, actionStateLabel, resultUrlOf } from "@/lib/eventActivity.shared";
+import { actionForStep, actionStateLabel, isDeadApproval, resultUrlOf } from "@/lib/eventActivity.shared";
 
 export const Route = createFileRoute("/_authenticated/events/$goalId")({
   head: () => ({
@@ -99,7 +99,7 @@ function EventPage() {
   const suggestions = (p?.suggestions ?? []) as { title: string; detail: string }[];
   const budget = Number(p?.budget ?? 0), spent = Number(p?.spent ?? 0);
   const actions = [
-    ...approvals.filter((a) => a.status !== "pending" || a.run_state).map((a) => ({ id: a.id, text: a.title, state: a.run_state === "succeeded" ? "done" : a.run_state === "failed" ? "failed" : a.status === "declined" ? "declined" : a.status === "pending" ? "waiting" : "working", at: a.run_finished_at ?? a.resolved_at ?? a.created_at, url: a.run_state === "succeeded" ? resultUrlOf(a.payload) : null })),
+    ...approvals.filter((a) => (a.status !== "pending" || a.run_state) && !isDeadApproval(a)).map((a) => ({ id: a.id, text: a.title, state: a.run_state === "succeeded" ? "done" : a.run_state === "failed" ? "failed" : a.status === "declined" ? "declined" : a.status === "pending" ? "waiting" : "working", at: a.run_finished_at ?? a.resolved_at ?? a.created_at, url: a.run_state === "succeeded" ? resultUrlOf(a.payload) : null })),
     ...steps.filter((s) => s.done && s.done_at).map((s) => actionForStep(s)),
   ].sort((a, b) => b.at.localeCompare(a.at)).slice(0, 15);
   const linkOf = (k: string) => steps.find((s) => s.step_key === k)?.result_url ?? null;

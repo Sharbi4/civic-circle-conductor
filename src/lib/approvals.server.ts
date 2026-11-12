@@ -2,6 +2,7 @@ import { NEEDS_ATTENTION } from './stepStatus.shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@/integrations/supabase/types';
 import { approvalKind, approvalScope, executionOutcome } from './approvals.shared';
+import { stepKeyForAction, stepResultPatch } from './eventActivity.shared';
 
 type Db = SupabaseClient<Database>;
 
@@ -52,21 +53,36 @@ export async function executeApproval<T extends { ok?: boolean; started?: boolea
 export async function dispatchApproval(db: Db, userId: string, id: string, payload: unknown) {
   try {
     const result = await runApprovalDispatch(db, userId, id, payload);
-    await recordLaunchProgress(db, userId, payload, null, result);
+    await recordLaunchProgress(db, userId, id, payload, null, result);
     return result;
   } catch (error) {
-    await recordLaunchProgress(db, userId, payload, error);
+    await recordLaunchProgress(db, userId, id, payload, error);
     throw error;
   }
 }
 
+/** The event step an executed approval belongs to: the one it was queued for, or that event's own step for the same channel. */
+async function resolveStepForAction(db: Db, userId: string, approvalId: string, payload: unknown, kind: string): Promise<string | null> {
+  const explicit = (payload as { launch_task_id?: unknown } | null)?.launch_task_id;
+  if (typeof explicit === 'string' && explicit) return explicit;
+  const stepKey = stepKeyForAction(kind);
+  if (!stepKey) return null;
+  // A post published straight from the event chat carries no step id, so match it to this chat's step for that channel.
+  const { data: ap } = await db.from('approvals').select('thread_id').eq('id', approvalId).eq('user_id', userId).maybeSingle();
+  const threadId = ap?.thread_id;
+  if (typeof threadId !== 'string' || !threadId) return null;
+  const { data: step } = await db.from('tasks').select('id').eq('user_id', userId).eq('thread_id', threadId).eq('step_key', stepKey).order('created_at', { ascending: false }).limit(1).maybeSingle();
+  return typeof step?.id === 'string' ? step.id : null;
+}
+
 /** Marks an event-launch-chain task done (or failed) when its queued approval executes, and reports progress in chat. */
-async function recordLaunchProgress(db: Db, userId: string, payload: unknown, error: unknown, result?: unknown) {
+export async function recordLaunchProgress(db: Db, userId: string, approvalId: string, payload: unknown, error: unknown, result?: unknown) {
   try {
-    const taskId = (payload as { launch_task_id?: unknown } | null)?.launch_task_id;
-    if (typeof taskId !== 'string' || !taskId) return;
+    const kind = approvalKind(payload);
     // Placing a call or accepting a suggestion is not the step itself being done.
-    if (['venue_call', 'civi_suggestion'].includes(approvalKind(payload))) return;
+    if (['venue_call', 'civi_suggestion'].includes(kind)) return;
+    const taskId = await resolveStepForAction(db, userId, approvalId, payload, kind);
+    if (!taskId) return;
     // A step only finishes when its action really went out; an "ok: false" result is a failure, not success.
     const failed = !!error || (result as { ok?: boolean } | undefined)?.ok === false;
     if (failed) {
@@ -75,7 +91,7 @@ async function recordLaunchProgress(db: Db, userId: string, payload: unknown, er
     }
     if ((result as { queued?: number } | undefined)?.queued) return;
     // An inquiry or application going out doesn't book the venue: the step waits for the venue's answer instead of finishing.
-    const { data: step } = await db.from('tasks').select('step_key').eq('id', taskId).eq('user_id', userId).maybeSingle();
+    const { data: step } = await db.from('tasks').select('step_key, done, result_url').eq('id', taskId).eq('user_id', userId).maybeSingle();
     if (step?.step_key === 'venue' || step?.step_key === 'essentials') {
       const { data: org } = await db.from('organizations').select('time_zone').eq('user_id', userId).maybeSingle();
       const { stepStatusPatch } = await import('./stepStatus.shared');
@@ -84,7 +100,12 @@ async function recordLaunchProgress(db: Db, userId: string, payload: unknown, er
       return;
     }
     const url = resultLink(result);
-    await db.from('tasks').update({ done: true, done_at: new Date().toISOString(), last_error: null, step_state: 'done', step_note: null, scheduled_for: null, ...(url ? { result_url: url } : {}) }).eq('id', taskId).eq('user_id', userId);
+    const patch = stepResultPatch(step ?? {}, url);
+    if (!patch) return;
+    // The step had already finished and only needed the link it was never given: fill it quietly.
+    const justFinished = !step?.done;
+    await db.from('tasks').update(patch).eq('id', taskId).eq('user_id', userId);
+    if (!justFinished) return;
     const { data: task } = await db.from('tasks').select('title, goal_id, thread_id, step_key').eq('id', taskId).maybeSingle();
     if (!task?.thread_id) return;
     const noun = task.step_key ? 'Event step' : 'Launch step';

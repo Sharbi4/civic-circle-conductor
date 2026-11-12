@@ -1,4 +1,7 @@
 /** How event steps and executed actions read in the event page's "What Civi has done" list. */
+import type { StepKey } from "./eventPlan.shared";
+import { approvalKind, isRunnableApproval } from "./approvals.shared";
+
 export type ActivityItem = { id: string; text: string; state: string; at: string; url: string | null };
 
 export function actionForStep(s: { id: string; title: string; step_state?: string | null; step_note?: string | null; done_at: string | null; result_url?: string | null }): ActivityItem {
@@ -23,4 +26,40 @@ export function actionStateLabel(state: string): string {
 export function resultUrlOf(payload: unknown): string | null {
   const v = payload && typeof payload === "object" ? (payload as Record<string, unknown>)["result_url"] : null;
   return typeof v === "string" && /^https:\/\//.test(v) ? v : null;
+}
+
+/** Which event step an executed action belongs to, so its link lands on the right row. */
+export function stepKeyForAction(kind: string): StepKey | null {
+  switch (kind) {
+    case "linkedin_post": return "linkedin_post";
+    case "x_post": return "x_post";
+    case "linkedin_event_create":
+    case "linkedin_event_update":
+    case "linkedin_event_publish": return "linkedin_event";
+    case "eventbrite_create":
+    case "eventbrite_publish": return "eventbrite";
+    default: return null;
+  }
+}
+
+/** What to write on an event step once its action really went out. */
+export type StepResultPatch = {
+  done?: boolean;
+  done_at?: string | null;
+  last_error?: string | null;
+  step_state?: string | null;
+  step_note?: string | null;
+  scheduled_for?: string | null;
+  result_url?: string | null;
+};
+
+export function stepResultPatch(step: { done?: boolean | null; result_url?: string | null }, url: string | null, now = new Date().toISOString()): StepResultPatch | null {
+  // A step that already finished only needs the link it was never given; a link it has is left alone.
+  if (step.done) return url && !step.result_url ? { result_url: url } : null;
+  return { done: true, done_at: now, last_error: null, step_state: "done", step_note: null, scheduled_for: null, ...(url ? { result_url: url } : {}) };
+}
+
+/** An approved go-ahead with nothing left to run can never finish, so it must not read as "In progress". */
+export function isDeadApproval(a: { status?: string | null; run_state?: string | null; payload?: unknown }): boolean {
+  return !a.run_state && a.status === "approved" && !isRunnableApproval(approvalKind(a.payload));
 }

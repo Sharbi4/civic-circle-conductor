@@ -99,7 +99,7 @@
 - [x] After a conflict (e.g. venue closed on event day), lead with alternatives: venue open that day or nearby date/time
 - [x] Save venue phone/email to event Contacts; save every vendor asked for
 - [x] Failed "Reminder" Gmail draft (expired Gmail access, from a test) cleared; future LinkedIn posts keep their link
-- [ ] View link for the earlier demo LinkedIn post — needs the post's web address (LinkedIn doesn't let the app look it up)
+- [x] View link for the earlier demo LinkedIn post: the post went out for real and LinkedIn's own reply carried its address, so the meetup's "Post on LinkedIn" step now opens it. Any post published from an event chat writes its address onto that event's step, even when the step had already finished.
 - [x] Demo account: keep today's town hall as second demo event, delete yesterday's
 - [x] Homepage footer year ("© 2025") now comes from Civi's server, not the visitor's device clock
 - [x] Live browser card never shows the raw DevTools "WebSocket disconnected" page: checks the session with the browser service and shows a friendly closed message

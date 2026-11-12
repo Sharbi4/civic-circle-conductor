@@ -16,6 +16,8 @@
 - Background pauses (402/403/429) are shown to the owner with Resume (BackgroundPausedNotice); credit and rate-limit pauses get one probe task per sweep, access denials wait for the owner; reviews and daily reports stopped by a quota error are rescheduled instead of needs_review, because the AI refused before doing anything.
 - Steps park in waiting_on / on_hold / your_pick / awaiting_reply via Civi's [[step_status]] marker or inferStepStatus on its reply; failed, interrupted and declined steps never replay on their own, only on a reply or a step button, so unchanged steps aren't re-run.
 - Step times, follow-ups and "today" use the organization's time_zone (zonedTime.shared), never a fixed zone.
+- An executed approval's public link is written onto the event step it belongs to: the step the approval carried, otherwise that chat's step for the same channel (stepKeyForAction); a step that already finished only gets the link it was missing and no second chat line; why: the event page's View button must open the real post, listing or form.
+- An approved go-ahead with nothing runnable is left out of the event page activity list (isDeadApproval); why: it can never finish and must not read as "In progress".
 - New chats reuse a browser only after reusableBrowser confirms the provider still has it open; closed ones are marked ended so tasks open a fresh browser.
 
 # Writing style
