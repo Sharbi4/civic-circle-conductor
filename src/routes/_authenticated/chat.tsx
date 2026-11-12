@@ -7,7 +7,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import type React from "react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { MessageCircle, Plus, Plug, LogOut, Pin, Brain, Inbox, Megaphone, CalendarCheck, CreditCard, Sparkles, Check, X, Compass, Trash2, KeyRound, Mic, FileText, ImagePlus, BarChart3, Menu, ListChecks, UserCircle, ChevronDown, Loader2, CalendarPlus, CalendarHeart, Clock } from "lucide-react";
+import { MessageCircle, Plus, Plug, LogOut, Pin, Brain, Inbox, Megaphone, CalendarCheck, CreditCard, Sparkles, Check, X, Compass, Trash2, KeyRound, Mic, FileText, ImagePlus, BarChart3, Menu, ListChecks, UserCircle, ChevronDown, Loader2, CalendarPlus, CalendarHeart, Clock, Eye, EyeOff } from "lucide-react";
 import { PollsPanel } from "@/components/polls/PollsPanel";
 import { TasksPanel } from "@/components/tasks/TasksPanel";
 import { AccountPanel } from "@/components/account/AccountPanel";
@@ -1595,6 +1595,7 @@ function LoginsPanel() {
   const save = useServerFn(saveSiteCredential);
   const [f, setF] = useState({ label: "", domain: "", username: "", password: "" });
   const [busy, setBusy] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const list = useQuery({
     queryKey: ["site_credentials"],
     queryFn: async () => {
@@ -1609,6 +1610,7 @@ function LoginsPanel() {
     try {
       await save({ data: { ...f, label: f.label || f.domain } });
       setF({ label: "", domain: "", username: "", password: "" });
+      setShowPassword(false);
       toast.success("Login saved securely");
       qc.invalidateQueries({ queryKey: ["site_credentials"] }); qc.invalidateQueries({ queryKey: ["fb-login"] });
     } catch (err) { toast.error(err instanceof Error ? err.message : "Couldn't save"); }
@@ -1629,7 +1631,18 @@ function LoginsPanel() {
         <Input placeholder="Website (e.g. eventbrite.com)" value={f.domain} onChange={(e) => setF({ ...f, domain: e.target.value })} required />
         <Input placeholder="Name (optional)" value={f.label} onChange={(e) => setF({ ...f, label: e.target.value })} />
         <Input placeholder="Username or email" autoComplete="off" value={f.username} onChange={(e) => setF({ ...f, username: e.target.value })} required />
-        <Input type="password" placeholder="Password" autoComplete="new-password" value={f.password} onChange={(e) => setF({ ...f, password: e.target.value })} required />
+        <div className="relative">
+          <Input type={showPassword ? "text" : "password"} placeholder="Password" autoComplete="new-password" className="pr-10" value={f.password} onChange={(e) => setF({ ...f, password: e.target.value })} required />
+          <button
+            type="button"
+            onClick={() => setShowPassword((v) => !v)}
+            aria-label={showPassword ? "Hide password" : "Show password"}
+            aria-pressed={showPassword}
+            className="absolute right-1 top-1/2 grid h-7 w-7 -translate-y-1/2 place-items-center rounded-lg text-muted-foreground hover:bg-secondary hover:text-foreground"
+          >
+            {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+          </button>
+        </div>
         <Button type="submit" className="w-full" disabled={busy}>{busy ? "Saving…" : "Save login"}</Button>
       </form>
       <div className="space-y-1">
