@@ -11,8 +11,10 @@ export type PlanStep = {
 export function StepStatus({ s, active = false, compact = false }: { s: PlanStep; active?: boolean; compact?: boolean }) {
   const state = s.step_state ?? (s.done ? "done" : active ? "running" : "waiting");
   const skipped = state === "skipped";
-  const label = stepStateLabel(state, s.done);
-  const note = s.step_note && s.step_note !== label ? s.step_note : null;
+  const note0 = s.step_note && s.step_note !== stepStateLabel(state, s.done) ? s.step_note : null;
+  // "Waiting on a reply · Waiting to hear back…" says the same thing twice; the specific note is enough.
+  const label = state === "awaiting_reply" && note0 ? null : stepStateLabel(state, s.done);
+  const note = note0;
   const info = stepInfo(s.title, s.step_key);
   let icon: ReactNode = null;
   let tone = "bg-secondary";

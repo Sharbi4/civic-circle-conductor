@@ -68,17 +68,17 @@
 - [x] Publish so the sitemap is live, then rescan SEO and confirm homepage, sign-in, Terms, Privacy and Data Deletion pass.
 
 ## Investor demo (Friday) — fix by Thursday
-- [ ] Event page fills from the chat (venue, budget, headcount) and shows the same steps as the chat.
-- [ ] "Event goals: N open · N overdue" counter lists its items.
-- [ ] Times shown in the organization's time zone (approvals, calendar events), not UTC.
-- [ ] Connectors show the connected email address instead of "Gmail account"/"Google account".
-- [ ] Phone: message box placeholder not cut off.
-- [ ] Demo account: clean believable nonprofit with logo + letterhead, one half-done event with result links, poll with responses, Discovery briefings; no test leftovers.
-- [ ] Demo safety: Assisted mode / no real social accounts in the demo.
+- [x] Event page fills from the chat (venue, budget, headcount) and shows the same steps as the chat.
+- [x] "Event goals: N open · N overdue" counter lists its items.
+- [x] Times shown in the organization's time zone (approvals, calendar events), not UTC.
+- [x] Connectors show the connected email address instead of "Gmail account"/"Google account".
+- [x] Phone: message box placeholder not cut off.
+- [x] Demo account: clean believable nonprofit with logo + letterhead, one half-done event with result links, poll with responses, Discovery briefings; no test leftovers.
+- [x] Demo safety: Assisted mode / no real social accounts in the demo.
 
 ## Test round 2 (Elle)
-- [ ] Browser venue research: stop repeating searches; open forms it finds; handle Google check
-- [ ] Research plan dates: never give deadlines already past
-- [ ] Facebook group search: handle security check; browser panel shows current task title/page
-- [ ] Choice buttons on summaries show raw **asterisks**
-- [ ] Approve a real action from Approvals, confirm it lands in the right chat, show the chat history
+- [x] Browser venue research: stop repeating searches; open forms it finds; handle Google check
+- [x] Research plan dates: never give deadlines already past
+- [x] Facebook group search: handle security check; browser panel shows current task title/page
+- [x] Choice buttons on summaries show raw **asterisks**
+- [x] Approve a real action from Approvals, confirm it lands in the right chat, show the chat history (routing confirmed; Gmail itself needs Reconnect — Google expired its access)

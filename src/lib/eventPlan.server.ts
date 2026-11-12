@@ -145,7 +145,8 @@ async function advanceGoal(db: Db, userId: string, goal: { id: string; title: st
       continue;
     }
     if (d.state === "ready") ready.push(r);
-    const note = d.reason ?? null;
+    // A specific note Civi wrote for a paused step ("Waiting to hear back from …") beats the generic reason.
+    const note = d.state === "awaiting_reply" && r.step_state === "awaiting_reply" && r.step_note ? r.step_note : d.reason ?? null;
     if (r.step_state !== d.state || (r.step_note ?? null) !== note) {
       await db.from("tasks").update({ step_state: d.state, step_note: note }).eq("id", r.id).eq("user_id", userId);
       Object.assign(r, { step_state: d.state, step_note: note });

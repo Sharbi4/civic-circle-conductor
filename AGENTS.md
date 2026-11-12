@@ -58,3 +58,4 @@ use the editor.
 - LinkedIn browser tasks, session starts, retargets and direct navigation are blocked through shared routing guards; why: LinkedIn work uses the existing owner-bound API connection rather than browser authentication.
 - Event chats: threads kind 'event' + event_date, one linked Event goal; [[event_chat]] marker updates them; why: events are the central unit.
 - Event page data lives in owner-only event_profiles/sticky_notes keyed by goal; organizer prompt treats it as truth.
+- Live-browser web searches go to DuckDuckGo (Google search URLs and verification pages are rewritten) and repeated pages/searches are re-asked once; why: Google blocks automated browsers and loops waste the step budget.

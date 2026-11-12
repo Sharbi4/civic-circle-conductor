@@ -97,7 +97,9 @@ function EventPage() {
   const budget = Number(p?.budget ?? 0), spent = Number(p?.spent ?? 0);
   const actions = [
     ...approvals.filter((a) => a.status !== "pending" || a.run_state).map((a) => ({ id: a.id, text: a.title, state: a.run_state === "succeeded" ? "done" : a.run_state === "failed" ? "failed" : a.status === "declined" ? "declined" : a.status === "pending" ? "waiting" : "working", at: a.run_finished_at ?? a.resolved_at ?? a.created_at })),
-    ...steps.filter((s) => s.done && s.done_at).map((s) => ({ id: s.id, text: `Completed: ${s.title}`, state: "done", at: s.done_at! })),
+    ...steps.filter((s) => s.done && s.done_at).map((s) => s.step_state === "skipped"
+      ? { id: s.id, text: `Skipped: ${s.title}`, state: "skipped", at: s.done_at! }
+      : { id: s.id, text: `Completed: ${s.title}`, state: "done", at: s.done_at! }),
   ].sort((a, b) => b.at.localeCompare(a.at)).slice(0, 15);
 
   return (
@@ -189,7 +191,7 @@ function EventPage() {
                   <li key={a.id} className="relative">
                     <span className={`absolute -left-[21px] top-1 grid h-3 w-3 place-items-center rounded-full ${a.state === "done" ? "bg-primary" : a.state === "failed" ? "bg-destructive" : "bg-muted-foreground/40"}`} />
                     <p className="text-sm">{a.text}</p>
-                    <p className="text-xs text-muted-foreground">{a.state === "done" ? "Done" : a.state === "failed" ? "Didn't work" : a.state === "declined" ? "Declined" : a.state === "waiting" ? "Waiting for your OK" : "In progress"} · {formatAppTime(a.at)}</p>
+                    <p className="text-xs text-muted-foreground">{a.state === "done" ? "Done" : a.state === "skipped" ? "Draft ready in the event chat" : a.state === "failed" ? "Didn't work" : a.state === "declined" ? "Declined" : a.state === "waiting" ? "Waiting for your OK" : "In progress"} · {formatAppTime(a.at)}</p>
                   </li>
                 ))}
               </ol>

@@ -127,13 +127,13 @@ export function ApprovalCard({ approval: a, onIgnore, extra, threadTitle, thread
             </span>
           )}
         </div>
-        <p className="mt-1.5 line-clamp-2 text-sm font-medium leading-snug group-hover:text-accent">{friendlyTimes(a.title)}</p>
+        <p className="mt-1.5 line-clamp-2 text-sm font-medium leading-snug group-hover:text-primary">{friendlyTimes(a.title)}</p>
         {chatId && (
           <p className="mt-1 flex min-w-0 items-center gap-1 text-xs text-muted-foreground">
             <MessageSquare className="h-3 w-3 shrink-0" /><span className="shrink-0">{pending ? "Will happen in" : "Happened in"}:</span><span className="min-w-0 truncate font-semibold text-primary">{chatName}</span><ArrowUpRight className="h-3 w-3 shrink-0 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
           </p>
         )}
-        {pending && <p className="mt-0.5 line-clamp-1 text-xs font-medium text-accent">{approvalAction(a.payload, a.action_type)}</p>}
+        {pending && <p className="mt-0.5 line-clamp-1 text-xs font-medium text-primary">{approvalAction(a.payload, a.action_type)}</p>}
         {a.details && <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{friendlyTimes(a.details)}</p>}
         {a.approval_mode === "always" && <p className="mt-1 text-[11px] text-muted-foreground">Always approved for this action and account</p>}
         {a.run_error && <p className="mt-1 text-xs text-destructive">{a.run_error}</p>}
