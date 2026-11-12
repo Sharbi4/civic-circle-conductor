@@ -67,7 +67,7 @@ export function StoryScroll() {
   useEffect(() => {
     const io = new IntersectionObserver((entries) => {
       entries.forEach((e) => {
-        const idx = Number((e.target as HTMLElement).dataset.idx);
+        const idx = Number((e.target as HTMLElement).dataset['idx']);
         if (e.isIntersecting) setSeen((p) => (p[idx] ? p : p.map((v, j) => (j === idx ? true : v))));
       });
     }, { threshold: 0.45 });
