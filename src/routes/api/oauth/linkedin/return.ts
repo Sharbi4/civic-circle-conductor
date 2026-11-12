@@ -12,10 +12,9 @@ export const Route = createFileRoute("/api/oauth/linkedin/return")({
         const result = success && code
           ? { success: true, connectorId, code }
           : { success: false, connectorId, error: error ?? (success ? "Missing code" : "OAuth failed") };
-        const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
         const safeJson = JSON.stringify(result).replace(/<\//g, "<\\/");
         const html = `<!DOCTYPE html><html><head><title>Finishing connection…</title></head><body>
-<p>${result.success ? "Connection complete, closing…" : "Failed: " + esc(("error" in result && result.error) || "Unknown error")}</p>
+<p>${result.success ? "Connection complete, closing…" : "We couldn't connect your account. Close this window and try again."}</p>
 <script>
   const result = ${safeJson};
   const message = { type: result.success ? "appUserConnectorOAuthComplete" : "appUserConnectorOAuthFailed", connectorId: result.connectorId, code: result.code ?? null };

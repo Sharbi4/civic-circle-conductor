@@ -13,7 +13,7 @@ describe("approved venue call requests", () => {
   });
   it("reports failed calls without confirming availability or redialing", () => {
     expect(completedCallReport({ status: "failed" })?.state).toBe("failed");
-    expect(completedCallReport({ status: "failed" })?.text).toContain("No automatic redial");
+    expect(completedCallReport({ status: "failed" })?.text).toContain("won't call again unless you ask");
   });
   it("reads recipient responses when a completed call has no summary", () => {
     const report = completedCallReport({ status: "done", transcript: [{ role: "agent", message: "Is the room free?" }, { role: "user", message: "December 9 is available; request a written quote." }] });

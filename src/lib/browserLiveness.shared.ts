@@ -41,3 +41,11 @@ export const BROWSER_CLOSED = "This browser session has closed. Everything Civi 
 export function closedBrowserMessage(agentStatus: string | null | undefined): string {
   return agentStatus === "failed" ? BROWSER_CLOSED_AFTER_FAILURE : BROWSER_CLOSED;
 }
+
+/** Handoff shown when a browser action was cut off partway; Civi never replays it on its own. */
+export const BROWSER_PAUSED = "Civi paused so you can check the page before it continues.";
+/** Older rows saved the technical wording; show them the plain one. */
+export function handoffText(reason: string | null | undefined): string {
+  if (!reason) return "Civi needs you in the browser.";
+  return /^Interrupted browser action/.test(reason) ? BROWSER_PAUSED : reason;
+}

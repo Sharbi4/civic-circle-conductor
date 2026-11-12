@@ -221,6 +221,8 @@ function GoalCard({ g, kids, open, showDone, onToggle, onRemove, onChanged }: { 
   const name = g.title.replace(/^(Event|Launch):\s*/, "");
   const active = kids.filter((t) => !t.done && (t.step_state === "running" || t.step_state === "ready" || t.step_state === "awaiting_approval"));
   const next = active[0] ?? kids.find((t) => !t.done);
+  const linkOf = (k: string) => kids.find((t) => t.step_key === k)?.result_url ?? null;
+  const stepEvent = { title: name, date: g.due_date ?? null, location: prof.data?.venue ?? "", link: linkOf("eventbrite") ?? linkOf("rsvp") };
   const nextLabel = next ? (active.length > 1 ? `Working on ${active.length} steps · ${next.title}` : next.step_state === "awaiting_approval" ? `Waiting for your approval · ${next.title}` : `Next: ${next.title}`) : null;
   async function reset() {
     if (!confirm(`Reset progress for "${name}"? Every step goes back to not started.`)) return;
@@ -256,9 +258,9 @@ function GoalCard({ g, kids, open, showDone, onToggle, onRemove, onChanged }: { 
         <ol className="border-t px-2 py-1.5">
           {kids.filter((t) => showDone || !t.done).map((t) => {
             const ess = isEssentialsStep(t.title, t.step_key);
-            const body = <StepStatus s={t} compact active={!t.step_key && t.id === next?.id} />;
+            const body = <StepStatus s={t} compact active={!t.step_key && t.id === next?.id} event={stepEvent} />;
             return <li key={t.id}>{ess
-              ? <button onClick={() => setEssentials(true)} className="flex w-full items-start gap-2 rounded-lg px-1.5 py-1.5 text-left hover:bg-sidebar-accent">{body}</button>
+              ? <div role="button" tabIndex={0} onClick={() => setEssentials(true)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setEssentials(true); } }} className="flex w-full cursor-pointer items-start gap-2 rounded-lg px-1.5 py-1.5 text-left hover:bg-sidebar-accent">{body}</div>
               : <div className="flex items-start gap-2 px-1.5 py-1.5">{body}</div>}</li>;
           })}
         </ol>

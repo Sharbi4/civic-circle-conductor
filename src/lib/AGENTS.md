@@ -10,3 +10,9 @@
 - The live browser keeps one 'page' step note per visited non-search page (model page_notes, else price/contact lines from the full page text); notes don't count toward the step limit; why: summaries must still have each vendor's prices and contacts after the browser moves on.
 - Vendor comparison tables and venue phone/email are parsed into event-page vendors and Contacts alongside markers; research conflicts hand back with alternatives-first instructions instead of the call fallback; why: models emit markers inconsistently and a conflict needs a new plan, not an exception call.
 - The chat's live browser card asks Browserbase (checkBrowserSession) whether the session is open on load, every 30s and on tab focus; closed/404 sessions are marked ended, unreachable checks never end them, and the iframe waits for the first answer; why: Browserbase closes sessions on its own and a stale debugger URL renders a raw DevTools error.
+
+# Scheduling and step states
+- The 15-minute scheduler callback only does bookkeeping (advancing plans, queueing runs, recovery); AI step runs and browser driving happen from the open app (runOwnerDueWork / restartPlanStep), because the scheduler's HTTP call is cut off after ~5 seconds and kills longer work partway.
+- Steps park in waiting_on / on_hold / your_pick / awaiting_reply via Civi's [[step_status]] marker or inferStepStatus on its reply; failed, interrupted and declined steps never replay on their own, only on a reply or a step button, so unchanged steps aren't re-run.
+- Step times, follow-ups and "today" use the organization's time_zone (zonedTime.shared), never a fixed zone.
+- New chats reuse a browser only after reusableBrowser confirms the provider still has it open; closed ones are marked ended so tasks open a fresh browser.

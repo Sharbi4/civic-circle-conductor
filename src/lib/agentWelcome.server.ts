@@ -1,3 +1,4 @@
+import { safeTimeZone } from "./zonedTime.shared";
 import { generateResponse } from "@lovable.dev/ai-gateway";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -19,13 +20,13 @@ const CAPS: Record<AgentKind, { label: string; caps: string[] }> = {
 export async function buildAgentWelcome(db: Db, userId: string, agent: AgentKind, accountName: string, fallback: string, extra = ""): Promise<string> {
   try {
     const [{ data: org }, { data: tasks }, { data: res }, { data: polls }] = await Promise.all([
-      db.from("organizations").select("name, mission, profile, address, facebook_setup_location").eq("user_id", userId).maybeSingle(),
+      db.from("organizations").select("name, mission, profile, address, facebook_setup_location, time_zone").eq("user_id", userId).maybeSingle(),
       db.from("tasks").select("title, due_date, kind").eq("user_id", userId).eq("done", false).limit(12),
       db.from("resources").select("type, name").eq("user_id", userId).neq("status", "dismissed").limit(12),
       db.from("polls").select("title, kind").eq("user_id", userId).order("created_at", { ascending: false }).limit(5),
     ]);
     const c = CAPS[agent];
-    const today = new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric", timeZone: "America/Phoenix" });
+    const today = new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric", timeZone: safeTimeZone(org?.time_zone) });
     const instructions = [
       `You are Civi's ${c.label} agent, a warm, proactive community organizer, opening a brand-new chat. Today is ${today}.`,
       `Write the first message. Start with one line: "Hi! I'm your **${c.label} agent**, connected to **${accountName}**. What would you like me to do? Here are a few ideas for ${org?.name ?? "your organization"}:"`,

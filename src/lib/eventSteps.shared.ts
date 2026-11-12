@@ -23,7 +23,7 @@ export function stepStateLabel(state: string | null | undefined, done: boolean):
     case "ready": case "running": return "Working on it";
     case "awaiting_approval": return "Waiting for your approval";
     case "awaiting_reply": return "Waiting on a reply";
-    case "failed": return "Didn't go through";
+    case "failed": return "Needs attention";
     default: return null;
   }
 }

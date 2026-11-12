@@ -137,6 +137,28 @@ export async function startNextQueued(supabase: SupabaseLike, id: string): Promi
   return true;
 }
 
+/**
+ * This chat's open browser that is still really open, preferring a signed-in one. Browsers the provider has
+ * closed (time limit, lost connection) are marked ended here, so a new task opens a fresh browser instead of
+ * failing on a dead one.
+ */
+export async function reusableBrowser(supabase: SupabaseLike, threadId: string): Promise<{ id: string; signed_in: boolean } | null> {
+  const { data: openList } = await supabase.from("browser_sessions")
+    .select("id, session_id, signed_in").eq("thread_id", threadId).eq("status", "running")
+    .order("created_at", { ascending: false });
+  const rows = (openList ?? []) as { id: string; session_id: string; signed_in: boolean }[];
+  const lovableKey = process.env["LOVABLE_API_KEY"];
+  const connKey = process.env["UDC_BROWSERBASE_API_KEY"];
+  const alive: typeof rows = [];
+  for (const r of rows) {
+    const liveness = lovableKey && connKey ? await providerSessionLiveness(r.session_id, lovableKey, connKey) : "unknown";
+    if (liveness === "closed") await supabase.from("browser_sessions").update({ status: "ended", ended_at: new Date().toISOString() }).eq("id", r.id).eq("status", "running");
+    else alive.push(r);
+  }
+  const pick = alive.find((o) => o.signed_in) ?? alive[0];
+  return pick ? { id: pick.id, signed_in: pick.signed_in } : null;
+}
+
 /** Keep one browser per chat: release any other running browsers in this chat. */
 export async function closeOtherBrowsers(supabase: SupabaseLike, threadId: string, keepId: string) {
   const lovableKey = process.env["LOVABLE_API_KEY"];

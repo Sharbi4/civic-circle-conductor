@@ -4,10 +4,13 @@ import { generateResponse } from '@lovable.dev/ai-gateway';
 import { nextTaskOccurrence, recoveryDecision } from './jobs.shared';
 import { noteJobFailure } from './jobSafety.server';
 import { scopedDb } from './scopedDb.server';
+import { INTERRUPTED } from './stepStatus.shared';
+import { BROWSER_PAUSED } from './browserLiveness.shared';
 
 type Db = SupabaseClient<Database>;
-// Scheduled callbacks get a short run window, so each one finishes a single AI run; the open app drains the rest.
-const MAX_RUNS = 1;
+// The scheduler's call hangs up after about five seconds and its work is cut off with it, so scheduled
+// callbacks only do quick bookkeeping (queue ready steps, recover stuck runs). AI runs and browser steps are
+// done by the open app (runOwnerDueWork / the browser card), where they can finish.
 
 export async function runSharedJob(kind: 'scheduler' | 'recovery' | 'reports') {
   const { supabaseAdmin: db } = await import('@/integrations/supabase/client.server');
@@ -31,12 +34,7 @@ export async function runSharedJob(kind: 'scheduler' | 'recovery' | 'reports') {
     }
     const { error: enqueueError } = await db.rpc('enqueue_due_agent_tasks');
     if (enqueueError) throw new Error('Could not enqueue due work');
-    const processed = await processQueuedRuns(db, kind, MAX_RUNS);
-    if(kind==='scheduler') {
-      const {data:browsers}=await db.from('browser_sessions').select('id,user_id,driver_lease').eq('status','running').eq('agent_status','driving').is('driver_lease',null).limit(3);
-      const {runAgentStep}=await import('@/lib/browser.server');
-      for(const browser of browsers??[]) {try{const {data:state}=await db.from('autopilot_state').select('paused_reason').eq('user_id',browser.user_id).maybeSingle();if(state?.paused_reason) continue;await runAgentStep(scopedDb(db,browser.user_id),browser.user_id,browser.id);}catch(e){await noteJobFailure(browser.user_id,e);}}
-    }
+    const processed = 0;
     return { ok: true, processed };
   } finally { await db.from('agent_job_locks').update({ lease_until: null, last_completed_at: new Date().toISOString() }).eq('name', kind).eq('token', token); }
 }
@@ -108,7 +106,7 @@ async function processQueuedRuns(db: Db, kind: 'scheduler' | 'recovery' | 'repor
     } catch(e) {
       await noteJobFailure(run.user_id, e);
       await db.from('agent_task_runs').update({ status: 'needs_review', phase: 'provider_started', lease_until: null, error: 'Interrupted; verify existing results before retrying' }).eq('id', run.id);
-      await db.from('tasks').update({ last_error: 'Interrupted — review existing results before retrying', ...(task.step_key ? { step_state: 'failed', step_note: 'Interrupted — check the event chat, then reply to retry', scheduled_for: null } : {}) }).eq('id', task.id);
+      await db.from('tasks').update({ last_error: 'Interrupted — review existing results before retrying', ...(task.step_key ? { step_state: 'interrupted', step_note: INTERRUPTED, scheduled_for: null } : {}) }).eq('id', task.id);
     }
   }
   return processed;
@@ -173,11 +171,11 @@ async function recoverRuns(db: Db) {
     const status=recoveryDecision(run);
     await db.from('agent_task_runs').update({ status,lease_until:null,error:status==='queued'?'Recovered before provider work':'Interrupted — inspect results before retrying' }).eq('id',run.id).eq('status','running').lt('lease_until',new Date().toISOString());
     // An interrupted event-plan step waits for the organizer instead of sitting on "working" forever.
-    if (status !== 'queued' && run.task_id) await db.from('tasks').update({ step_state:'failed', step_note:'Interrupted — check the event chat, then reply to retry', scheduled_for:null }).eq('id',run.task_id).not('step_key','is',null).eq('done',false);
+    if (status !== 'queued' && run.task_id) await db.from('tasks').update({ step_state:'interrupted', step_note:INTERRUPTED, scheduled_for:null }).eq('id',run.task_id).not('step_key','is',null).eq('done',false);
   }
   // Do not resume browser submits: remote outcome is ambiguous after a lost connection.
   const { data: browsers } = await db.from('browser_sessions').select('id').eq('status','running').eq('agent_status','driving').lt('driver_lease',new Date().toISOString()).limit(30);
-  for(const browser of browsers ?? []) await db.from('browser_sessions').update({ agent_status:'needs_user',submit_approved:false,driver_lease:null,handoff_reason:'Interrupted browser action — inspect the page before continuing; no automatic replay.' }).eq('id',browser.id);
+  for(const browser of browsers ?? []) await db.from('browser_sessions').update({ agent_status:'needs_user',submit_approved:false,driver_lease:null,handoff_reason:BROWSER_PAUSED }).eq('id',browser.id);
   return { ok:true,recovered:stale?.length ?? 0 };
 }
 

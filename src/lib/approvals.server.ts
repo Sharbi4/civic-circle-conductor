@@ -1,3 +1,4 @@
+import { NEEDS_ATTENTION } from './stepStatus.shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@/integrations/supabase/types';
 import { approvalKind, approvalScope, executionOutcome } from './approvals.shared';
@@ -69,10 +70,19 @@ async function recordLaunchProgress(db: Db, userId: string, payload: unknown, er
     // A step only finishes when its action really went out; an "ok: false" result is a failure, not success.
     const failed = !!error || (result as { ok?: boolean } | undefined)?.ok === false;
     if (failed) {
-      await db.from('tasks').update({ step_state: 'failed', step_note: "Didn't go through — reply in the event chat to try again", last_error: 'Step failed — see Approvals for details' }).eq('id', taskId).eq('user_id', userId).eq('done', false);
+      await db.from('tasks').update({ step_state: 'failed', step_note: NEEDS_ATTENTION, last_error: 'Step failed — see Approvals for details' }).eq('id', taskId).eq('user_id', userId).eq('done', false);
       return;
     }
     if ((result as { queued?: number } | undefined)?.queued) return;
+    // An inquiry or application going out doesn't book the venue: the step waits for the venue's answer instead of finishing.
+    const { data: step } = await db.from('tasks').select('step_key').eq('id', taskId).eq('user_id', userId).maybeSingle();
+    if (step?.step_key === 'venue' || step?.step_key === 'essentials') {
+      const { data: org } = await db.from('organizations').select('time_zone').eq('user_id', userId).maybeSingle();
+      const { stepStatusPatch } = await import('./stepStatus.shared');
+      const follow = new Date(Date.now() + 2 * 86400000).toISOString().slice(0, 10);
+      await db.from('tasks').update({ ...stepStatusPatch({ state: 'waiting_on', who: 'a reply', follow_up: follow }, Date.now(), org?.time_zone ?? ''), last_error: null }).eq('id', taskId).eq('user_id', userId).eq('done', false);
+      return;
+    }
     const url = resultLink(result);
     await db.from('tasks').update({ done: true, done_at: new Date().toISOString(), last_error: null, step_state: 'done', step_note: null, scheduled_for: null, ...(url ? { result_url: url } : {}) }).eq('id', taskId).eq('user_id', userId);
     const { data: task } = await db.from('tasks').select('title, goal_id, thread_id, step_key').eq('id', taskId).maybeSingle();

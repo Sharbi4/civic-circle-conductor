@@ -3,7 +3,7 @@ import { formatAppTime } from "@/lib/appTimeZone";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, type ReactNode } from "react";
-import { ArrowLeft, Building2, CalendarDays, Check, CheckCircle2, CircleDollarSign, Lightbulb, MessagesSquare, Pin, Plus, RefreshCw, StickyNote, Store, Trash2, Users, Contact, XCircle, Clock, ImagePlus, RotateCcw, Loader2, ExternalLink } from "lucide-react";
+import { ArrowLeft, Building2, CalendarDays, Check, CheckCircle2, CircleDollarSign, Lightbulb, MessagesSquare, Pin, Plus, RefreshCw, StickyNote, Store, Trash2, Users, Contact, XCircle, Clock, ImagePlus, RotateCcw, Loader2, ExternalLink, Copy } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { refreshEventSuggestions } from "@/lib/eventProfile.functions";
 import { resetEventProgress, signedCover, uploadEventCover } from "@/lib/eventGoal";
 import { isEssentialsStep, sortSteps } from "@/lib/eventSteps.shared";
+import { skipDraft, stepDef } from "@/lib/eventPlan.shared";
 import { StepStatus } from "@/components/tasks/StepStatus";
 import { EventEssentialsDialog } from "@/components/tasks/EventEssentialsDialog";
 import { actionForStep, actionStateLabel, resultUrlOf } from "@/lib/eventActivity.shared";
@@ -100,6 +101,9 @@ function EventPage() {
     ...approvals.filter((a) => a.status !== "pending" || a.run_state).map((a) => ({ id: a.id, text: a.title, state: a.run_state === "succeeded" ? "done" : a.run_state === "failed" ? "failed" : a.status === "declined" ? "declined" : a.status === "pending" ? "waiting" : "working", at: a.run_finished_at ?? a.resolved_at ?? a.created_at, url: a.run_state === "succeeded" ? resultUrlOf(a.payload) : null })),
     ...steps.filter((s) => s.done && s.done_at).map((s) => actionForStep(s)),
   ].sort((a, b) => b.at.localeCompare(a.at)).slice(0, 15);
+  const linkOf = (k: string) => steps.find((s) => s.step_key === k)?.result_url ?? null;
+  const stepEvent = { title, date: thread?.event_date ?? null, location: p?.venue ?? "", link: linkOf("eventbrite") ?? linkOf("rsvp") };
+  const draftFor = (id: string) => { const st = steps.find((s) => s.id === id); const def = stepDef(st?.step_key); return def ? skipDraft(def, stepEvent) : null; };
 
   return (
     <div className="h-full overflow-y-auto">
@@ -176,8 +180,10 @@ function EventPage() {
             <ul className="space-y-1">
               {steps.map((s) => {
                 const ess = isEssentialsStep(s.title, s.step_key);
-                const inner = <StepStatus s={s} />;
-                return <li key={s.id}>{ess ? <button onClick={() => setEssentials(true)} className="flex w-full items-start gap-2 rounded-lg px-1.5 py-1.5 text-left hover:bg-secondary">{inner}</button> : <div className="flex items-start gap-2 px-1.5 py-1.5">{inner}</div>}</li>;
+                const inner = <StepStatus s={s} event={stepEvent} />;
+                return <li key={s.id}>{ess
+                  ? <div role="button" tabIndex={0} onClick={() => setEssentials(true)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setEssentials(true); } }} className="flex w-full cursor-pointer items-start gap-2 rounded-lg px-1.5 py-1.5 text-left hover:bg-secondary">{inner}</div>
+                  : <div className="flex items-start gap-2 px-1.5 py-1.5">{inner}</div>}</li>;
               })}
               {!steps.length && <p className="text-sm text-muted-foreground">No steps yet.</p>}
             </ul>
@@ -188,9 +194,10 @@ function EventPage() {
               <ol className="relative space-y-3 border-l pl-4">
                 {actions.map((a) => (
                   <li key={a.id} className="relative">
-                    <span className={`absolute -left-[21px] top-1 grid h-3 w-3 place-items-center rounded-full ${a.state === "done" ? "bg-primary" : a.state === "failed" ? "bg-destructive" : "bg-muted-foreground/40"}`} />
+                    <span className={`absolute -left-[21px] top-1 grid h-3 w-3 place-items-center rounded-full ${a.state === "done" ? "bg-primary" : a.state === "failed" ? "bg-warning" : "bg-muted-foreground/40"}`} />
                     <p className="text-sm">{a.text}</p>
-                    <p className="text-xs text-muted-foreground">{actionStateLabel(a.state)} · {formatAppTime(a.at)}{a.url && <> · <a href={a.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-0.5 font-medium text-primary hover:underline">View <ExternalLink className="h-3 w-3" /></a></>}</p>
+                    <p className={`text-xs ${a.state === "failed" ? "font-medium text-warning-foreground" : "text-muted-foreground"}`}>{actionStateLabel(a.state)} · {formatAppTime(a.at)}{a.url && <> · <a href={a.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-0.5 font-medium text-primary hover:underline">View <ExternalLink className="h-3 w-3" /></a></>}
+                      {a.state === "not_connected" && draftFor(a.id) && <> · <button type="button" onClick={async () => { try { await navigator.clipboard.writeText(draftFor(a.id) ?? ""); toast.success("Draft copied — paste it into the app"); } catch { toast.error("Couldn't copy — open the event chat to copy it"); } }} className="inline-flex items-center gap-0.5 font-medium text-primary hover:underline">Copy draft <Copy className="h-3 w-3" /></button></>}</p>
                   </li>
                 ))}
               </ol>

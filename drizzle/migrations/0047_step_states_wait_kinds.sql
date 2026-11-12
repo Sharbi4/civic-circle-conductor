@@ -1,0 +1,2 @@
+ALTER TABLE public.tasks DROP CONSTRAINT IF EXISTS tasks_step_state_check;
+ALTER TABLE public.tasks ADD CONSTRAINT tasks_step_state_check CHECK (step_state IS NULL OR step_state = ANY (ARRAY['waiting','ready','running','awaiting_approval','awaiting_reply','done','skipped','failed','interrupted','declined','on_hold','waiting_on','your_pick']::text[]));

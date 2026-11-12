@@ -12,10 +12,10 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { sendOrganizerMessage } from "@/lib/organizer.functions";
 import { endBrowserSession, browserAgentStep, setBrowserDriving, startFacebookSetup, checkBrowserSession } from "@/lib/browser.functions";
-import { showLiveBrowser, awaitingBrowserCheck, closedBrowserMessage } from "@/lib/browserLiveness.shared";
+import { showLiveBrowser, awaitingBrowserCheck, closedBrowserMessage, handoffText } from "@/lib/browserLiveness.shared";
 import { useThreads, useOrg } from "./chat";
 import { isScoutBriefing } from "@/lib/discovery.shared";
-import { isHiddenTurn, hiddenTurnLabel } from "@/lib/chatVisibility.shared";
+import { isHiddenTurn, hiddenTurnLabel, pillsToShow, tidyStepHeading } from "@/lib/chatVisibility.shared";
 import remarkGfm from "remark-gfm";
 import { ChatSearch } from "@/components/ChatSearch";
 import { FormLibrary } from "@/components/polls/FormLibrary";
@@ -266,7 +266,7 @@ function BrowserCard({ sessionRowId, task }: { sessionRowId: string; task: strin
     stepping.current = true;
     DRIVING_NOW.add(sessionRowId);
     step({ data: { sessionRowId } })
-      .catch((e) => toast.error(e instanceof Error ? e.message : "Civi lost the browser"))
+      .catch((e) => toast.error(e instanceof Error ? e.message : "Browser closed"))
       .finally(async () => {
         stepping.current = false;
         DRIVING_NOW.delete(sessionRowId);
@@ -299,7 +299,7 @@ function BrowserCard({ sessionRowId, task }: { sessionRowId: string; task: strin
   }
   const AGENT_LABEL: Record<string, string> = {
     driving: "Civi is driving", awaiting_approval: "Waiting for your approval", done: "Civi finished",
-    stopped: "You're in control", needs_user: "Your turn", failed: "Civi lost the browser", idle: "You're in control",
+    stopped: "You're in control", needs_user: "Your turn", failed: "Browser closed", idle: "You're in control",
   };
 
   async function stop() {
@@ -366,7 +366,7 @@ function BrowserCard({ sessionRowId, task }: { sessionRowId: string; task: strin
           </div>
           {agent === "needs_user" && (
             <div className="flex flex-wrap items-center justify-between gap-2 border-t bg-secondary px-4 py-3">
-              <p className="text-sm"><span className="font-semibold">Your turn:</span> {session.data?.handoff_reason ?? "Civi needs you in the browser."}</p>
+              <p className="text-sm"><span className="font-semibold">Your turn:</span> {handoffText(session.data?.handoff_reason)}</p>
               <Button size="sm" onClick={() => toggleDrive(true)}>Done — Civi, continue</Button>
             </div>
           )}
@@ -575,6 +575,7 @@ function ChatWindow({ threadId }: { threadId: string }) {
     refetchInterval: 15000,
   });
   const all = [...(msgs.data ?? []), ...pending];
+  const pills = pillsToShow(all);
   useEffect(() => { const sc = endRef.current?.closest(".overflow-y-auto"); if (sc) { stickRef.current = true; sc.scrollTo({ top: sc.scrollHeight, behavior: "smooth" }); } }, [all.length, busy]);
   useEffect(() => { inputRef.current?.focus(); }, [busy]);
 
@@ -734,7 +735,7 @@ function ChatWindow({ threadId }: { threadId: string }) {
           )}
           <div className="space-y-5">
             {all.map((m) =>
-              isHiddenTurn(m) ? (
+              isHiddenTurn(m) ? (!pills.has(m.id) ? null :
                 <div key={m.id} id={`msg-${m.id}`} className="flex justify-center">
                   <span className="rounded-full bg-secondary px-3 py-1 text-xs text-muted-foreground">{hiddenTurnLabel(m.content)}</span>
                 </div>
@@ -750,7 +751,7 @@ function ChatWindow({ threadId }: { threadId: string }) {
               ) : (
                 <div key={m.id} id={`msg-${m.id}`} className="rounded-3xl">
                   <div className="max-w-[92%] rounded-3xl bg-bubble px-6 py-4">
-                    <MessageBody content={m.content.replace(CHOICES_MARKER, "").replace(/\[\[(form_library|letterhead_check)\]\]/g, "").trim()}
+                    <MessageBody content={tidyStepHeading(m.content).replace(CHOICES_MARKER, "").replace(/\[\[(form_library|letterhead_check)\]\]/g, "").trim()}
                       onAction={m.content.includes("What would you like me to do") ? (t) => submit(`${t} — yes, do the one you just suggested.`) : undefined} />
                     {m.content.includes("[[letterhead_check]]") && m.id === all[all.length - 1]?.id && <LetterheadPrompt onDone={() => submit("Letterhead details are saved — go ahead and create the document.")} onSkipped={() => submit("Skip the missing letterhead details for now and create the document using only the details already provided. Do not ask for letterhead details again this session.")} />}
                     {m.content.includes("[[form_library]]") && m.id === all[all.length - 1]?.id && <FormLibrary logo={orgQ.data?.logo_url} orgName={orgQ.data?.name} onDone={(t) => submit(t)} />}

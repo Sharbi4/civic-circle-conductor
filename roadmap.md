@@ -102,3 +102,14 @@
 - [x] Demo account: keep today's town hall as second demo event, delete yesterday's
 - [x] Homepage footer year ("© 2025") now comes from Civi's server, not the visitor's device clock
 - [x] Live browser card never shows the raw DevTools "WebSocket disconnected" page: checks the session with the browser service and shows a friendly closed message
+
+## Status wording & step states (Elle, Nov 12)
+- [x] Failed step label no longer doubled; red only for real problems, amber "Needs attention" otherwise
+- [x] Waiting/held/your-pick steps never show as failures (Waiting on X · follow-up date; On hold; Your pick)
+- [x] Steps are clickable: Try again / Open chat / Resume / Ask for another option buttons
+- [x] Stop repeating "Civi picked up step N" — show once, and don't re-run unchanged steps (AI cost)
+- [x] "Declined" never shown while an approval for that step is still waiting in the chat
+- [x] Small things: no 🔁 in step headings; activity list "X · Done · View"; "Not connected · Copy draft"; "1 decision" pill instead of scale icon; event covers instead of gray placeholders; empty auto-started "New event"
+- [x] Rewording table: approvals, browser header/handoff, calls, sign-in popups
+- [x] Step times use the organization's time zone, not fixed Arizona time
+- [x] Investigate why browser sessions close mid-task (background timer cut off after ~5s; idle browsers hit the 1-hour limit)

@@ -6,7 +6,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import type React from "react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { MessageCircle, Plus, Plug, LogOut, Pin, Brain, Inbox, Megaphone, CalendarCheck, CreditCard, Sparkles, Check, X, Compass, Trash2, KeyRound, Mic, FileText, ImagePlus, BarChart3, Menu, ListChecks, UserCircle, ChevronDown, Loader2, CalendarPlus, CalendarHeart, Clock, Scale } from "lucide-react";
+import { MessageCircle, Plus, Plug, LogOut, Pin, Brain, Inbox, Megaphone, CalendarCheck, CreditCard, Sparkles, Check, X, Compass, Trash2, KeyRound, Mic, FileText, ImagePlus, BarChart3, Menu, ListChecks, UserCircle, ChevronDown, Loader2, CalendarPlus, CalendarHeart, Clock } from "lucide-react";
 import { PollsPanel } from "@/components/polls/PollsPanel";
 import { TasksPanel } from "@/components/tasks/TasksPanel";
 import { AccountPanel } from "@/components/account/AccountPanel";
@@ -159,10 +159,9 @@ function DecisionBadge({ count, className = "" }: { count: number; className?: s
     <span
       title={`${count} decision${count === 1 ? "" : "s"} waiting on you in this chat`}
       aria-label={`${count} decision${count === 1 ? "" : "s"} waiting in this chat`}
-      className={`inline-flex shrink-0 items-center gap-1 rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-semibold text-primary-foreground ${className}`}
+      className={`inline-flex shrink-0 items-center whitespace-nowrap rounded-full bg-primary px-2 py-0.5 text-[10px] font-semibold text-primary-foreground ${className}`}
     >
-      <Scale className="h-3 w-3" />
-      {count > 1 ? <span>{count}</span> : null}
+      {count} decision{count === 1 ? "" : "s"}
     </span>
   );
 }

@@ -41,6 +41,20 @@ async function createEventCover(cover: { bytes: Uint8Array<ArrayBuffer>; type: s
 }
 
 
+/** An event with no cover yet gets the Eventbrite cover on its event page too, instead of a gray placeholder. */
+async function saveAsEventCover(supabase: SupabaseClient<Database>, userId: string, threadId: string | null, cover: { bytes: Uint8Array<ArrayBuffer>; type: string }) {
+  if (!threadId) return;
+  const { data: goal } = await supabase.from("tasks").select("id").eq("thread_id", threadId).eq("kind", "goal").limit(1).maybeSingle();
+  if (!goal) return;
+  const { data: prof } = await supabase.from("event_profiles").select("goal_id, cover_path").eq("goal_id", goal.id).maybeSingle();
+  if (prof?.cover_path) return;
+  const path = `${userId}/covers/${goal.id}-${Date.now()}.${cover.type === "image/png" ? "png" : "jpg"}`;
+  const { error } = await supabase.storage.from("event-images").upload(path, new Blob([cover.bytes], { type: cover.type }), { contentType: cover.type });
+  if (error) throw error;
+  if (prof) await supabase.from("event_profiles").update({ cover_path: path }).eq("goal_id", goal.id);
+  else await supabase.from("event_profiles").insert({ goal_id: goal.id, user_id: userId, cover_path: path });
+}
+
 export async function executeEventbriteApproval(supabase: SupabaseClient<Database>, userId: string, approvalId: string) {
     const { data: ap } = await supabase.from("approvals").select("id, status, payload, thread_id").eq("id", approvalId).maybeSingle();
     if (!ap || ap.status !== "approved") throw new Error("This action isn't approved.");
@@ -82,6 +96,7 @@ export async function executeEventbriteApproval(supabase: SupabaseClient<Databas
         prompt: p.image_prompt || `${p.title}. ${p.description.replace(/<[^>]+>/g, " ")}`, inspiration: insp,
       });
       cover = await createEventCover(built, eb);
+      await saveAsEventCover(supabase, userId, ap.thread_id, built).catch((e) => console.error("Saving event page cover failed", e instanceof Error ? e.message : e));
     } catch (e) {
       console.error("Event cover failed", e);
     }

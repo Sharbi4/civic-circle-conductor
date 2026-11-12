@@ -4,6 +4,8 @@ import {
   EVENT_PLAN, PLAN_KEYS, decideStep, keyForTitle, nudgeDelayMinutes, parseStepRun, planStatus, skipDraft, stepDef, triggerAt,
   isAutomatedPrompt, type Channel, type PlanRow, type StepKey,
 } from "./eventPlan.shared";
+import { inferStepStatus, stepStatusPatch, checksAgainNote, WAITING_FOR_ANSWER, type StepStatusMarker } from "./stepStatus.shared";
+import { safeTimeZone } from "./zonedTime.shared";
 import { chatIsIdle } from "./resume.shared";
 import { scopedDb } from "./scopedDb.server";
 
@@ -36,7 +38,7 @@ export async function planConnections(db: Db, userId: string): Promise<(c: Chann
 }
 
 /** Brings an event goal's checklist in line with the plan: keys, dependencies and trigger times. Idempotent. */
-export async function ensurePlan(db: Db, userId: string, goal: { id: string; thread_id: string | null }, eventDate: string | null): Promise<Task[]> {
+export async function ensurePlan(db: Db, userId: string, goal: { id: string; thread_id: string | null }, eventDate: string | null, tz?: string): Promise<Task[]> {
   const load = async () => (await db.from("tasks").select("*").eq("goal_id", goal.id).eq("user_id", userId).order("created_at")).data ?? [];
   let rows = await load();
   const taken = new Set(rows.map((r) => r.step_key).filter(Boolean));
@@ -46,19 +48,19 @@ export async function ensurePlan(db: Db, userId: string, goal: { id: string; thr
     const k = keyForTitle(r.title);
     if (!k || taken.has(k)) continue;
     const def = stepDef(k)!;
-    const { error } = await db.from("tasks").update({ step_key: k, title: def.title, depends_on: def.dependsOn, trigger_at: triggerAt(def, eventDate) }).eq("id", r.id).eq("user_id", userId).is("step_key", null);
+    const { error } = await db.from("tasks").update({ step_key: k, title: def.title, depends_on: def.dependsOn, trigger_at: triggerAt(def, eventDate, tz) }).eq("id", r.id).eq("user_id", userId).is("step_key", null);
     if (!error) { taken.add(k); changed = true; }
   }
   const missing = EVENT_PLAN.filter((d) => !taken.has(d.key));
   for (const d of missing) {
-    const { error } = await db.from("tasks").insert({ user_id: userId, kind: "task", title: d.title, created_by: "civi", goal_id: goal.id, thread_id: goal.thread_id, step_key: d.key, depends_on: d.dependsOn, trigger_at: triggerAt(d, eventDate) });
+    const { error } = await db.from("tasks").insert({ user_id: userId, kind: "task", title: d.title, created_by: "civi", goal_id: goal.id, thread_id: goal.thread_id, step_key: d.key, depends_on: d.dependsOn, trigger_at: triggerAt(d, eventDate, tz) });
     if (!error) changed = true;
   }
   if (changed) rows = await load();
   for (const r of rows) {
     const def = stepDef(r.step_key);
     if (!def?.when || r.done) continue;
-    const want = triggerAt(def, eventDate);
+    const want = triggerAt(def, eventDate, tz);
     if ((want ? Date.parse(want) : null) !== (r.trigger_at ? Date.parse(r.trigger_at) : null)) {
       await db.from("tasks").update({ trigger_at: want }).eq("id", r.id).eq("user_id", userId);
       r.trigger_at = want;
@@ -100,8 +102,17 @@ export async function advanceEventPlans(admin: Db, onlyUserId?: string) {
   }
 }
 
+/** An event nobody has named, dated or written about yet: Civi doesn't start working on it by itself. */
+export function isUntouchedEvent(title: string, eventDate: string | null, hasHumanMessage: boolean): boolean {
+  return !eventDate && !hasHumanMessage && /^(Event:\s*)?New event$/i.test(title.trim());
+}
+
 async function advanceGoal(db: Db, userId: string, goal: { id: string; title: string; thread_id: string }, eventDate: string | null, connected: (c: Channel) => boolean) {
-  const rows = await ensurePlan(db, userId, goal, eventDate);
+  const { data: human } = await db.from("messages").select("id").eq("thread_id", goal.thread_id).eq("user_id", userId).eq("role", "user").not("content", "like", "[%").limit(1).maybeSingle();
+  if (isUntouchedEvent(goal.title, eventDate, !!human)) return;
+  const { data: orgTz } = await db.from("organizations").select("time_zone").eq("user_id", userId).maybeSingle();
+  const tz = safeTimeZone(orgTz?.time_zone);
+  const rows = await ensurePlan(db, userId, goal, eventDate, tz);
   const { data: prof } = await db.from("event_profiles").select("budget, headcount, venue, venue_status").eq("goal_id", goal.id).maybeSingle();
   // Details entered on the event page finish the matching steps without waiting on the chat.
   const now = new Date().toISOString();
@@ -117,20 +128,29 @@ async function advanceGoal(db: Db, userId: string, goal: { id: string; title: st
 
   const plan = rows.filter((r) => stepDef(r.step_key));
   const ids = plan.map((r) => r.id);
-  const { data: aps } = ids.length ? await db.from("approvals").select("status, run_state, payload").eq("user_id", userId).filter("payload->>launch_task_id", "in", `(${ids.join(",")})`) : { data: [] };
+  const { data: aps } = ids.length ? await db.from("approvals").select("status, run_state, payload, created_at").eq("user_id", userId).filter("payload->>launch_task_id", "in", `(${ids.join(",")})`).order("created_at") : { data: [] };
+  const isOpen = (a: { status: string; run_state: string | null }) => a.status === "pending" || (a.status === "approved" && (!a.run_state || a.run_state === "running" || a.run_state === "queued"));
   const approvalOpen = new Set<string>();
+  const approvalOutcome = new Map<string, "declined" | "failed" | "succeeded">();
   for (const a of aps ?? []) {
     const id = (a.payload as { launch_task_id?: string } | null)?.launch_task_id;
-    if (id && (a.status === "pending" || (a.status === "approved" && (!a.run_state || a.run_state === "running" || a.run_state === "queued")))) approvalOpen.add(id);
+    if (!id) continue;
+    if (isOpen(a)) approvalOpen.add(id);
+    else approvalOutcome.set(id, a.status === "approved" ? (a.run_state === "failed" || a.run_state === "needs_review" ? "failed" : "succeeded") : "declined");
   }
+  // An approval waiting in this chat that isn't tied to a step still means "waiting for your approval", never "declined".
+  const { data: loose } = await db.from("approvals").select("id").eq("user_id", userId).eq("thread_id", goal.thread_id).eq("status", "pending").is("payload->>launch_task_id", null).limit(1);
+  const threadApprovalOpen = !!loose?.length;
   const { data: recent } = await db.from("messages").select("created_at, role, content").eq("thread_id", goal.thread_id).eq("user_id", userId).order("created_at", { ascending: false }).limit(30);
   const lastAny = recent?.[0]?.created_at ?? null;
   const lastHuman = recent?.find((m) => m.role === "user" && !isAutomatedPrompt(m.content))?.created_at ?? null;
-  const repliedSince = new Set(plan.filter((r) => lastHuman && lastHuman > (r.last_run_at ?? r.created_at)).map((r) => r.id));
+  // Compare with the step's latest attempt, not only its last finished run: a run cut off partway never records last_run_at.
+  const lastTry = (r: Task) => [r.last_run_at, parseStepRun(r.run_prompt).queued_at, r.created_at].filter(Boolean).map((t) => Date.parse(t!)).reduce((a, b) => Math.max(a, b), 0);
+  const repliedSince = new Set(plan.filter((r) => lastHuman && Date.parse(lastHuman) > lastTry(r)).map((r) => r.id));
 
   const byKey = new Map<string, PlanRow>(plan.map((r) => [r.step_key!, r]));
   const ordered = [...plan].sort((a, b) => PLAN_KEYS.indexOf(a.step_key as StepKey) - PLAN_KEYS.indexOf(b.step_key as StepKey));
-  const ctx = { now: Date.now(), eventDate, connected, approvalOpen, repliedSince };
+  const ctx = { now: Date.now(), eventDate, connected, approvalOpen, repliedSince, timeZone: tz, approvalOutcome, threadApprovalOpen };
   const skippedDrafts: string[] = [];
   const ready: Task[] = [];
   const info = eventInfo(goal.title, eventDate, prof?.venue, rows);
@@ -145,8 +165,8 @@ async function advanceGoal(db: Db, userId: string, goal: { id: string; title: st
       continue;
     }
     if (d.state === "ready") ready.push(r);
-    // A specific note Civi wrote for a paused step ("Waiting to hear back from …") beats the generic reason.
-    const note = d.state === "awaiting_reply" && r.step_state === "awaiting_reply" && r.step_note ? r.step_note : d.reason ?? null;
+    // A parked step keeps the specific note Civi wrote for it ("Waiting on Ward 3 · …") unless the decision brings a new one.
+    const note = d.reason ?? (d.state === r.step_state ? r.step_note ?? null : null);
     if (r.step_state !== d.state || (r.step_note ?? null) !== note) {
       await db.from("tasks").update({ step_state: d.state, step_note: note }).eq("id", r.id).eq("user_id", userId);
       Object.assign(r, { step_state: d.state, step_note: note });
@@ -158,14 +178,15 @@ async function advanceGoal(db: Db, userId: string, goal: { id: string; title: st
   // Don't talk over the organizer: queued steps wait for a short quiet spell in the event chat.
   if (!ready.length || !chatIsIdle(lastAny, Date.now(), 10)) return;
   for (const r of ready.slice(0, MAX_QUEUED_PER_EVENT)) {
-    await db.from("tasks").update({ job_kind: "launch_step", scheduled_for: new Date().toISOString(), step_state: "running", step_note: null, last_error: null })
+    const run = parseStepRun(r.run_prompt);
+    await db.from("tasks").update({ job_kind: "launch_step", scheduled_for: new Date().toISOString(), step_state: "running", step_note: null, last_error: null, run_prompt: JSON.stringify({ ...run, queued_at: new Date().toISOString() }) })
       .eq("id", r.id).eq("user_id", userId).eq("done", false).is("scheduled_for", null);
   }
 }
 
 const STEP_WORK: Record<StepKey, string> = {
   essentials: `Lock the date, budget, expected turnout and helpers. Use what's already known (event page, memory, this chat) and ask only for what's missing, in one question with [[choices: ...]]. Add [[event_chat: ...]] as soon as the date is decided. When date, budget and turnout are all known, emit [[task_done: ID]].`,
-  venue: `Secure the venue (EXECUTE THE FOUNDATION FIRST): verify availability and terms for the date, then prepare the inquiry, application or reservation for approval. If you're waiting on the venue, say in one line exactly what you're waiting for. Only when the venue is confirmed booked, emit [[task_done: ID]].`,
+  venue: `Secure the venue (EXECUTE THE FOUNDATION FIRST): verify availability and terms for the date, then prepare the inquiry, application or reservation for approval. If you're waiting on the venue, say in one line exactly what you're waiting for and end with [[step_status: {"state":"waiting_on","who":"<venue or person>","follow_up":"YYYY-MM-DD"}]]. Only when the venue is confirmed booked, emit [[task_done: ID]].`,
   rsvp: `Create the RSVP sign-up now with one [[poll: ...]] marker of kind "signup" that includes the "event" block (title, start, end, timezone, location).`,
   eventbrite: `Queue the Eventbrite listing now with [[eventbrite_event: ...]], cover image_prompt included.`,
   linkedin_event: `Queue [[linkedin_event_create: ...]] with the RSVP or Eventbrite link and a cover image_prompt.`,
@@ -204,6 +225,12 @@ export async function runPlanStep(db: Db, userId: string, task: Task, threadId: 
     db.from("organizations").select("contact_email").eq("user_id", userId).maybeSingle(),
   ]);
   const { data: thread } = await db.from("threads").select("event_date").eq("id", threadId).maybeSingle();
+  const { data: orgTz } = await db.from("organizations").select("time_zone").eq("user_id", userId).maybeSingle();
+  const tz = safeTimeZone(orgTz?.time_zone);
+  const run = parseStepRun(task.run_prompt);
+  const retryLine = run.retry === "another" ? "The organizer passed on your last proposal for this step. Propose a different option this time — don't repeat the one they passed on."
+    : run.retry === "resume" ? "You were cut off partway through this step. Check what's already in this chat and continue from there; don't redo or resend anything that already went out."
+    : run.retry === "retry" ? "The organizer asked you to try this step again. Check what's already in this chat first, then finish it." : null;
   const all = rows ?? [];
   const info = eventInfo(goal?.title ?? "this event", goal?.due_date ?? thread?.event_date ?? null, prof?.venue, all);
   const planOnly = all.filter((r) => stepDef(r.step_key));
@@ -214,8 +241,10 @@ export async function runPlanStep(db: Db, userId: string, task: Task, threadId: 
     `Saved plan state (this is the truth — don't redo finished steps):\n${planStatus(all)}`,
     `Links: Eventbrite ${info.eventbrite ?? "—"} · RSVP ${info.rsvp ?? "—"} · Venue ${info.location || "—"} · Organization email ${org?.contact_email || "—"}`,
     ...(def.channel === "gmail" && def.key !== "email_invites" ? [`RSVP emails (${emails.length}): ${emails.join(", ") || "nobody has signed up yet"}`] : []),
+    ...(retryLine ? [retryLine] : []),
     `Do this step now, in this one message: ${STEP_WORK[def.key].replaceAll("ID", task.id)}`,
-    `Start with one line: "🔁 Step ${n} of ${planOnly.length} — ${def.title}". Don't repeat earlier messages. Every publish stays approval-gated; queue it with its marker and the app finishes this step when it really goes out. If you need one answer from the organizer, ask exactly one question.`,
+    `Start with one line: "Step ${n} of ${planOnly.length} · ${def.title}". Don't repeat earlier messages. Every publish stays approval-gated; queue it with its marker and the app finishes this step when it really goes out. If you need one answer from the organizer, ask exactly one question.`,
+    `If the step can't finish in this message, end with exactly one marker saying why: [[step_status: {"state":"waiting_on","who":"<who you're waiting on>","follow_up":"YYYY-MM-DD"}]] when an outside person or venue has to reply; [[step_status: {"state":"on_hold","until":"the venue is confirmed","after":"venue"}]] when you're holding it on purpose until another step finishes ("after" is one of essentials, venue, rsvp, eventbrite); [[step_status: {"state":"your_pick","note":"3 ideas are ready in the event chat"}]] when you've laid out options for the organizer to choose; [[step_status: {"state":"needs_answer"}]] when you asked the organizer a question.`,
   ].join("\n\n");
 
   const { runOrganizer } = await import("./organizer.server");
@@ -234,10 +263,16 @@ export async function runPlanStep(db: Db, userId: string, task: Task, threadId: 
     await db.from("tasks").update({ step_state: "awaiting_approval", step_note: "Waiting for your approval", run_prompt: JSON.stringify({ attempts: 0, nudge_at: null }) }).eq("id", task.id).eq("user_id", userId);
     return "hold";
   }
-  const st = parseStepRun(task.run_prompt);
+  // Waiting on someone else, holding on purpose, or waiting for the organizer's pick: park the step so it isn't re-run until that changes.
+  const status: StepStatusMarker | null = res.stepStatus ?? inferStepStatus(res.content);
+  if (status && status.state !== "needs_answer") {
+    await db.from("tasks").update({ ...stepStatusPatch(status, Date.now(), tz), last_error: null }).eq("id", task.id).eq("user_id", userId);
+    return "hold";
+  }
+  const st = run;
   const delay = nudgeDelayMinutes(st.attempts);
   const nudgeAt = delay === null ? null : new Date(Date.now() + delay * 60000).toISOString();
-  await db.from("tasks").update({ step_state: "awaiting_reply", step_note: nudgeAt ? "Waiting on an answer — I'll check back" : "Paused until you reply in the event chat", run_prompt: JSON.stringify({ attempts: st.attempts + 1, nudge_at: nudgeAt }) }).eq("id", task.id).eq("user_id", userId);
+  await db.from("tasks").update({ step_state: "awaiting_reply", step_note: nudgeAt ? checksAgainNote(Date.parse(nudgeAt), tz) : WAITING_FOR_ANSWER, last_error: null, run_prompt: JSON.stringify({ attempts: st.attempts + 1, nudge_at: nudgeAt }) }).eq("id", task.id).eq("user_id", userId);
   if (!nudgeAt) await db.from("messages").insert({ user_id: userId, thread_id: threadId, role: "assistant", content: `⏸️ I've paused **${def.title}** until you reply here. The other steps keep going.` });
   return "hold";
 }

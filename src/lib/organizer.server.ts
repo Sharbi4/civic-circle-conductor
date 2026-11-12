@@ -1,5 +1,7 @@
 import { EVENT_STEPS } from "@/lib/eventSteps.shared";
 import { planInsertRows } from "@/lib/eventPlan.shared";
+import { parseStepStatus, stripStepStatus } from "@/lib/stepStatus.shared";
+import { safeTimeZone, todayIn } from "@/lib/zonedTime.shared";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 import { generateResponse, GatewayError } from "@lovable.dev/ai-gateway";
@@ -7,7 +9,7 @@ import { EVENT_PLAYBOOK } from "@/lib/eventPlaybook";
 import { CORE_PLAYBOOK } from "@/lib/corePlaybook";
 import { DOCUMENT_STANDARD } from "@/lib/documentStandards";
 import { perplexitySearch, formatHits } from "@/lib/research.server";
-import { openBrowserSession, retargetSession, closeOtherBrowsers } from "@/lib/browser.server";
+import { openBrowserSession, retargetSession, closeOtherBrowsers, reusableBrowser } from "@/lib/browser.server";
 import { isLinkedInBrowserTask, LINKEDIN_API_ONLY } from "./linkedinRouting.shared";
 import { HIDDEN_ROLE } from "./chatVisibility.shared";
 
@@ -74,13 +76,13 @@ export async function runOrganizer(supabase: SupabaseClient<Database>, userId: s
       }
     }
     const [{ data: org }, { data: history }, { data: memories }] = await Promise.all([
-      supabase.from("organizations").select("name, mission, linkedin_org_id, address, logo_url, contact_name, contact_email, contact_phone, website, letterhead_skipped").eq("user_id", userId).maybeSingle(),
+      supabase.from("organizations").select("name, mission, linkedin_org_id, address, logo_url, contact_name, contact_email, contact_phone, website, letterhead_skipped, time_zone").eq("user_id", userId).maybeSingle(),
       supabase.from("messages").select("role, content").eq("thread_id", data.threadId).order("created_at", { ascending: false }).limit(60),
       supabase.from("memories").select("content").order("created_at", { ascending: false }).limit(80),
     ]);
 
     const { data: openTasks } = await supabase.from("tasks").select("id, goal_id, kind, title, due_date, done").order("due_date", { ascending: true, nullsFirst: false }).limit(80);
-    const today = new Date().toLocaleDateString("en-CA", { timeZone: "America/Phoenix" });
+    const today = todayIn(safeTimeZone(org?.time_zone));
     const goals = (openTasks ?? []).filter((t) => t.kind === "goal");
     const taskLine = (t: { id: string; title: string; due_date: string | null; done: boolean }) => `- [${t.done ? "x" : " "}] ${t.title}${t.due_date ? ` (due ${t.due_date}${!t.done && t.due_date < today ? ", OVERDUE" : ""})` : ""} {id:${t.id}}`;
     const goalsBlock = goals.length || openTasks?.length
@@ -154,7 +156,7 @@ For multi-step objectives, show a visible task plan with statuses (Done / Workin
         : "LinkedIn is not connected yet; draft posts and suggest connecting LinkedIn in the Connectors tab.",
       `GOOGLE (Gmail, Calendar, Drive) — only for the ones LIVE above; otherwise give a draft and say to connect it in Connectors.${googleData}
 GMAIL: when asked about email, read the GMAIL INBOX data above and summarize it clearly (who, what, what needs a reply), never invent messages. To send or reply, show the full email, say it's queued in Approvals, and add: [[gmail_send: {"to":"a@b.com","cc":"optional","subject":"...","body":"plain text, use \\n for line breaks","reply_to":"optional Gmail message id from the inbox data when replying"}]]. Sends only after approval. To save a reply/email as a Gmail draft instead, use [[gmail_draft: {same fields}]]. To archive, mark read, or label/unlabel emails: [[gmail_modify: {"message_ids":["ids from inbox data"],"archive":true,"mark_read":true,"add_labels":["Volunteers"],"remove_labels":["optional"]}]] (missing labels are created).
-CALENDAR: to add an event: [[calendar_event: {"kind":"calendar_create","summary":"...","start":"YYYY-MM-DDTHH:MM:00-07:00","end":"...","timezone":"America/Phoenix","location":"...","description":"...","attendees":["optional emails"]}]]; to change one use "kind":"calendar_update" with "event_id" from the calendar data and only the changed fields; to cancel one use "kind":"calendar_cancel" with "event_id" and "summary" (guests are notified). When an event is planned and Calendar is LIVE, offer to add it.
+CALENDAR: to add an event: [[calendar_event: {"kind":"calendar_create","summary":"...","start":"YYYY-MM-DDTHH:MM:00<the organization's UTC offset, e.g. -07:00>","end":"...","timezone":"${safeTimeZone(org?.time_zone)}","location":"...","description":"...","attendees":["optional emails"]}]]; to change one use "kind":"calendar_update" with "event_id" from the calendar data and only the changed fields; to cancel one use "kind":"calendar_cancel" with "event_id" and "summary" (guests are notified). When an event is planned and Calendar is LIVE, offer to add it.
 DRIVE: to save a document, plan or checklist as a Google Doc: [[drive_doc: {"title":"...","content":"full plain-text content"}]]. To edit a doc listed in GOOGLE DRIVE data, add "file_id" and give the full new content (it replaces the old text). Offer this after creating official documents when Drive is LIVE.
 All Google actions wait for approval.`,
       xConn
@@ -314,6 +316,9 @@ All Google actions wait for approval.`,
       } catch (e) { console.error("Failed to create poll", e); card = "\n⚠️ I couldn't create that poll — try asking again.\n"; }
       text = text.replace(m[0], card);
     }
+    // How a plan step stands when it can't finish yet (waiting on someone, on hold, the organizer's pick).
+    const stepStatus = data.planStepId ? parseStepStatus(text) : null;
+    text = stripStepStatus(text);
     const detailsMatch = text.match(/\[\[event_details:\s*(\{.+?\})\s*\]\]/s);
     text = text.replace(/\n?\[\[event_details:.+?\]\]/gs, "");
     const evMatch = text.match(/\[\[event_chat:\s*(\{.+?\})\s*\]\]/s);
@@ -329,14 +334,14 @@ All Google actions wait for approval.`,
           if (g) await supabase.from("tasks").update({ title: `Event: ${title}`, ...(date ? { due_date: date } : {}) }).eq("id", g.id);
           else {
             const { data: ng } = await supabase.from("tasks").insert({ user_id: userId, kind: "goal", title: `Event: ${title}`, created_by: "civi", thread_id: data.threadId, due_date: date }).select("id").single();
-            if (ng) await supabase.from("tasks").insert(planInsertRows(userId, ng.id, data.threadId, date));
+            if (ng) await supabase.from("tasks").insert(planInsertRows(userId, ng.id, data.threadId, date, safeTimeZone(org?.time_zone)));
           }
         } else {
           // The main chat stays main: spin off a dedicated event chat instead.
           const { data: nt } = await supabase.from("threads").insert({ user_id: userId, kind: "event", title, event_date: date }).select("id").single();
           if (nt) {
             const { data: ng } = await supabase.from("tasks").insert({ user_id: userId, kind: "goal", title: `Event: ${title}`, created_by: "civi", thread_id: nt.id, due_date: date }).select("id").single();
-            if (ng) await supabase.from("tasks").insert(planInsertRows(userId, ng.id, nt.id, date));
+            if (ng) await supabase.from("tasks").insert(planInsertRows(userId, ng.id, nt.id, date, safeTimeZone(org?.time_zone)));
             await supabase.from("messages").insert({ thread_id: nt.id, user_id: userId, role: "assistant", content: `🎉 This is the event chat for **${title}**${date ? ` (${date})` : ""}. I'll pick up from what we discussed in the main chat — budget, people and venue first, then Eventbrite and sharing.` });
             text += `\n\n📅 I opened a dedicated event chat for **${title}** under **Events** in the left bar, with its checklist in Event goals.`;
           }
@@ -462,10 +467,7 @@ All Google actions wait for approval.`,
         continue;
       }
       // Reuse this chat's open browser (keeps logins, avoids the concurrent-browser limit).
-      const { data: openList } = await supabase.from("browser_sessions")
-        .select("id, signed_in").eq("thread_id", data.threadId).eq("status", "running")
-        .order("created_at", { ascending: false });
-      const open = (openList ?? []).find((o) => o.signed_in) ?? openList?.[0];
+      const open = await reusableBrowser(supabase, data.threadId);
       if (open) {
         await retargetSession(supabase, open.id, task);
         await closeOtherBrowsers(supabase, data.threadId, open.id);
@@ -488,7 +490,8 @@ All Google actions wait for approval.`,
     }
     // Actions queued while working an event-plan step are tied to it, so the step finishes when they really go out.
     if (data.planStepId) for (const r of approvalRows as unknown as { payload?: unknown }[]) {
-      if (r.payload && typeof r.payload === "object" && (r.payload as { kind?: unknown }).kind) r.payload = { ...(r.payload as object), launch_task_id: data.planStepId };
+      // Every approval from a step run belongs to it, including plain go-aheads without a kind, so the step never reads as "declined" while one waits.
+      r.payload = { ...(r.payload && typeof r.payload === "object" ? (r.payload as object) : {}), launch_task_id: data.planStepId };
     }
     if (approvalRows.length) {
       const { data: savedApprovals, error: apErr } = await supabase.from("approvals").insert(approvalRows.map((r) => ({ ...r, thread_id: data.threadId }))).select("id, payload");
@@ -512,6 +515,6 @@ All Google actions wait for approval.`,
     if (!data.hidden && thread.kind === "side" && thread.title === "New chat") patch.title = data.content.slice(0, 40);
     await supabase.from("threads").update(patch).eq("id", data.threadId);
 
-    return { content: clean, remembered: facts.length, pollIds, approvalsQueued: approvalRows.length + callsQueued };
+    return { content: clean, remembered: facts.length, pollIds, approvalsQueued: approvalRows.length + callsQueued, stepStatus };
   }
 }

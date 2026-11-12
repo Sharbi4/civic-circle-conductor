@@ -20,7 +20,7 @@ export function completedCallReport(value: unknown): { state: "done" | "failed";
   if (!value || typeof value !== "object") return null;
   const data = value as Record<string, unknown>;
   if (data["status"] !== "done" && data["status"] !== "failed") return null;
-  if (data["status"] === "failed") return { state: "failed", text: "The calling service reports this call failed. Availability is not confirmed. No automatic redial was made." };
+  if (data["status"] === "failed") return { state: "failed", text: "The call didn't connect, so availability is still unconfirmed. Civi won't call again unless you ask." };
   const analysis = data["analysis"] as Record<string, unknown> | null;
   const summary = safeCallText(analysis?.["transcript_summary"]);
   const transcript = Array.isArray(data["transcript"]) ? data["transcript"] : [];

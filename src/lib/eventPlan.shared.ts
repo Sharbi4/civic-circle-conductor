@@ -1,13 +1,16 @@
 // The event plan Civi runs. Pure logic only: the scheduler, approvals and UI share these rules.
+import { zonedInstant, safeTimeZone, DEFAULT_TIME_ZONE } from "./zonedTime.shared";
+import { DECLINED, NEEDS_ATTENTION } from "./stepStatus.shared";
 
 export type StepKey =
   | "essentials" | "venue" | "rsvp" | "eventbrite" | "linkedin_event" | "x_post" | "linkedin_post"
   | "facebook" | "instagram" | "tiktok" | "email_invites" | "reminder_week" | "reminder_day"
   | "recap" | "feedback" | "thank_you";
 export type Channel = "none" | "forms" | "eventbrite" | "linkedin" | "x" | "facebook" | "instagram" | "tiktok" | "gmail" | "social";
-export type StepState = "waiting" | "ready" | "running" | "awaiting_approval" | "awaiting_reply" | "done" | "skipped" | "failed";
+export type StepState = "waiting" | "ready" | "running" | "awaiting_approval" | "awaiting_reply" | "done" | "skipped" | "failed"
+  | "interrupted" | "declined" | "on_hold" | "waiting_on" | "your_pick";
 
-/** A time relative to the event date, in Arizona time (no daylight saving, UTC-7). */
+/** A time relative to the event date, on the organization's own wall clock. */
 type Timing = { days: number; hour: number; closesDays?: number };
 export type StepDef = { key: StepKey; title: string; channel: Channel; dependsOn: StepKey[]; when?: Timing; after?: boolean; info: string };
 
@@ -60,15 +63,14 @@ export function keyForTitle(title: string): StepKey | null {
   return null;
 }
 
-const AZ_OFFSET_H = 7;
-/** UTC instant for a day offset + local hour from the event date (YYYY-MM-DD). */
-export function atEventOffset(eventDate: string, days: number, hour: number): Date {
+/** UTC instant for a day offset + local hour from the event date (YYYY-MM-DD), in the organization's time zone. */
+export function atEventOffset(eventDate: string, days: number, hour: number, tz: string = DEFAULT_TIME_ZONE): Date {
   const [y, m, d] = eventDate.split("-").map(Number);
-  return new Date(Date.UTC(y!, m! - 1, d! + days, hour + AZ_OFFSET_H));
+  return zonedInstant(y!, m!, d! + days, hour, tz);
 }
-export function triggerAt(def: StepDef, eventDate: string | null): string | null {
+export function triggerAt(def: StepDef, eventDate: string | null, tz: string = DEFAULT_TIME_ZONE): string | null {
   if (!def.when || !eventDate) return null;
-  return atEventOffset(eventDate, def.when.days, def.when.hour).toISOString();
+  return atEventOffset(eventDate, def.when.days, def.when.hour, tz).toISOString();
 }
 
 export type PlanRow = { id: string; step_key: string | null; done: boolean; step_state: string | null; scheduled_for: string | null; last_run_at: string | null; run_prompt: string | null };
@@ -80,6 +82,12 @@ export type PlanCtx = {
   approvalOpen: Set<string>;
   /** Step ids where the organizer has written in the chat since the step last ran. */
   repliedSince: Set<string>;
+  /** The organization's time zone; step times are its wall clock. */
+  timeZone?: string;
+  /** How each step's latest approval ended, when it has one. */
+  approvalOutcome?: Map<string, "declined" | "failed" | "succeeded">;
+  /** An approval is still waiting in this event chat without being tied to a step. */
+  threadApprovalOpen?: boolean;
 };
 export type Decision = { state: StepState; reason?: string };
 
@@ -87,10 +95,21 @@ export const isResolved = (s: string | null | undefined) => s === "done" || s ==
 const RETRY_MIN = [30, 120, 360, 1440];
 /** Back-off for a step that ran without finishing: 30 min, 2 h, 6 h, 1 day, then wait for the organizer. */
 export function nudgeDelayMinutes(attempts: number): number | null { return attempts >= 0 && attempts < RETRY_MIN.length ? RETRY_MIN[attempts]! : null; }
-export function parseStepRun(raw: string | null | undefined): { attempts: number; nudge_at: string | null } {
-  try { const v = JSON.parse(raw ?? "{}"); return { attempts: Number.isFinite(v?.attempts) ? Number(v.attempts) : 0, nudge_at: typeof v?.nudge_at === "string" ? v.nudge_at : null }; }
-  catch { return { attempts: 0, nudge_at: null }; }
+export type StepRun = { attempts: number; nudge_at: string | null; after: StepKey | null; retry: "retry" | "resume" | "another" | null; queued_at: string | null };
+export function parseStepRun(raw: string | null | undefined): StepRun {
+  try {
+    const v = JSON.parse(raw ?? "{}");
+    return {
+      attempts: Number.isFinite(v?.attempts) ? Number(v.attempts) : 0,
+      nudge_at: typeof v?.nudge_at === "string" ? v.nudge_at : null,
+      after: PLAN_KEYS.includes(v?.after) ? v.after : null,
+      retry: ["retry", "resume", "another"].includes(v?.retry) ? v.retry : null,
+      queued_at: typeof v?.queued_at === "string" ? v.queued_at : null,
+    };
+  } catch { return { attempts: 0, nudge_at: null, after: null, retry: null, queued_at: null }; }
 }
+/** States where the step is parked until something specific happens; the scheduler keeps their note. */
+export const PARKED: readonly string[] = ["awaiting_reply", "failed", "awaiting_approval", "interrupted", "declined", "on_hold", "waiting_on", "your_pick"];
 
 /** Decides what a step should be doing right now. The code decides what's next, not the chat. */
 export function decideStep(row: PlanRow, byKey: Map<string, PlanRow>, ctx: PlanCtx): Decision {
@@ -98,31 +117,45 @@ export function decideStep(row: PlanRow, byKey: Map<string, PlanRow>, ctx: PlanC
   if (!def) return { state: (row.step_state as StepState) ?? "waiting" };
   if (row.done) return { state: row.step_state === "skipped" ? "skipped" : "done" };
   if (row.scheduled_for) return { state: "running" };
-  if (ctx.approvalOpen.has(row.id)) return { state: "awaiting_approval", reason: "Waiting for your approval" };
+  if (ctx.approvalOpen.has(row.id) || (row.step_state === "awaiting_approval" && ctx.threadApprovalOpen)) return { state: "awaiting_approval", reason: "Waiting for your approval" };
+  const tz = safeTimeZone(ctx.timeZone);
 
   if (ctx.eventDate) {
-    const over = atEventOffset(ctx.eventDate, 1, 0).getTime();
+    const over = atEventOffset(ctx.eventDate, 1, 0, tz).getTime();
     if (!def.after && ctx.now >= over) return { state: "skipped", reason: "The event has already happened" };
-    if (def.when?.closesDays !== undefined && ctx.now >= atEventOffset(ctx.eventDate, def.when.closesDays, 0).getTime())
+    if (def.when?.closesDays !== undefined && ctx.now >= atEventOffset(ctx.eventDate, def.when.closesDays, 0, tz).getTime())
       return { state: "skipped", reason: "Too close to the event for this one" };
   }
   const blockers = def.dependsOn.filter((k) => { const dep = byKey.get(k); return !!dep && !dep.done && !isResolved(dep.step_state); });
   if (blockers.length) return { state: "waiting", reason: `Waiting for ${blockers.map((k) => stepDef(k)!.title).join(", ")}` };
   if (def.when) {
     if (!ctx.eventDate) return { state: "waiting", reason: "Needs the event date" };
-    const at = atEventOffset(ctx.eventDate, def.when.days, def.when.hour);
-    if (ctx.now < at.getTime()) return { state: "waiting", reason: `Runs ${at.toLocaleString("en-US", { timeZone: "America/Phoenix", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}` };
+    const at = atEventOffset(ctx.eventDate, def.when.days, def.when.hour, tz);
+    if (ctx.now < at.getTime()) return { state: "waiting", reason: `Runs ${at.toLocaleString("en-US", { timeZone: tz, month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}` };
   }
   if (def.channel !== "none" && def.channel !== "forms" && !ctx.connected(def.channel))
     return { state: "skipped", reason: `${channelName(def.channel)} isn't connected — ready-to-paste draft is in the chat` };
 
-  if (row.step_state === "awaiting_reply" || row.step_state === "failed" || row.step_state === "awaiting_approval") {
+  const st = row.step_state ?? "";
+  if (PARKED.includes(st)) {
+    // A new message from the organizer is what every parked step waits for.
     if (ctx.repliedSince.has(row.id)) return { state: "ready" };
-    const { nudge_at } = parseStepRun(row.run_prompt);
-    if (row.step_state === "awaiting_reply" && nudge_at && ctx.now >= Date.parse(nudge_at)) return { state: "ready" };
-    if (row.step_state === "failed") return { state: "failed", reason: "Didn't go through — reply in the event chat to try again" };
-    if (row.step_state === "awaiting_approval") return { state: "awaiting_reply", reason: "The approval was declined or dismissed — reply in the event chat to redo it" };
-    return { state: "awaiting_reply", reason: nudge_at ? "Waiting on an answer — I'll check back" : "Paused until you reply in the event chat" };
+    const run = parseStepRun(row.run_prompt);
+    const nudgeDue = !!run.nudge_at && ctx.now >= Date.parse(run.nudge_at);
+    if (st === "awaiting_approval") {
+      // No approval is open any more: read how the last one ended instead of guessing.
+      const outcome = ctx.approvalOutcome?.get(row.id);
+      if (outcome === "failed") return { state: "failed", reason: NEEDS_ATTENTION };
+      if (outcome === "succeeded") return { state: "ready" };
+      return { state: "declined", reason: DECLINED };
+    }
+    if (st === "on_hold") {
+      const dep = run.after ? byKey.get(run.after) : null;
+      return dep && (dep.done || isResolved(dep.step_state)) ? { state: "ready" } : { state: "on_hold" };
+    }
+    if ((st === "awaiting_reply" || st === "waiting_on") && nudgeDue) return { state: "ready" };
+    // Failed, interrupted, declined and "your pick" never replay on their own; the organizer decides.
+    return { state: st as StepState };
   }
   return { state: "ready" };
 }
@@ -130,13 +163,13 @@ export function decideStep(row: PlanRow, byKey: Map<string, PlanRow>, ctx: PlanC
 /** One-line plan status for Civi and the chat, e.g. "Step 6 of 16 — ✅ Eventbrite · ⏳ Post on X …". */
 export function planStatus(rows: { step_key: string | null; title: string; step_state: string | null; done: boolean; result_url: string | null }[]): string {
   const ordered = [...rows].filter((r) => stepDef(r.step_key)).sort((a, b) => PLAN_KEYS.indexOf(a.step_key as StepKey) - PLAN_KEYS.indexOf(b.step_key as StepKey));
-  const icon = (r: (typeof ordered)[number]) => r.step_state === "skipped" ? "⏭️" : r.done ? "✅" : r.step_state === "awaiting_approval" ? "🟦 approval" : r.step_state === "awaiting_reply" ? "💬 waiting on reply" : r.step_state === "failed" ? "⚠️ failed" : r.step_state === "ready" || r.step_state === "running" ? "⏳" : "⬜";
+  const icon = (r: (typeof ordered)[number]) => r.step_state === "skipped" ? "⏭️" : r.done ? "✅" : r.step_state === "awaiting_approval" ? "🟦 approval" : r.step_state === "awaiting_reply" ? "💬 waiting on reply" : r.step_state === "waiting_on" ? "📨 waiting on an outside reply" : r.step_state === "on_hold" ? "⏸️ on hold" : r.step_state === "your_pick" ? "🗳️ organizer's pick" : r.step_state === "declined" ? "↩️ last proposal declined" : r.step_state === "interrupted" ? "⏸️ interrupted" : r.step_state === "failed" ? "⚠️ failed" : r.step_state === "ready" || r.step_state === "running" ? "⏳" : "⬜";
   return ordered.map((r, i) => `${i + 1}. ${icon(r)} ${r.title}${r.result_url ? ` (${r.result_url})` : ""}`).join("\n");
 }
 
 /** Ready-to-paste copy for a channel that isn't connected, so it never blocks the rest of the plan. */
 export function skipDraft(def: StepDef, ev: { title: string; date: string | null; location: string; link: string | null }): string {
-  const when = ev.date ? new Date(`${ev.date}T12:00:00-07:00`).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" }) : "soon";
+  const when = ev.date ? new Date(`${ev.date}T12:00:00Z`).toLocaleDateString("en-US", { timeZone: "UTC", weekday: "long", month: "long", day: "numeric" }) : "soon";
   const where = ev.location ? ` at ${ev.location}` : "";
   const link = ev.link ? `\nRSVP: ${ev.link}` : "";
   if (def.key === "tiktok") return `Caption: Come hang out with us! ${ev.title} — ${when}${where}. Free, friendly, and all are welcome 💙${link} #community #Tucson`;
@@ -151,14 +184,14 @@ export function isAutomatedPrompt(content: string): boolean {
 }
 
 /** The checklist rows a new event goal starts with. */
-export function planInsertRows(userId: string, goalId: string, threadId: string, eventDate: string | null) {
-  return EVENT_PLAN.map((d) => ({ user_id: userId, kind: "task", title: d.title, created_by: "civi", goal_id: goalId, thread_id: threadId, step_key: d.key, depends_on: [...d.dependsOn], trigger_at: triggerAt(d, eventDate) }));
+export function planInsertRows(userId: string, goalId: string, threadId: string, eventDate: string | null, tz: string = DEFAULT_TIME_ZONE) {
+  return EVENT_PLAN.map((d) => ({ user_id: userId, kind: "task", title: d.title, created_by: "civi", goal_id: goalId, thread_id: threadId, step_key: d.key, depends_on: [...d.dependsOn], trigger_at: triggerAt(d, eventDate, tz) }));
 }
 
 /** The short line a chat shows in place of an automatic check-in prompt. */
 export function automatedPromptLabel(content: string): string {
   const step = content.match(/Step (\d+) of (\d+): "([^"]+)"/);
-  if (step) return `Civi picked up step ${step[1]} of ${step[2]} — ${step[3]}`;
+  if (step) return `Civi picked up step ${step[1]} of ${step[2]} · ${step[3]}`;
   return "Civi picked up where this left off";
 }
 

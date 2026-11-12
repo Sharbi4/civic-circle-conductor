@@ -167,9 +167,8 @@ export async function startEventLaunchChain(db: Db, userId: string, ev: LaunchEv
     if (facebook && browserAvailable && ev.threadId) {
       const fbTask = `On facebook.com, create a public event for our organization: "${ev.title}" on ${when} (${ev.timezone}) at ${ev.location}. Description: ${desc} RSVP & tickets: ${rsvpUrl}. Add to calendar: ${calUrl}. Browse and act human-like: scroll and read before each action, pause for approval before publishing.`;
       try {
-        const { data: openList } = await db.from("browser_sessions").select("id, signed_in").eq("thread_id", ev.threadId).eq("status", "running").order("created_at", { ascending: false });
-        const { openBrowserSession, retargetSession, closeOtherBrowsers } = await import("./browser.server");
-        const open = (openList ?? []).find((o) => o.signed_in) ?? openList?.[0];
+        const { openBrowserSession, retargetSession, closeOtherBrowsers, reusableBrowser } = await import("./browser.server");
+        const open = await reusableBrowser(db, ev.threadId);
         let id: string;
         if (open) {
           await retargetSession(db, open.id, fbTask);
