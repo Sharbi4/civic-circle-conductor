@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { ArrowDown, ArrowRight, LogIn } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { InfoRequestForm } from "@/components/landing/InfoRequestForm";
+import { InstallAppButton } from "@/components/InstallAppButton";
 import { StoryScroll } from "@/components/landing/StoryScroll";
 import logo from "@/assets/civimeet-logo-dark.png";
 
@@ -93,6 +94,8 @@ function Index() {
             <ArrowRight className="h-5 w-5" />
           </span>
         </Link>
+
+        <InstallAppButton className="mt-4" />
 
         <a href="#learn" className="mt-14 inline-flex animate-bounce items-center gap-2 rounded-full bg-secondary px-5 py-2.5 text-sm font-medium">
           Learn more <ArrowDown className="h-4 w-4" />
