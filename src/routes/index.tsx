@@ -4,7 +4,7 @@ import { ArrowDown, ChevronRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { InfoRequestForm } from "@/components/landing/InfoRequestForm";
 import { StoryScroll } from "@/components/landing/StoryScroll";
-import logo from "@/assets/civimeet-logo.png.asset.json";
+import logo from "@/assets/civimeet-logo-dark.png";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -49,7 +49,7 @@ function Index() {
   return (
     <div className="dark min-h-screen bg-background text-foreground">
       <header className="flex items-center justify-between px-6 py-5 md:px-28">
-        <img src={logo.url} alt="Civi Meet" className="h-9 w-auto rounded-xl bg-white px-3 py-1.5" />
+        <img src={logo} alt="Civi Meet" className="logo-glow h-14 w-auto md:h-16" />
         <Link to="/auth" className="rounded-full bg-secondary px-5 py-2 text-sm font-medium hover:bg-card">
           Log in
         </Link>

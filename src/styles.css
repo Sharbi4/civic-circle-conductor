@@ -169,6 +169,11 @@
   filter: drop-shadow(0 0 26px oklch(0.82 0.11 235 / 0.35)) drop-shadow(0 0 70px oklch(0.82 0.11 235 / 0.18));
 }
 
+/* Slight ice-blue halo so the mark reads on the dark page without a white box. */
+@utility logo-glow {
+  filter: drop-shadow(0 0 12px oklch(0.80 0.12 240 / 0.45)) drop-shadow(0 0 34px oklch(0.72 0.14 240 / 0.22));
+}
+
 @layer base {
   * {
     border-color: var(--color-border);
