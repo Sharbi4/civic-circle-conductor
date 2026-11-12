@@ -9,7 +9,7 @@ export const Route = createFileRoute("/auth")({
   head: () => ({
     meta: [
       { title: "Sign in — Civi Meet" },
-      { name: "description", content: "Sign in to the Civi Meet private preview." },
+      { name: "description", content: "Sign in or create an account to plan events, outreach and volunteers with Civi, the AI community organizer." },
       { property: "og:title", content: "Sign in — Civi Meet" },
       { property: "og:description", content: "Sign in or create an account to plan events, outreach and volunteers with Civi, your AI community organizer." },
       { property: "og:type", content: "website" },
