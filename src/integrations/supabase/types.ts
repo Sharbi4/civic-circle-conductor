@@ -519,7 +519,9 @@ export type Database = {
           budget: number | null
           budget_notes: string
           contacts: Json
+          cover_path: string | null
           goal_id: string
+          headcount: number | null
           spent: number | null
           staff: Json
           suggestions: Json
@@ -535,7 +537,9 @@ export type Database = {
           budget?: number | null
           budget_notes?: string
           contacts?: Json
+          cover_path?: string | null
           goal_id: string
+          headcount?: number | null
           spent?: number | null
           staff?: Json
           suggestions?: Json
@@ -551,7 +555,9 @@ export type Database = {
           budget?: number | null
           budget_notes?: string
           contacts?: Json
+          cover_path?: string | null
           goal_id?: string
+          headcount?: number | null
           spent?: number | null
           staff?: Json
           suggestions?: Json

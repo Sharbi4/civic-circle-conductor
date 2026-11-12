@@ -302,6 +302,13 @@
       "when": 1794429842510,
       "tag": "0042_migration",
       "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1794444642021,
+      "tag": "0043_event_cover_photo",
+      "breakpoints": true
     }
   ]
 }

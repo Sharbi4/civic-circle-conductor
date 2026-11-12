@@ -1,7 +1,11 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { CalendarDays, Check, ChevronDown, ChevronRight, Maximize2, MessagesSquare, Plus, Target, Trash2 } from "lucide-react";
-import { Link } from "@tanstack/react-router";
+import { CalendarDays, CalendarHeart, Check, ChevronDown, ChevronRight, Loader2, MessagesSquare, MoreHorizontal, Plus, RotateCcw, Target, Trash2 } from "lucide-react";
+import { Link, useNavigate } from "@tanstack/react-router";
+import { stepInfo, isEssentialsStep, sortSteps } from "@/lib/eventSteps.shared";
+import { resetEventProgress, openScheduledTaskChat, signedCover } from "@/lib/eventGoal";
+import { EventEssentialsDialog } from "./EventEssentialsDialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -82,33 +86,9 @@ export function TasksPanel() {
       )}
 
       {goals.map((g) => {
-        const kids = all.filter((t) => t.goal_id === g.id);
-        const doneN = kids.filter((t) => t.done).length;
-        const pct = kids.length ? Math.round((doneN / kids.length) * 100) : g.done ? 100 : 0;
-        const isOpen = !collapsed[g.id];
         if (g.done && !showDone) return null;
-        return (
-          <div key={g.id} className="mx-1 mb-1.5 rounded-xl border bg-background/30 px-1 py-1">
-            <div className="flex items-center gap-0.5">
-              <button aria-label={isOpen ? "Collapse" : "Expand"} onClick={() => setCollapsed({ ...collapsed, [g.id]: isOpen })} className="shrink-0 rounded-full p-1 text-muted-foreground hover:bg-secondary">
-                {isOpen ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
-              </button>
-              <Row t={g} onUpdate={update} onRemove={remove} bold />
-              <Link to="/events/$goalId" params={{ goalId: g.id }} aria-label="Open event overview" title="Open event overview"
-                className="shrink-0 rounded-full p-1 text-muted-foreground hover:bg-secondary hover:text-primary"><Maximize2 className="h-3 w-3" /></Link>
-            </div>
-            <div className="ml-7 flex items-center gap-1.5 pb-0.5">
-              <div className="h-1 flex-1 overflow-hidden rounded-full bg-secondary"><div className="h-full rounded-full bg-primary transition-all" style={{ width: `${pct}%` }} /></div>
-              <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground">{doneN}/{kids.length}</span>
-            </div>
-            {isOpen && (
-              <div className="pl-6">
-                {kids.filter((t) => showDone || !t.done).map((t) => <Row key={t.id} t={t} onUpdate={update} onRemove={remove} />)}
-                <AddInline placeholder="Add a task…" onAdd={(v) => add(v, "task", g.id)} />
-              </div>
-            )}
-          </div>
-        );
+        return <GoalCard key={g.id} g={g} kids={sortSteps(all.filter((t) => t.goal_id === g.id))} open={!collapsed[g.id]} showDone={showDone}
+          onToggle={() => setCollapsed({ ...collapsed, [g.id]: !collapsed[g.id] })} onRemove={remove} onChanged={refresh} />;
       })}
 
       {scheduled.filter((t) => showDone || !t.done).length > 0 && (
@@ -129,6 +109,7 @@ export function TasksPanel() {
 
 function Row({ t, onUpdate, onRemove, bold }: { t: Task; onUpdate: (id: string, p: Partial<Task>) => void; onRemove: (t: Task) => void; bold?: boolean }) {
   const [editing, setEditing] = useState(false);
+  const qc = useQueryClient(); const navigate = useNavigate();
   const [title, setTitle] = useState(t.title);
   const [dateOpen, setDateOpen] = useState(false);
   const over = !t.done && t.due_date && t.due_date < today();
@@ -184,11 +165,12 @@ function Row({ t, onUpdate, onRemove, bold }: { t: Task; onUpdate: (id: string, 
         )}
       </div>
       <div className="flex shrink-0 gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 max-md:opacity-60">
-        {t.thread_id && (
-          <Link to="/chat/$threadId" params={{ threadId: t.thread_id }} aria-label="View progress in chat" title="View progress in chat"
+        {(t.thread_id || t.repeat || t.scheduled_for) && (
+          <button aria-label="Open this task's chat" title="Open this task's chat"
+            onClick={async () => { try { const id = (t.repeat || t.scheduled_for) ? await openScheduledTaskChat(t) : t.thread_id!; qc.invalidateQueries({ queryKey: ["threads"] }); navigate({ to: "/chat/$threadId", params: { threadId: id } }); } catch { toast.error("Couldn't open the chat"); } }}
             className="grid place-items-center rounded-full p-0.5 text-primary hover:bg-background/60">
             <MessagesSquare className="h-3 w-3" />
-          </Link>
+          </button>
         )}
         {!t.due_date && (
           <button aria-label="Set due date" title="Due date" onClick={() => setDateOpen(true)} className="rounded-full p-0.5 hover:bg-background/60"><CalendarDays className="h-3 w-3" /></button>
@@ -216,5 +198,77 @@ function AddInline({ placeholder, onAdd }: { placeholder: string; onAdd: (v: str
         onKeyDown={(e) => { if (e.key === "Escape") { setV(""); setOpen(false); } }}
         placeholder={placeholder} className="min-w-0 flex-1 bg-transparent text-[13px] outline-none placeholder:text-muted-foreground" />
     </form>
+  );
+}
+
+function GoalCard({ g, kids, open, showDone, onToggle, onRemove, onChanged }: { g: Task; kids: Task[]; open: boolean; showDone: boolean; onToggle: () => void; onRemove: (t: Task) => void; onChanged: () => void }) {
+  const qc = useQueryClient();
+  const [essentials, setEssentials] = useState(false);
+  const prof = useQuery({
+    queryKey: ["event-profiles", g.id],
+    queryFn: async () => {
+      const { data } = await supabase.from("event_profiles").select("cover_path, budget, headcount, venue").eq("goal_id", g.id).maybeSingle();
+      return { ...data, cover: await signedCover(data?.cover_path) };
+    },
+    staleTime: 60_000,
+  });
+  const doneN = kids.filter((t) => t.done).length;
+  const pct = kids.length ? Math.round((doneN / kids.length) * 100) : g.done ? 100 : 0;
+  const name = g.title.replace(/^(Event|Launch):\s*/, "");
+  const next = kids.find((t) => !t.done);
+  async function reset() {
+    if (!confirm(`Reset progress for "${name}"? Every step goes back to not started.`)) return;
+    try { await resetEventProgress(g.id); onChanged(); qc.invalidateQueries({ queryKey: ["event-page", g.id] }); toast.success("Progress reset"); } catch { toast.error("Couldn't reset progress"); }
+  }
+  return (
+    <div className="mx-1 mb-2 overflow-hidden rounded-2xl border bg-card/60 shadow-sm">
+      <Link to="/events/$goalId" params={{ goalId: g.id }} className="group block">
+        <div className="relative h-16 w-full overflow-hidden bg-gradient-to-br from-primary/25 via-primary/10 to-secondary">
+          {prof.data?.cover ? <img src={prof.data.cover} alt="" className="h-full w-full object-cover transition group-hover:scale-105" />
+            : <CalendarHeart className="absolute right-3 top-3 h-6 w-6 text-primary/50" />}
+        </div>
+        <div className="px-3 pb-1 pt-2">
+          <p className="truncate text-sm font-semibold group-hover:text-primary">{name}</p>
+          <p className="truncate text-[11px] text-muted-foreground">{next ? `Next: ${next.title}` : kids.length ? "All steps complete" : "Open to plan"}</p>
+        </div>
+      </Link>
+      <div className="flex items-center gap-1.5 px-3 pb-2">
+        <div className="h-1 flex-1 overflow-hidden rounded-full bg-secondary"><div className="h-full rounded-full bg-primary transition-all" style={{ width: `${pct}%` }} /></div>
+        <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground">{doneN}/{kids.length}</span>
+        <button aria-label={open ? "Hide steps" : "Show steps"} onClick={onToggle} className="shrink-0 rounded-full p-1 text-muted-foreground hover:bg-secondary">
+          {open ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+        </button>
+        <DropdownMenu>
+          <DropdownMenuTrigger aria-label="Event options" className="shrink-0 rounded-full p-1 text-muted-foreground hover:bg-secondary"><MoreHorizontal className="h-3.5 w-3.5" /></DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={reset}><RotateCcw className="mr-2 h-3.5 w-3.5" /> Reset progress</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => onRemove(g)} className="text-destructive"><Trash2 className="mr-2 h-3.5 w-3.5" /> Delete event goal</DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+      {open && (
+        <ol className="border-t px-2 py-1.5">
+          {kids.filter((t) => showDone || !t.done).map((t) => {
+            const info = stepInfo(t.title); const ess = isEssentialsStep(t.title); const isNext = t.id === next?.id;
+            const body = (
+              <>
+                <span aria-label={t.done ? "Done by Civi" : isNext ? "In progress" : "Not started"} className={`mt-0.5 grid h-4 w-4 shrink-0 place-items-center rounded-full ${t.done ? "bg-primary text-primary-foreground" : isNext ? "bg-primary/15 text-primary" : "bg-secondary"}`}>
+                  {t.done ? <Check className="h-2.5 w-2.5" /> : isNext ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : null}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className={`block text-[13px] leading-snug ${t.done ? "text-muted-foreground" : ""}`}>{t.title}</span>
+                  {info && <span className="block text-[11px] leading-snug text-muted-foreground">{info}</span>}
+                  {t.last_error && <span className="block text-[11px] text-destructive">{t.last_error}</span>}
+                </span>
+              </>
+            );
+            return <li key={t.id}>{ess
+              ? <button onClick={() => setEssentials(true)} className="flex w-full items-start gap-2 rounded-lg px-1.5 py-1.5 text-left hover:bg-sidebar-accent">{body}</button>
+              : <div className="flex items-start gap-2 px-1.5 py-1.5">{body}</div>}</li>;
+          })}
+        </ol>
+      )}
+      <EventEssentialsDialog goalId={g.id} open={essentials} onOpenChange={setEssentials} />
+    </div>
   );
 }

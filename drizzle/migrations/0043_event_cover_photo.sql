@@ -1,0 +1,1 @@
+ALTER TABLE public.event_profiles ADD COLUMN IF NOT EXISTS cover_path text; ALTER TABLE public.event_profiles ADD COLUMN IF NOT EXISTS headcount integer;

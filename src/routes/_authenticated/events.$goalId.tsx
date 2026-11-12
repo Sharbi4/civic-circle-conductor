@@ -1,12 +1,15 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, type ReactNode } from "react";
-import { ArrowLeft, Building2, CalendarDays, Check, CheckCircle2, CircleDollarSign, Lightbulb, MessagesSquare, Pin, Plus, RefreshCw, StickyNote, Store, Trash2, Users, Contact, XCircle, Clock } from "lucide-react";
+import { ArrowLeft, Building2, CalendarDays, Check, CheckCircle2, CircleDollarSign, Lightbulb, MessagesSquare, Pin, Plus, RefreshCw, StickyNote, Store, Trash2, Users, Contact, XCircle, Clock, ImagePlus, RotateCcw, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import { Button } from "@/components/ui/button";
 import { refreshEventSuggestions } from "@/lib/eventProfile.functions";
+import { resetEventProgress, signedCover, uploadEventCover } from "@/lib/eventGoal";
+import { stepInfo, isEssentialsStep, sortSteps } from "@/lib/eventSteps.shared";
+import { EventEssentialsDialog } from "@/components/tasks/EventEssentialsDialog";
 
 export const Route = createFileRoute("/_authenticated/events/$goalId")({
   head: () => ({
@@ -43,7 +46,8 @@ function EventPage() {
         goal.thread_id ? supabase.from("threads").select("id, title, event_date").eq("id", goal.thread_id).maybeSingle() : Promise.resolve({ data: null }),
         goal.thread_id ? supabase.from("approvals").select("id, title, payload, status, run_state, created_at, resolved_at, run_finished_at").eq("thread_id", goal.thread_id).order("created_at", { ascending: false }).limit(30) : Promise.resolve({ data: [] }),
       ]);
-      return { goal, steps: steps.data ?? [], profile: profile.data, notes: notes.data ?? [], thread: thread.data, approvals: approvals.data ?? [] };
+      const cover = await signedCover(profile.data?.cover_path);
+      return { goal, cover, steps: sortSteps(steps.data ?? []), profile: profile.data, notes: notes.data ?? [], thread: thread.data, approvals: approvals.data ?? [] };
     },
   });
 
@@ -67,14 +71,20 @@ function EventPage() {
     await supabase.from("sticky_notes").insert({ user_id: u.user!.id, goal_id: goalId, text: text.trim().slice(0, 600), color });
     qc.invalidateQueries({ queryKey: key });
   }
-  async function toggleStep(id: string, done: boolean) {
-    await supabase.from("tasks").update({ done, done_at: done ? new Date().toISOString() : null }).eq("id", id);
-    qc.invalidateQueries({ queryKey: key });
+  const [essentials, setEssentials] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  async function onCover(f: File | undefined) {
+    if (!f) return; setUploading(true);
+    try { await uploadEventCover(goalId, f); qc.invalidateQueries({ queryKey: key }); qc.invalidateQueries({ queryKey: ["event-profiles", goalId] }); } catch { toast.error("Couldn't upload that photo"); } finally { setUploading(false); }
+  }
+  async function reset() {
+    if (!confirm("Reset progress? Every step goes back to not started.")) return;
+    try { await resetEventProgress(goalId); qc.invalidateQueries({ queryKey: key }); qc.invalidateQueries({ queryKey: ["tasks"] }); toast.success("Progress reset"); } catch { toast.error("Couldn't reset progress"); }
   }
 
   if (q.isLoading) return <div className="grid h-full place-items-center text-sm text-muted-foreground">Loading event…</div>;
   if (q.error || !q.data) return <div className="grid h-full place-items-center text-sm text-muted-foreground">This event couldn't be found. <Link to="/chat" className="text-primary underline">Back to chats</Link></div>;
-  const { goal, steps, profile: p, notes, thread, approvals } = q.data;
+  const { goal, cover, steps, profile: p, notes, thread, approvals } = q.data;
   const done = steps.filter((s) => s.done).length;
   const pct = steps.length ? Math.round((done / steps.length) * 100) : 0;
   const title = (thread?.title || goal.title).replace(/^(Event|Launch):\s*/, "");
@@ -92,11 +102,19 @@ function EventPage() {
       <div className="mx-auto max-w-6xl px-4 py-6 md:px-8">
         <Link to="/chat" className="mb-4 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"><ArrowLeft className="h-4 w-4" /> Back</Link>
 
-        <header className="mb-6 overflow-hidden rounded-3xl border bg-card p-6 md:p-8">
+        <header className="mb-6 overflow-hidden rounded-3xl border bg-card">
+          <label className="group relative block h-44 cursor-pointer overflow-hidden bg-gradient-to-br from-primary/30 via-primary/10 to-secondary md:h-56">
+            {cover ? <img src={cover} alt="Event photo" className="h-full w-full object-cover" /> : null}
+            <span className={`absolute bottom-3 right-3 inline-flex items-center gap-1.5 rounded-full bg-background/80 px-3 py-1.5 text-xs font-medium backdrop-blur transition ${cover ? "opacity-0 group-hover:opacity-100 max-md:opacity-100" : ""}`}>
+              {uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ImagePlus className="h-3.5 w-3.5" />}{cover ? "Change photo" : "Add event photo"}
+            </span>
+            <input type="file" accept="image/*" className="sr-only" onChange={(e) => onCover(e.target.files?.[0])} />
+          </label>
+          <div className="p-6 md:p-8">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="min-w-0">
               <p className="mb-1 flex items-center gap-1.5 text-xs font-medium uppercase tracking-wider text-primary"><CalendarDays className="h-3.5 w-3.5" /> {date}</p>
-              <h1 className="font-display text-3xl leading-tight md:text-4xl">{title}</h1>
+              <h1 className="text-3xl font-semibold leading-tight tracking-tight md:text-4xl">{title}</h1>
               <p className="mt-2 text-sm text-muted-foreground">{p?.venue ? `${p.venue} · ` : ""}{done} of {steps.length} steps done</p>
             </div>
             {goal.thread_id && <Button asChild variant="outline" className="rounded-full"><Link to="/chat/$threadId" params={{ threadId: goal.thread_id }}><MessagesSquare className="mr-1.5 h-4 w-4" /> Event chat</Link></Button>}
@@ -104,6 +122,8 @@ function EventPage() {
           <div className="mt-5 flex items-center gap-3">
             <div className="h-2 flex-1 overflow-hidden rounded-full bg-secondary"><div className="h-full rounded-full bg-primary transition-all" style={{ width: `${pct}%` }} /></div>
             <span className="text-sm font-semibold tabular-nums">{pct}%</span>
+            <button onClick={reset} className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs text-muted-foreground hover:bg-secondary hover:text-foreground"><RotateCcw className="h-3.5 w-3.5" /> Reset progress</button>
+          </div>
           </div>
         </header>
 
@@ -121,6 +141,7 @@ function EventPage() {
           <Card icon={<CircleDollarSign className="h-4 w-4" />} title="Budget">
             <div className="grid grid-cols-2 gap-2">
               <Field label="Budget ($)" value={p?.budget?.toString() ?? ""} onSave={(v) => save.mutate({ budget: v ? Number(v) || 0 : null })} numeric />
+              <Field label="Expected people" value={p?.headcount?.toString() ?? ""} onSave={(v) => save.mutate({ headcount: v ? parseInt(v, 10) || 0 : null })} numeric />
               <Field label="Spent ($)" value={p?.spent?.toString() ?? ""} onSave={(v) => save.mutate({ spent: v ? Number(v) || 0 : null })} numeric />
             </div>
             {budget > 0 && (
@@ -146,14 +167,14 @@ function EventPage() {
 
           <Card icon={<CheckCircle2 className="h-4 w-4" />} title="Steps">
             <ul className="space-y-1">
-              {steps.map((s) => (
-                <li key={s.id}>
-                  <button onClick={() => toggleStep(s.id, !s.done)} className="flex w-full items-center gap-2 rounded-lg px-1.5 py-1 text-left text-sm hover:bg-secondary">
-                    <span className={`grid h-4 w-4 shrink-0 place-items-center rounded-full border ${s.done ? "border-primary bg-primary text-primary-foreground" : ""}`}>{s.done && <Check className="h-3 w-3" />}</span>
-                    <span className={s.done ? "text-muted-foreground line-through" : ""}>{s.title}</span>
-                  </button>
-                </li>
-              ))}
+              {steps.map((s) => {
+                const info = stepInfo(s.title); const ess = isEssentialsStep(s.title);
+                const inner = (<>
+                  <span className={`mt-0.5 grid h-4 w-4 shrink-0 place-items-center rounded-full ${s.done ? "bg-primary text-primary-foreground" : "bg-secondary"}`}>{s.done && <Check className="h-3 w-3" />}</span>
+                  <span className="min-w-0"><span className={`block text-sm ${s.done ? "text-muted-foreground" : ""}`}>{s.title}</span>{info && <span className="block text-xs text-muted-foreground">{info}</span>}</span>
+                </>);
+                return <li key={s.id}>{ess ? <button onClick={() => setEssentials(true)} className="flex w-full items-start gap-2 rounded-lg px-1.5 py-1.5 text-left hover:bg-secondary">{inner}</button> : <div className="flex items-start gap-2 px-1.5 py-1.5">{inner}</div>}</li>;
+              })}
               {!steps.length && <p className="text-sm text-muted-foreground">No steps yet.</p>}
             </ul>
           </Card>
@@ -202,6 +223,7 @@ function EventPage() {
           </Card>
         </div>
       </div>
+      <EventEssentialsDialog goalId={goalId} open={essentials} onOpenChange={setEssentials} />
     </div>
   );
 }

@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import type React from "react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { MessageCircle, Plus, Plug, LogOut, Pin, Brain, Inbox, Megaphone, CalendarCheck, CreditCard, Sparkles, Check, X, Compass, Trash2, KeyRound, Mic, FileText, ImagePlus, BarChart3, Menu, ListChecks, UserCircle, ChevronDown, Loader2, CalendarPlus, CalendarHeart } from "lucide-react";
+import { MessageCircle, Plus, Plug, LogOut, Pin, Brain, Inbox, Megaphone, CalendarCheck, CreditCard, Sparkles, Check, X, Compass, Trash2, KeyRound, Mic, FileText, ImagePlus, BarChart3, Menu, ListChecks, UserCircle, ChevronDown, Loader2, CalendarPlus, CalendarHeart, Clock } from "lucide-react";
 import { PollsPanel } from "@/components/polls/PollsPanel";
 import { TasksPanel } from "@/components/tasks/TasksPanel";
 import { AccountPanel } from "@/components/account/AccountPanel";
@@ -272,6 +272,7 @@ function Sidebar({ orgName, mobileOpen, onClose }: { orgName: string; mobileOpen
                 <div key={t.id} className={`group flex items-center rounded-2xl ${params.threadId === t.id ? "bg-sidebar-accent" : "hover:bg-sidebar-accent"}`}>
                   <Link to="/chat/$threadId" params={{ threadId: t.id }} className="flex min-w-0 flex-1 items-center gap-2 px-3 py-2.5">
                     {t.pinned && <Pin className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />}
+                    {t.kind === "scheduled" && <Clock className="h-3.5 w-3.5 shrink-0 text-primary" aria-label="Scheduled task" />}
                     <span className="truncate">{t.title}</span>
                     {params.threadId !== t.id && isChatUnread(t.latest_assistant_at, t.last_read_at) && <span aria-label="Unread messages" className="h-2 w-2 shrink-0 rounded-full bg-primary" />}
                   </Link>
