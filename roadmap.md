@@ -66,3 +66,12 @@
 - [x] Remove the "Private preview" label from the public homepage.
 - [x] Event plan engine: each event step knows its channel, what it waits for (steps or a time relative to the event), its state and result link; scheduler runs every ready step; approvals finish steps; unconnected channels skip with a draft; post-event recap/thank-you/feedback on a timer; Facebook kept to Page posts, personal invites by email.
 - [x] Publish so the sitemap is live, then rescan SEO and confirm homepage, sign-in, Terms, Privacy and Data Deletion pass.
+
+## Investor demo (Friday) — fix by Thursday
+- [ ] Event page fills from the chat (venue, budget, headcount) and shows the same steps as the chat.
+- [ ] "Event goals: N open · N overdue" counter lists its items.
+- [ ] Times shown in the organization's time zone (approvals, calendar events), not UTC.
+- [ ] Connectors show the connected email address instead of "Gmail account"/"Google account".
+- [ ] Phone: message box placeholder not cut off.
+- [ ] Demo account: clean believable nonprofit with logo + letterhead, one half-done event with result links, poll with responses, Discovery briefings; no test leftovers.
+- [ ] Demo safety: Assisted mode / no real social accounts in the demo.
