@@ -1,3 +1,4 @@
+import { mapsUrl } from "@/lib/addressLinks";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, type ReactNode } from "react";
@@ -131,6 +132,9 @@ function EventPage() {
           <Card icon={<Building2 className="h-4 w-4" />} title="Venue">
             <Field label="Venue name" value={p?.venue ?? ""} onSave={(v) => save.mutate({ venue: v })} placeholder="Where is it happening?" />
             <Field label="Address, room, capacity, terms" value={p?.venue_details ?? ""} onSave={(v) => save.mutate({ venue_details: v })} multiline placeholder="Anything worth remembering" />
+            {(p?.venue || p?.venue_details) && (
+              <a href={mapsUrl([p?.venue, (p?.venue_details ?? "").split("\n")[0]].filter(Boolean).join(", "))} target="_blank" rel="noopener noreferrer" className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline">Open in Maps · Get directions</a>
+            )}
             <div className="mt-2 flex gap-1.5">
               {(["searching", "holding", "booked"] as const).map((s) => (
                 <button key={s} onClick={() => save.mutate({ venue_status: s })} className={`rounded-full border px-3 py-1 text-xs capitalize transition ${p?.venue_status === s || (!p && s === "searching") ? "border-primary bg-primary text-primary-foreground" : "hover:bg-secondary"}`}>{s === "holding" ? "On hold" : s}</button>

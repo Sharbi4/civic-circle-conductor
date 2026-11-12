@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
+import { linkAddresses } from "@/lib/addressLinks";
 import { getSuggestions, setAutonomy } from "@/lib/suggestions.functions";
 import { speakText, transcribeSpeech } from "@/lib/voice.functions";
 import { Mic, Volume2, VolumeX, Loader2 } from "lucide-react";
@@ -104,14 +105,19 @@ function MessageBody({ content, onAction }: { content: string; onAction?: ((text
       {parts.map((p, i) =>
         p.kind === "text" ? (
           <div key={i} className="prose-chat leading-relaxed">
-            <ReactMarkdown components={onAction ? {
+            <ReactMarkdown components={{
+              a: ({ href, children }) => (
+                <a href={href} target="_blank" rel="noopener noreferrer" className="font-medium text-primary underline underline-offset-2">{children}</a>
+              ),
+              ...(onAction ? {
               strong: ({ children }) => (
                 <button type="button" onClick={() => onAction(flattenText(children))}
                   className="cursor-pointer rounded-full bg-primary/10 px-2 py-0.5 font-semibold text-primary transition-colors hover:bg-primary/20">
                   {children}
                 </button>
               ),
-            } : undefined}>{p.text}</ReactMarkdown>
+              } : {}),
+            }}>{linkAddresses(p.text)}</ReactMarkdown>
           </div>
         ) : p.kind === "doc" ? (
           <DocCard key={i} id={p.id} title={p.title} kind={p.dkind} />
