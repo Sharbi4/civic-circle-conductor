@@ -2,6 +2,9 @@ import { Inngest } from "inngest";
 import { serve } from "inngest/edge";
 import { BROWSER_STEPS_PER_WAKE, RUNS_PER_WAKE, SCHEDULER_BACKUP_CRON, SHARED_JOB_EVENT, WAKE_EVENT, type SharedJobKind } from "./background.shared";
 
+// The stable production address: the custom domain can briefly serve an older version after a publish,
+// which the background service treats as a hard failure.
+const SERVE_ORIGIN = "https://project--41d4b04c-b74e-4751-8d66-ce601cd73b60.lovable.app";
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
@@ -79,5 +82,5 @@ export function inngestHandler() {
     },
   );
 
-  return serve({ client, functions: [sharedJob, ownerWork] });
+  return serve({ client, functions: [sharedJob, ownerWork], serveOrigin: SERVE_ORIGIN, servePath: "/api/public/inngest" });
 }
