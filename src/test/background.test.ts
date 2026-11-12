@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { browserIsUnattended, dailyReportIsQuiet, ownersToWake, reviewHasNews, schedulerNeedsBackup, sharedJobEventId, wakeEventId } from "@/lib/background.shared";
+import { PAUSE_ACCESS, PAUSE_CREDITS, PAUSE_RATE, browserIsUnattended, dailyReportIsQuiet, ownersToProbe, ownersToWake, rerunAfterQuotaStop, reviewHasNews, schedulerNeedsBackup, sharedJobEventId, wakeEventId } from "@/lib/background.shared";
 
 const A = "aaaaaaaa-0000-4000-8000-000000000001";
 const B = "bbbbbbbb-0000-4000-8000-000000000002";
@@ -71,5 +71,29 @@ describe("the backup check only steps in when the scheduler missed a tick", () =
   });
   it("runs the scheduler when the last finish was 22 minutes ago", () => {
     expect(schedulerNeedsBackup(new Date(now - 22 * 60_000).toISOString(), now)).toBe(true);
+  });
+});
+
+describe("paused background work", () => {
+  const paused = [
+    { user_id: A, paused_reason: PAUSE_CREDITS },
+    { user_id: B, paused_reason: PAUSE_ACCESS },
+    { user_id: C, paused_reason: PAUSE_RATE },
+  ];
+  it("tests a credit pause with one task only when work is waiting", () => {
+    expect(ownersToProbe([A], paused)).toEqual([A]);
+    expect(ownersToProbe([], paused)).toEqual([]);
+  });
+  it("never tests an access denial on its own; the owner resumes it", () => {
+    expect(ownersToProbe([B], paused)).toEqual([]);
+  });
+  it("tests a rate-limit pause on the next sweep", () => {
+    expect(ownersToProbe([C], paused)).toEqual([C]);
+  });
+  it("lets a review or daily report run again after a credit stop, but not other work", () => {
+    expect(rerunAfterQuotaStop("review")).toBe(true);
+    expect(rerunAfterQuotaStop("daily_report")).toBe(true);
+    expect(rerunAfterQuotaStop("launch_step")).toBe(false);
+    expect(rerunAfterQuotaStop("scout")).toBe(false);
   });
 });

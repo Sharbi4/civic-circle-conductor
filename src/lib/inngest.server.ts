@@ -61,14 +61,21 @@ export function inngestHandler() {
       const userId = String((event.data as { userId?: unknown } | undefined)?.userId ?? "");
       if (!UUID.test(userId)) return { skipped: "unknown organization" };
       const bg = () => import("./background.server");
+      // A probe tests a paused organization with one task and no browser steps.
+      const probe = (event.data as { probe?: unknown } | undefined)?.probe === true;
+      if (probe) {
+        const lifted = await step.run("lift-pause", async () => (await bg()).liftPauseForProbe(userId));
+        if (!lifted) return { paused: true };
+      }
       const ready = await step.run("prepare", async () => (await bg()).prepareOwnerWork(userId));
       if (!ready) return { paused: true };
       let tasks = 0;
-      for (let i = 1; i <= RUNS_PER_WAKE; i++) {
+      for (let i = 1; i <= (probe ? 1 : RUNS_PER_WAKE); i++) {
         const ran = await step.run(`task-${i}`, async () => (await bg()).runOneOwnerTask(userId));
         if (!ran) break;
         tasks += ran;
       }
+      if (probe) return { tasks, probe: true };
       const sessionId = await step.run("find-browser", async () => (await bg()).findUnattendedBrowser(userId));
       let browserSteps = 0;
       if (sessionId) {

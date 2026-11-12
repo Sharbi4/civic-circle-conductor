@@ -67,3 +67,33 @@ export function reviewHasNews(lastReviewAt: string | null, latestUserMessageAt: 
 export function dailyReportIsQuiet(messagesToday: number, pendingApprovals: number): boolean {
   return messagesToday === 0 && pendingApprovals === 0;
 }
+
+/** Pause reasons saved when the AI or a provider stops background work. */
+export const PAUSE_CREDITS = "AI or browser credits exhausted";
+export const PAUSE_ACCESS = "Provider access denied, restore access before resuming";
+export const PAUSE_RATE = "Rate limited, background work paused for review";
+
+/** Credit and rate-limit pauses may be tested with one task per sweep; an access denial waits for the owner. */
+export function pauseCanProbe(reason: string | null | undefined): boolean {
+  return reason === PAUSE_CREDITS || reason === PAUSE_RATE;
+}
+
+/** Paused organizations that have waiting work and may try one task to see if they can resume. */
+export function ownersToProbe(queued: (string | null)[], paused: { user_id: string | null; paused_reason: string | null }[], max = MAX_OWNERS_PER_SWEEP): string[] {
+  const waiting = new Set(queued.filter(Boolean));
+  return [...new Set(paused.filter((p) => p.user_id && waiting.has(p.user_id) && pauseCanProbe(p.paused_reason)).map((p) => p.user_id as string))].slice(0, max);
+}
+
+/** Internal jobs whose outcome is known when the AI refuses before answering, so they can simply run again later. */
+export function rerunAfterQuotaStop(jobKind: string | null | undefined): boolean {
+  return jobKind === "review" || jobKind === "daily_report";
+}
+
+/** Plain words for the owner about why background work is paused. */
+export function pauseMessage(reason: string | null | undefined): string | null {
+  if (!reason) return null;
+  if (reason === PAUSE_CREDITS) return "Civi paused its background work because the AI balance ran out. Add AI balance in your workspace settings, then press Resume. Civi also checks again every 15 minutes.";
+  if (reason === PAUSE_ACCESS) return "Civi paused its background work because a connected service refused access. Reconnect that service, then press Resume.";
+  if (reason === PAUSE_RATE) return "Civi paused its background work because too many requests went out at once. It tries again on its own within 15 minutes.";
+  return "Civi paused its background work. Press Resume when you're ready for it to continue.";
+}

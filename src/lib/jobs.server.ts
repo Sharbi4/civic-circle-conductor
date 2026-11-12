@@ -3,11 +3,11 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@/integrations/supabase/types';
 import { generateResponse } from '@lovable.dev/ai-gateway';
 import { nextTaskOccurrence, recoveryDecision } from './jobs.shared';
-import { noteJobFailure } from './jobSafety.server';
+import { noteJobFailure, quotaStop } from './jobSafety.server';
 import { scopedDb } from './scopedDb.server';
 import { INTERRUPTED } from './stepStatus.shared';
 import { BROWSER_PAUSED } from './browserLiveness.shared';
-import { dailyReportIsQuiet, reviewHasNews } from './background.shared';
+import { dailyReportIsQuiet, rerunAfterQuotaStop, reviewHasNews } from './background.shared';
 
 type Db = SupabaseClient<Database>;
 // The scheduler's call hangs up after about five seconds and its work is cut off with it, so scheduled
@@ -108,6 +108,12 @@ export async function processQueuedRuns(db: Db, kind: 'scheduler' | 'recovery' |
       if (taskError) throw new Error('Work completed but progress could not be saved');
     } catch(e) {
       await noteJobFailure(run.user_id, e);
+      // The AI refused before answering, so a review or report did nothing: let it run again after resuming.
+      if (quotaStop(e) && rerunAfterQuotaStop(task.job_kind)) {
+        await db.from('agent_task_runs').update({ status: 'failed', lease_until: null, error: 'Stopped by AI credits or rate limit before finishing; runs again after resuming' }).eq('id', run.id);
+        await db.from('tasks').update({ scheduled_for: new Date(Date.now() + 15 * 60000).toISOString(), last_error: null }).eq('id', task.id);
+        continue;
+      }
       await db.from('agent_task_runs').update({ status: 'needs_review', phase: 'provider_started', lease_until: null, error: 'Interrupted; verify existing results before retrying' }).eq('id', run.id);
       await db.from('tasks').update({ last_error: 'Interrupted, review existing results before retrying', ...(task.step_key ? { step_state: 'interrupted', step_note: INTERRUPTED, scheduled_for: null } : {}) }).eq('id', task.id);
     }

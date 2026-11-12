@@ -16,6 +16,7 @@ import { XAvatar } from '@/components/account/XAvatar';
 import { EventbriteAvatar } from '@/components/account/EventbriteAvatar';
 import { EventbriteDraftControls } from '@/components/EventbriteDraftControls';
 import { CiviChatMark } from '@/components/CiviChatMark';
+import { BackgroundPausedNotice } from '@/components/BackgroundPausedNotice';
 import { SwipeToIgnore } from '@/components/SwipeToIgnore';
 import { takeDiscoveryAction } from "@/lib/discovery.functions";
 import { discoveryIdeas } from "@/lib/discovery.shared";
@@ -147,6 +148,7 @@ function ChatLayout() {
       <Sidebar orgName={org.data.name ?? ""} mobileOpen={navOpen} onClose={() => setNavOpen(false)} />
       <main className="relative flex min-w-0 flex-1 flex-col">
         <CiviChatMark mobile alertKeys={alertKeys} onClick={() => setNavOpen(true)} />
+        <BackgroundPausedNotice />
         <Outlet />
       </main>
     </div>

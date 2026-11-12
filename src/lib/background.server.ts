@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 import { scopedDb } from "./scopedDb.server";
-import { SHARED_JOB_EVENT, WAKE_EVENT, browserIsUnattended, ownersToWake, sharedJobEventId, wakeEventId, type SharedJobKind } from "./background.shared";
+import { SHARED_JOB_EVENT, WAKE_EVENT, browserIsUnattended, ownersToProbe, ownersToWake, pauseCanProbe, sharedJobEventId, wakeEventId, type SharedJobKind } from "./background.shared";
 
 type Db = SupabaseClient<Database>;
 const GATEWAY_URL = "https://connector-gateway.lovable.dev/inngest";
@@ -67,7 +67,7 @@ export async function schedulerIsStale(): Promise<boolean> {
  * The sweep: close quiet planning reviews without AI, then wake only organizations that have
  * queued work or a browser task nobody is watching. Organizations with nothing waiting cost nothing.
  */
-export async function sweepBackgroundWork(): Promise<{ settled: number; woken: number }> {
+export async function sweepBackgroundWork(): Promise<{ settled: number; woken: number; probes: number }> {
   const db = await admin();
   const { error: enqueueError } = await db.rpc("enqueue_due_agent_tasks");
   if (enqueueError) throw new Error("Could not enqueue due work");
@@ -76,16 +76,32 @@ export async function sweepBackgroundWork(): Promise<{ settled: number; woken: n
   const [queued, browsers, paused] = await Promise.all([
     db.from("agent_task_runs").select("user_id").eq("status", "queued").lt("attempt", 3).order("created_at").limit(500),
     db.from("browser_sessions").select("user_id, driver_lease, last_step_at").eq("status", "running").eq("agent_status", "driving").limit(200),
-    db.from("autopilot_state").select("user_id").not("paused_reason", "is", null).limit(1000),
+    db.from("autopilot_state").select("user_id, paused_reason").not("paused_reason", "is", null).limit(1000),
   ]);
+  const queuedOwners = (queued.data ?? []).map((r) => r.user_id);
   const owners = ownersToWake({
-    queued: (queued.data ?? []).map((r) => r.user_id),
+    queued: queuedOwners,
     browsers: (browsers.data ?? []).filter((b) => browserIsUnattended(b)).map((b) => b.user_id),
     paused: (paused.data ?? []).map((r) => r.user_id),
   });
+  // Paused for credits or rate limits: one task per sweep tests whether work can resume.
+  const probes = ownersToProbe(queuedOwners, paused.data ?? []);
   const now = Date.now();
-  const woken = await sendBackgroundEvents(owners.map((userId) => ({ id: wakeEventId(userId, now), name: WAKE_EVENT, data: { userId } })));
-  return { settled: Number(settled ?? 0), woken };
+  const woken = await sendBackgroundEvents([
+    ...owners.map((userId) => ({ id: wakeEventId(userId, now), name: WAKE_EVENT, data: { userId } })),
+    ...probes.map((userId) => ({ id: `probe-${wakeEventId(userId, now)}`, name: WAKE_EVENT, data: { userId, probe: true } })),
+  ]);
+  return { settled: Number(settled ?? 0), woken, probes: probes.length };
+}
+
+/** Lifts a credit or rate-limit pause so one test task can run; a failure pauses the organization again. */
+export async function liftPauseForProbe(userId: string): Promise<boolean> {
+  const db = await admin();
+  const { data } = await db.from("autopilot_state").select("paused_reason").eq("user_id", userId).maybeSingle();
+  if (!data?.paused_reason) return true;
+  if (!pauseCanProbe(data.paused_reason)) return false;
+  const { error } = await db.from("autopilot_state").update({ paused_reason: null }).eq("user_id", userId).eq("paused_reason", data.paused_reason);
+  return !error;
 }
 
 /** Moves the organization's event plans forward and queues due work. False when its background work is paused. */
