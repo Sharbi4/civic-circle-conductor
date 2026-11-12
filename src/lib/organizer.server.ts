@@ -64,7 +64,13 @@ export async function runOrganizer(supabase: SupabaseClient<Database>, userId: s
     {
       const { data: eg } = await supabase.from("tasks").select("id").eq("thread_id", data.threadId).eq("kind", "goal").order("created_at").limit(1).maybeSingle();
       const { data: ep } = eg ? await supabase.from("event_profiles").select("venue, venue_details, venue_status, budget, spent, budget_notes, staff, contacts, vendors").eq("goal_id", eg.id).maybeSingle() : { data: null };
-      if (ep) eventProfileLine = `EVENT OVERVIEW (entered by the organizer on the event page — treat as the source of truth; if a venue is marked booked, do not search for another): ${JSON.stringify(ep).slice(0, 3000)}`;
+      if (ep) eventProfileLine = `EVENT OVERVIEW (shown on the event page — treat as the source of truth; if a venue is marked booked, do not search for another): ${JSON.stringify(ep).slice(0, 3000)}`;
+      if (eg) {
+        const { data: steps } = await supabase.from("tasks").select("step_key, title, step_state, done, result_url").eq("goal_id", eg.id);
+        const { planStatus } = await import("@/lib/eventPlan.shared");
+        const status = planStatus(steps ?? []);
+        if (status) eventProfileLine += `\nEVENT PLAN STATUS (the same steps the event page shows — when you number steps, use exactly these numbers, e.g. "Step 3 of ${(steps ?? []).length}"; never invent your own step list or count):\n${status}`;
+      }
     }
     const [{ data: org }, { data: history }, { data: memories }] = await Promise.all([
       supabase.from("organizations").select("name, mission, linkedin_org_id, address, logo_url, contact_name, contact_email, contact_phone, website, letterhead_skipped").eq("user_id", userId).maybeSingle(),
@@ -161,7 +167,7 @@ All Google actions wait for approval.`,
       eventProfileLine,
       memories?.length ? `Organization memory:\n- ${memories.map((m) => m.content).join("\n- ")}` : "",
       thread.kind === "event"
-        ? `This is an EVENT CHAT for "${thread.title}"${thread.event_date ? ` on ${thread.event_date}` : " (date not set yet)"}. Everything here works this one event to completion through its EVENT PLAN: ${EVENT_STEPS.map((t, i) => `${i + 1}) ${t}`).join("; ")}. The app runs the plan: each step starts as soon as what it waits for is finished (so the X post, LinkedIn post, Facebook Page post and email invites run side by side once the Eventbrite or RSVP link exists), reminders run 7 days and 1 day before, and the recap, feedback poll and thank-you email run the day after. Steps for channels that aren't connected are skipped with a ready-to-paste draft. Queue each step's action with its marker — the step finishes when that action really goes out. Use [[task_done: <id>]] only for steps finished without an approval (date and budget locked, venue confirmed booked). Use connected APIs for Eventbrite, LinkedIn, X, email and the RSVP/feedback forms; the live browser only for the venue booking page and the organization's Facebook Page — never for personal messages or group invitations. As soon as the name or date is decided or changes, add [[event_chat: {"title":"<event name>","date":"YYYY-MM-DD"}]] so the chat and its Event goal tile update.`
+        ? `This is an EVENT CHAT for "${thread.title}"${thread.event_date ? ` on ${thread.event_date}` : " (date not set yet)"}. Everything here works this one event to completion through its EVENT PLAN: ${EVENT_STEPS.map((t, i) => `${i + 1}) ${t}`).join("; ")}. The app runs the plan: each step starts as soon as what it waits for is finished (so the X post, LinkedIn post, Facebook Page post and email invites run side by side once the Eventbrite or RSVP link exists), reminders run 7 days and 1 day before, and the recap, feedback poll and thank-you email run the day after. Steps for channels that aren't connected are skipped with a ready-to-paste draft. Queue each step's action with its marker — the step finishes when that action really goes out. Use [[task_done: <id>]] only for steps finished without an approval (date and budget locked, venue confirmed booked). Use connected APIs for Eventbrite, LinkedIn, X, email and the RSVP/feedback forms; the live browser only for the venue booking page and the organization's Facebook Page — never for personal messages or group invitations. As soon as the name or date is decided or changes, add [[event_chat: {"title":"<event name>","date":"YYYY-MM-DD"}]] so the chat and its Event goal tile update. EVENT PAGE SYNC: whenever the organizer picks or confirms a venue, budget or expected turnout (including choosing one of your proposed options), add [[event_details: {"venue":"<place name and address>","venue_details":"<permit/rental notes>","budget":<top of the budget as a number>,"budget_note":"<e.g. $150–250 estimate>","headcount":<expected turnout as a number>}]] with only the fields that are known, so the event page shows the same plan as this chat. Add "venue_booked": true only once the venue is confirmed booked.`
         : `${thread.kind === "side" ? `This is a side chat titled "${thread.title}".` : "This is the main organizer chat."} EVENT CHAT OFFER: when the organizer starts planning a specific event here, ask once "Want to make this an event chat?" with [[choices: Yes, make it an event chat | Keep chatting here]]. If they agree, add [[event_chat: {"title":"<event name or working title>","date":"YYYY-MM-DD or omit if unknown"}]] — the app turns it into an event chat (name + date) with its own Event goal checklist.`,
       `API FIRST, BROWSER LAST: for any platform with a connected API (Eventbrite, X, LinkedIn, Gmail, polls, documents, calls) ALWAYS use its API markers, never the browser. Do research from your own knowledge, memory, the resource directory and Community Scout rather than opening the browser. Use the live browser mainly for Facebook and Instagram (events, Page/profile/group posts, Messenger/DMs) and for sites with no API (e.g. a venue booking page).`,
       `OFFER A SCHEDULE: when the organizer asks for an action that naturally repeats (posts, reminders, volunteer calls, event promotion, check-ins, roundups, notification checks), after handling it ask once whether they'd like it on a schedule, suggesting a fitting cadence, e.g. [[choices: Every Monday | Every week before an event | Every month | Just this once]]. Skip it for one-off actions (a single event, a booking, a payment). If they pick a schedule, save a REAL scheduled task with the marker [[task: {"title":"Every Monday: X post — weekly events roundup","due":"<next run date YYYY-MM-DD>","repeat":"daily|weekly|biweekly|monthly","prompt":"the exact instruction you should follow each time, e.g. Draft this week's X roundup post of our upcoming events for approval"}]]. The scheduler runs it automatically on each due date: it puts a "Scheduled:" item in Approvals, and once they approve you carry it out in this chat (posts still get their own approval). Tell them that in one line and that they can change or stop it in Goals & tasks.`,
@@ -305,6 +311,8 @@ All Google actions wait for approval.`,
       } catch (e) { console.error("Failed to create poll", e); card = "\n⚠️ I couldn't create that poll — try asking again.\n"; }
       text = text.replace(m[0], card);
     }
+    const detailsMatch = text.match(/\[\[event_details:\s*(\{.+?\})\s*\]\]/s);
+    text = text.replace(/\n?\[\[event_details:.+?\]\]/gs, "");
     const evMatch = text.match(/\[\[event_chat:\s*(\{.+?\})\s*\]\]/s);
     if (evMatch) {
       text = text.replace(/\n?\[\[event_chat:.+?\]\]/gs, "");
@@ -331,6 +339,32 @@ All Google actions wait for approval.`,
           }
         }
       } catch (e) { console.error("event_chat marker failed", e); }
+    }
+    if (detailsMatch) {
+      try {
+        // Keep the event page in step with what was settled in the chat.
+        const { data: eg } = await supabase.from("tasks").select("id, due_date").eq("thread_id", data.threadId).eq("kind", "goal").order("created_at").limit(1).maybeSingle();
+        if (eg) {
+          const { eventDetailsPatch } = await import("@/lib/eventPlan.shared");
+          const { data: cur } = await supabase.from("event_profiles").select("goal_id, venue_status, budget, headcount").eq("goal_id", eg.id).maybeSingle();
+          const patch = eventDetailsPatch(JSON.parse(detailsMatch[1] ?? "{}"), cur);
+          if (Object.keys(patch).length) {
+            const stamp = { ...patch, updated_at: new Date().toISOString() };
+            const { error: pe } = cur
+              ? await supabase.from("event_profiles").update(stamp).eq("goal_id", eg.id)
+              : await supabase.from("event_profiles").insert({ goal_id: eg.id, user_id: userId, ...stamp });
+            if (pe) console.error("event_details save failed", pe.message);
+            const budget = patch.budget ?? cur?.budget;
+            const head = patch.headcount ?? cur?.headcount;
+            const { data: th } = await supabase.from("threads").select("event_date").eq("id", data.threadId).maybeSingle();
+            const doneAt = new Date().toISOString();
+            if (budget != null && head != null && (eg.due_date || th?.event_date))
+              await supabase.from("tasks").update({ done: true, done_at: doneAt, step_state: "done", step_note: null }).eq("goal_id", eg.id).eq("step_key", "essentials").eq("done", false);
+            if (patch.venue_status === "booked")
+              await supabase.from("tasks").update({ done: true, done_at: doneAt, step_state: "done", step_note: null }).eq("goal_id", eg.id).eq("step_key", "venue").eq("done", false);
+          }
+        }
+      } catch (e) { console.error("event_details marker failed", e); }
     }
     const uuidRe = /^[0-9a-f-]{36}$/i;
     const taskRows = [...text.matchAll(/\[\[(task|goal):\s*(\{.+?\})\s*\]\]/gs)].slice(0, 10).flatMap((m) => {

@@ -1,0 +1,2 @@
+ALTER TABLE public.organizations ADD COLUMN IF NOT EXISTS time_zone text;
+UPDATE public.organizations SET time_zone = 'America/Phoenix' WHERE time_zone IS NULL AND user_id = 'd0000000-0000-4000-8000-000000000001';

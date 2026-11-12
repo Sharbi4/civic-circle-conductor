@@ -829,6 +829,7 @@ export type Database = {
           profile: string | null
           public_pages: Json
           referral_source: string | null
+          time_zone: string | null
           usage_pause_reason: string | null
           user_id: string
           website: string | null
@@ -858,6 +859,7 @@ export type Database = {
           profile?: string | null
           public_pages?: Json
           referral_source?: string | null
+          time_zone?: string | null
           usage_pause_reason?: string | null
           user_id: string
           website?: string | null
@@ -887,6 +889,7 @@ export type Database = {
           profile?: string | null
           public_pages?: Json
           referral_source?: string | null
+          time_zone?: string | null
           usage_pause_reason?: string | null
           user_id?: string
           website?: string | null

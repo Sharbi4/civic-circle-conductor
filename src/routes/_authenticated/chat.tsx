@@ -1,4 +1,6 @@
 import { planInsertRows } from "@/lib/eventPlan.shared";
+import { runMyDueWork } from "@/lib/jobs.functions";
+import { setAppTimeZone, deviceTimeZone, isValidTimeZone, formatAppTime } from "@/lib/appTimeZone";
 import { createFileRoute, Link, Outlet, useNavigate, useParams } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -107,6 +109,32 @@ function ChatLayout() {
     ...threads.data.filter((t) => isChatUnread(t.latest_assistant_at, t.last_read_at)).map((t) => `chat:${t.id}:${t.latest_assistant_at}`),
   ] : undefined;
   const [navOpen, setNavOpen] = useState(false);
+  // Every time the app shows uses the organization's time zone; a new org adopts the device's zone once.
+  setAppTimeZone(org.data?.time_zone);
+  useEffect(() => {
+    const o = org.data;
+    if (!o || o.time_zone) return;
+    const tz = deviceTimeZone();
+    if (!isValidTimeZone(tz) || /^(UTC|Etc\/)/.test(tz)) return;
+    void supabase.from("organizations").update({ time_zone: tz }).eq("user_id", o.user_id);
+  }, [org.data]);
+  // While the app is open, the organization's event plan and due tasks keep moving on their own.
+  const layoutQc = useQueryClient();
+  const drainDue = useServerFn(runMyDueWork);
+  useEffect(() => {
+    if (!org.data?.onboarded) return;
+    let busy = false;
+    const tick = async () => {
+      if (busy || document.hidden) return;
+      busy = true;
+      try { const r = await drainDue(); if (r.processed) void layoutQc.invalidateQueries(); }
+      catch (e) { console.warn("Background work check failed", e); }
+      finally { busy = false; }
+    };
+    const first = setTimeout(tick, 20000);
+    const every = setInterval(tick, 120000);
+    return () => { clearTimeout(first); clearInterval(every); };
+  }, [org.data?.onboarded, drainDue, layoutQc]);
   if (org.isLoading) return <div className="min-h-screen" />;
   if (!org.data?.onboarded) return <Onboarding existing={org.data} />;
   return (
@@ -1256,7 +1284,7 @@ function ScoutPanel({ onConnect, onOpenChat }: { onConnect: () => void; onOpenCh
           <div className="mt-1 space-y-2">
             {findings.data.map((f) => (
               <div key={f.id} className="rounded-2xl border bg-card p-3 text-sm shadow-soft">
-                <div className="text-xs text-muted-foreground">{new Date(f.created_at).toLocaleString()}</div>
+                <div className="text-xs text-muted-foreground">{formatAppTime(f.created_at)}</div>
                 <div className="prose prose-sm mt-1 max-w-none leading-relaxed dark:prose-invert prose-a:text-primary">
                   <ReactMarkdown remarkPlugins={[remarkGfm]}>{f.summary}</ReactMarkdown>
                 </div>

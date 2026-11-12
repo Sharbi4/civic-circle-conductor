@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { formatAppTime } from "@/lib/appTimeZone";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { CalendarDays, CalendarHeart, Check, ChevronDown, ChevronRight, Loader2, MessagesSquare, MoreHorizontal, Plus, RotateCcw, Target, Trash2 } from "lucide-react";
 import { Link, useNavigate } from "@tanstack/react-router";
@@ -61,15 +62,17 @@ export function TasksPanel() {
   const loose = all.filter((t) => t.kind !== "goal" && !t.goal_id);
   const scheduled = loose.filter((t) => t.repeat || t.scheduled_for);
   const other = loose.filter((t) => !t.repeat && !t.scheduled_for);
-  const open = all.filter((t) => t.kind !== "goal" && !t.done).length;
-  const overdue = all.filter((t) => !t.done && t.due_date && t.due_date < today()).length;
+  // The header counts the event goals listed right under it, so the number always matches what's shown.
+  const openGoals = goals.filter((g) => !g.done);
+  const open = openGoals.length;
+  const overdue = openGoals.filter((g) => g.due_date && g.due_date < today()).length;
 
   return (
     <div className="flex-1 overflow-y-auto px-2 pb-4">
       <div className="flex items-center gap-1.5 px-2 pb-1.5 pt-1">
         <h2 className="text-sm font-medium">Event goals</h2>
-        <span className="truncate text-[11px] text-muted-foreground" title={overdue ? `${open} open, ${overdue} overdue` : `${open} open`}>
-          {open} open{overdue > 0 && <span className="text-destructive"> · {overdue} overdue</span>}
+        <span className="truncate text-[11px] text-muted-foreground" title={overdue ? `${open} open event${open === 1 ? "" : "s"}, ${overdue} past due` : `${open} open event${open === 1 ? "" : "s"}`}>
+          {open ? `${open} open` : "None yet"}{overdue > 0 && <span className="text-destructive"> · {overdue} past due</span>}
         </span>
         <button onClick={() => setShowDone(!showDone)} aria-pressed={showDone} title={showDone ? "Hide completed" : "Show completed"}
           className="ml-auto shrink-0 rounded-full px-1.5 py-0.5 text-[11px] text-muted-foreground hover:bg-secondary">{showDone ? "Done" : "Show done"}</button>
@@ -138,7 +141,7 @@ function Row({ t, onUpdate, onRemove, bold }: { t: Task; onUpdate: (id: string, 
             {showTime && t.scheduled_for && (
               <span className="inline-flex shrink-0 items-center gap-0.5 text-primary" title="Scheduled run time">
                 <CalendarDays className="h-2.5 w-2.5" />
-                {new Date(t.scheduled_for).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
+                {formatAppTime(t.scheduled_for)}
               </span>
             )}
             {t.repeat && (

@@ -786,8 +786,8 @@ function ChatWindow({ threadId }: { threadId: string }) {
             onKeyDown={(e) => {
               if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); submit(input); }
             }}
-            placeholder="Message your organizer"
-            className="max-h-40 flex-1 resize-none bg-transparent py-2 outline-none placeholder:text-muted-foreground"
+            placeholder="Message Civi"
+            className="max-h-40 min-w-0 flex-1 resize-none bg-transparent py-2 outline-none placeholder:truncate placeholder:text-muted-foreground"
           />
           <button type="button" onClick={() => { const v = !autoRead; setAutoRead(v); localStorage.setItem("civi-autoread", v ? "1" : "0"); toast(v ? "Civi will read replies aloud" : "Read-aloud off"); }}
             aria-label={autoRead ? "Turn off read-aloud" : "Read replies aloud"} title={autoRead ? "Read-aloud on" : "Read replies aloud"}

@@ -71,6 +71,10 @@ export const getGmailStatus = createServerFn({ method: "GET" })
     const { callAsAppUser } = await import("@/integrations/lovable/appUserConnector");
     const { readGmailProfile } = await import("./gmailProfile.server");
     const profile = await readGmailProfile(c.key, callAsAppUser).catch(() => null);
+    if (profile?.accountName && profile.accountName !== c.accountName) {
+      const { rememberAccountName } = await import("@/lib/appUserConnections.server");
+      await rememberAccountName(context.userId, "google_mail", profile.accountName).catch(() => {});
+    }
     return { connected: true, accountName: profile?.accountName ?? c.accountName };
   });
 

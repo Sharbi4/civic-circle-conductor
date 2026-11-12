@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { formatAppTime } from "@/lib/appTimeZone";
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useServerFn } from '@tanstack/react-start';
 import { Bell, CalendarClock, Check, ExternalLink, Save, Send } from 'lucide-react';
@@ -30,7 +31,7 @@ export function EventbriteDraftControls({ eventId }: { eventId: string }) {
   const live = event.data.status === 'live';
   return <div className="space-y-2 border-t pt-3">
     <p className="flex items-center gap-2 text-sm font-medium">{live && <Check className="h-4 w-4" />}{live ? 'Published — live on Eventbrite' : event.data.status === 'draft' ? 'Draft — not published; registration is not open' : `Eventbrite status: ${event.data.status}`}</p>
-    {event.data.task && <p className="text-xs text-muted-foreground">{event.data.task.job_kind === 'eventbrite_publish' ? 'Publishing' : 'Reminder'}: {event.data.task.scheduled_for ? new Date(event.data.task.scheduled_for).toLocaleString() : 'Awaiting review'}{event.data.task.last_error ? ` · ${event.data.task.last_error}` : ''}</p>}
+    {event.data.task && <p className="text-xs text-muted-foreground">{event.data.task.job_kind === 'eventbrite_publish' ? 'Publishing' : 'Reminder'}: {event.data.task.scheduled_for ? formatAppTime(event.data.task.scheduled_for) : 'Awaiting review'}{event.data.task.last_error ? ` · ${event.data.task.last_error}` : ''}</p>}
     {!live && <div className="flex flex-wrap gap-1">
       <Button size="sm" disabled={busy} onClick={() => setMode('publish')}><Send className="h-4 w-4" />Publish now</Button>
       <Button size="icon" variant="outline" title="Save as draft for later" aria-label="Save as draft for later" disabled={busy} onClick={() => act('save')}><Save className="h-4 w-4" /></Button>

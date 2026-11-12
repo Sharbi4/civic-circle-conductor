@@ -65,5 +65,6 @@ export function approvalStateLabel(state: string | null, payload: unknown) {
   if (state === 'failed') return 'Failed';
   if (state === 'queued') return 'Queued — awaiting completion';
   if (state === 'needs_review') return 'Outcome unknown — review needed';
-  return 'Approved — awaiting completion';
+  // Older approvals and plain go-aheads have nothing left to run; don't present them as stuck.
+  return 'Approved';
 }

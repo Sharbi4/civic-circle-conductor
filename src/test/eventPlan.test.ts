@@ -71,3 +71,14 @@ describe("event plan", () => {
     expect(nudgeDelayMinutes(4)).toBeNull();
   });
 });
+
+import { eventDetailsPatch } from "@/lib/eventPlan.shared";
+describe("event page sync from chat", () => {
+  it("fills venue, budget and turnout picked in chat", () => {
+    expect(eventDetailsPatch({ venue: "Mitchell Park", budget: "$250", budget_note: "$150–250 estimate", headcount: 30 }, { venue_status: "searching" }))
+      .toEqual({ venue: "Mitchell Park", budget: 250, budget_notes: "$150–250 estimate", headcount: 30 });
+  });
+  it("never replaces a venue already marked booked", () => {
+    expect(eventDetailsPatch({ venue: "Reid Park" }, { venue_status: "booked" })).toEqual({});
+  });
+});

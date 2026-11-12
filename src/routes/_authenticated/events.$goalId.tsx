@@ -1,4 +1,5 @@
 import { mapsUrl } from "@/lib/addressLinks";
+import { formatAppTime } from "@/lib/appTimeZone";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, type ReactNode } from "react";
@@ -188,7 +189,7 @@ function EventPage() {
                   <li key={a.id} className="relative">
                     <span className={`absolute -left-[21px] top-1 grid h-3 w-3 place-items-center rounded-full ${a.state === "done" ? "bg-primary" : a.state === "failed" ? "bg-destructive" : "bg-muted-foreground/40"}`} />
                     <p className="text-sm">{a.text}</p>
-                    <p className="text-xs text-muted-foreground">{a.state === "done" ? "Done" : a.state === "failed" ? "Didn't work" : a.state === "declined" ? "Declined" : a.state === "waiting" ? "Waiting for your OK" : "In progress"} · {new Date(a.at).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</p>
+                    <p className="text-xs text-muted-foreground">{a.state === "done" ? "Done" : a.state === "failed" ? "Didn't work" : a.state === "declined" ? "Declined" : a.state === "waiting" ? "Waiting for your OK" : "In progress"} · {formatAppTime(a.at)}</p>
                   </li>
                 ))}
               </ol>

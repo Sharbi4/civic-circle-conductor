@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { formatAppTime } from "@/lib/appTimeZone";
 import { useQuery } from "@tanstack/react-query";
 import { Search, X, Zap } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -66,7 +67,7 @@ export function ChatSearch({ threadId, leadActions }: { threadId: string; leadAc
                   <li key={m.id}>
                     <button type="button" onClick={() => jump(m.id)} className="w-full rounded-xl px-2.5 py-2 text-left hover:bg-secondary">
                       <div className="flex items-center gap-2 text-[10px] uppercase tracking-wider text-muted-foreground">
-                        <span>{new Date(m.created_at).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</span>
+                        <span>{formatAppTime(m.created_at)}</span>
                         <span>· {m.role === "user" ? "You" : "Civi"}</span>
                         {lead && <span className="inline-flex items-center gap-0.5 normal-case tracking-normal text-accent"><Zap className="h-2.5 w-2.5" />{lead}</span>}
                       </div>

@@ -161,3 +161,28 @@ export function automatedPromptLabel(content: string): string {
   if (step) return `Civi picked up step ${step[1]} of ${step[2]} — ${step[3]}`;
   return "Civi picked up where this left off";
 }
+
+export type EventDetails = { venue?: string; venue_details?: string; budget?: number; budget_note?: string; headcount?: number; venue_booked?: boolean };
+
+/** Validates details Civi settled on in chat into an event-page patch; never clears a field. */
+export type EventPagePatch = Partial<{ venue: string; venue_details: string; venue_status: string; budget: number; budget_notes: string; headcount: number }>;
+export function eventDetailsPatch(raw: unknown, current: { venue_status?: string | null } | null): EventPagePatch {
+  if (!raw || typeof raw !== "object") return {};
+  const r = raw as Record<string, unknown>;
+  const num = (v: unknown) => { const n = typeof v === "number" ? v : typeof v === "string" ? Number(v.replace(/[$,\s]/g, "")) : NaN; return Number.isFinite(n) && n >= 0 && n < 1e8 ? n : null; };
+  const str = (v: unknown, max: number) => (typeof v === "string" && v.trim() ? v.trim().slice(0, max) : null);
+  const patch: EventPagePatch = {};
+  const booked = current?.venue_status === "booked";
+  const venue = str(r["venue"], 200);
+  if (venue && !booked) { patch.venue = venue; if (!current?.venue_status) patch.venue_status = "searching"; }
+  const details = str(r["venue_details"], 1000);
+  if (details && !booked) patch.venue_details = details;
+  if (r["venue_booked"] === true && (venue || booked)) patch.venue_status = "booked";
+  const budget = num(r["budget"]);
+  if (budget !== null) patch.budget = budget;
+  const note = str(r["budget_note"], 300);
+  if (note) patch.budget_notes = note;
+  const head = num(r["headcount"]);
+  if (head !== null) patch.headcount = Math.round(head);
+  return patch;
+}

@@ -51,6 +51,14 @@ export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
     try {
       const handler = await getServerEntry();
+      const background = ctx as { waitUntil?: (p: Promise<unknown>) => void } | undefined;
+      if (request.method === "POST" && new URL(request.url).pathname.startsWith("/api/public/jobs/") && typeof background?.waitUntil === "function") {
+        // Scheduled callers hang up after a few seconds; answer early and let the work finish in the background.
+        const work = Promise.resolve(handler.fetch(request, env, ctx));
+        background.waitUntil(work.catch((e) => console.error("Scheduled job failed", e)));
+        const early = new Promise<Response>((resolve) => setTimeout(() => resolve(Response.json({ ok: true, continuing: true }, { status: 202 })), 3000));
+        return await Promise.race([work, early]);
+      }
       const response = await handler.fetch(request, env, ctx);
       return await normalizeCatastrophicSsrResponse(response);
     } catch (error) {

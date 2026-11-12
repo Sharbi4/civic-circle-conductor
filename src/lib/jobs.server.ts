@@ -6,7 +6,8 @@ import { noteJobFailure } from './jobSafety.server';
 import { scopedDb } from './scopedDb.server';
 
 type Db = SupabaseClient<Database>;
-const MAX_RUNS = 6;
+// Scheduled callbacks get a short run window, so each one finishes a single AI run; the open app drains the rest.
+const MAX_RUNS = 1;
 
 export async function runSharedJob(kind: 'scheduler' | 'recovery' | 'reports') {
   const { supabaseAdmin: db } = await import('@/integrations/supabase/client.server');
@@ -30,72 +31,7 @@ export async function runSharedJob(kind: 'scheduler' | 'recovery' | 'reports') {
     }
     const { error: enqueueError } = await db.rpc('enqueue_due_agent_tasks');
     if (enqueueError) throw new Error('Could not enqueue due work');
-    const { data: queued } = await db.from('agent_task_runs').select('id, task_id, user_id').eq('status', 'queued').order('created_at').limit(100);
-    let processed = 0;
-    for (const candidate of queued ?? []) {
-      if (processed >= MAX_RUNS) break;
-      const { data: task } = await db.from('tasks').select('*').eq('id', candidate.task_id ?? '').eq('user_id', candidate.user_id).maybeSingle();
-      if (!task || task.done) { await db.from('agent_task_runs').update({ status: 'cancelled' }).eq('id', candidate.id); continue; }
-      if (kind === 'reports' && task.job_kind !== 'daily_report') continue;
-      const { data: paused } = await db.from('autopilot_state').select('paused_reason').eq('user_id', candidate.user_id).maybeSingle();
-      if (paused?.paused_reason) continue;
-      const { data: claimed } = await db.rpc('claim_agent_task', { p_id: candidate.id });
-      const run = claimed?.[0]; if (!run) continue;
-      processed++;
-      try {
-        // Claims alone are safe to retry. Once provider work starts, recovery requires a review, never blind replay.
-        let threadId = task.thread_id;
-        if (!threadId) { const { data: t } = await db.from('threads').select('id').eq('user_id', run.user_id).eq('kind', 'main').maybeSingle(); threadId = t?.id ?? null; }
-        if (!threadId) throw new Error('Organization has no organizer chat');
-        const {error:phaseError}=await db.from('agent_task_runs').update({ phase: 'provider_started' }).eq('id', run.id);
-        if(phaseError) throw new Error('Could not record provider boundary');
-        if (task.job_kind === 'eventbrite_publish' || task.job_kind === 'eventbrite_reminder') {
-          const { runEventbriteDraftTask } = await import('./eventbriteDraft.server');
-          await runEventbriteDraftTask(scopedDb(db, run.user_id), run.user_id, task.run_prompt ?? '', threadId);
-        }
-        else if (task.job_kind === 'daily_report') await dailyReport(db, run.user_id, threadId, run.occurrence_key);
-        else if (task.job_kind === 'review') await reviewOrganization(db, run.user_id, threadId);
-        else if (task.job_kind === 'scout') {
-          const {runCommunityScout}=await import('@/lib/scout.server');
-          await runCommunityScout(run.user_id);
-        }
-        else if (task.job_kind === 'launch_step' && task.step_key) {
-          const { runPlanStep } = await import('./eventPlan.server');
-          const outcome = await runPlanStep(scopedDb(db, run.user_id), run.user_id, task, threadId);
-          const { error: e0 } = await db.rpc('finish_agent_task', { p_run: run.id, p_next: 'infinity' });
-          if (e0) throw new Error('Work completed but progress could not be saved');
-          // On hold the step stays open; the plan scan decides when it is ready again.
-          if (outcome === 'hold') await db.from('tasks').update({ done: false, done_at: null, scheduled_for: null }).eq('id', task.id).eq('user_id', run.user_id);
-          continue;
-        }
-        else if (task.job_kind === 'launch_step') {
-          const { runResumeStep } = await import('./resume.server');
-          const next = await runResumeStep(scopedDb(db, run.user_id), run.user_id, task, threadId);
-          if (next === 'pause') {
-            const { error: e1 } = await db.rpc('finish_agent_task', { p_run: run.id, p_next: 'infinity' });
-            if (e1) throw new Error('Work completed but progress could not be saved');
-            // Keep the step open; it waits for the organizer instead of nagging.
-            await db.from('tasks').update({ done: false, done_at: null, scheduled_for: null, last_error: 'Waiting on you — reply in the event chat to continue' }).eq('id', task.id).eq('user_id', run.user_id);
-            await db.from('messages').insert({ user_id: run.user_id, thread_id: threadId, role: 'assistant', content: `⏸️ I've paused **${task.title}** until you reply here. Tell me how you'd like to proceed and I'll pick it straight back up.` });
-          } else {
-            const { error: e2 } = await db.rpc('finish_agent_task', { p_run: run.id, p_next: next });
-            if (e2) throw new Error('Work completed but progress could not be saved');
-          }
-          continue;
-        }
-        else {
-          const { runOrganizer } = await import('@/lib/organizer.server');
-          await runOrganizer(scopedDb(db, run.user_id), run.user_id, { threadId, content: `Scheduled task: ${task.run_prompt ?? task.title}\nDo the organizing work now. Prepare drafts and tasks; every public action still requires explicit approval.` });
-        }
-        const next = task.job_kind === 'review' ? new Date(Date.now()+15*60000).toISOString() : task.job_kind==='scout' ? new Date(Date.now()+12*3600000).toISOString() : nextTaskOccurrence(task.scheduled_for ?? `${task.due_date ?? new Date().toISOString().slice(0,10)}T07:00:00Z`, task.repeat);
-        const { error: taskError } = await db.rpc('finish_agent_task', { p_run:run.id,p_next:next ?? 'infinity' });
-        if (taskError) throw new Error('Work completed but progress could not be saved');
-      } catch(e) {
-        await noteJobFailure(run.user_id, e);
-        await db.from('agent_task_runs').update({ status: 'needs_review', phase: 'provider_started', lease_until: null, error: 'Interrupted; verify existing results before retrying' }).eq('id', run.id);
-        await db.from('tasks').update({ last_error: 'Interrupted — review existing results before retrying', ...(task.step_key ? { step_state: 'failed', step_note: 'Interrupted — check the event chat, then reply to retry', scheduled_for: null } : {}) }).eq('id', task.id);
-      }
-    }
+    const processed = await processQueuedRuns(db, kind, MAX_RUNS);
     if(kind==='scheduler') {
       const {data:browsers}=await db.from('browser_sessions').select('id,user_id,driver_lease').eq('status','running').eq('agent_status','driving').is('driver_lease',null).limit(3);
       const {runAgentStep}=await import('@/lib/browser.server');
@@ -103,6 +39,79 @@ export async function runSharedJob(kind: 'scheduler' | 'recovery' | 'reports') {
     }
     return { ok: true, processed };
   } finally { await db.from('agent_job_locks').update({ lease_until: null, last_completed_at: new Date().toISOString() }).eq('name', kind).eq('token', token); }
+}
+
+/** Runs up to `max` queued task runs (optionally for one organization); each run is claimed, so overlapping callers never double-run. */
+async function processQueuedRuns(db: Db, kind: 'scheduler' | 'recovery' | 'reports', max: number, userId?: string): Promise<number> {
+  let query = db.from('agent_task_runs').select('id, task_id, user_id').eq('status', 'queued').order('created_at').limit(100);
+  if (userId) query = query.eq('user_id', userId);
+  const { data: queued } = await query;
+  let processed = 0;
+  for (const candidate of queued ?? []) {
+    if (processed >= max) break;
+    const { data: task } = await db.from('tasks').select('*').eq('id', candidate.task_id ?? '').eq('user_id', candidate.user_id).maybeSingle();
+    if (!task || task.done) { await db.from('agent_task_runs').update({ status: 'cancelled' }).eq('id', candidate.id); continue; }
+    if (kind === 'reports' && task.job_kind !== 'daily_report') continue;
+    const { data: paused } = await db.from('autopilot_state').select('paused_reason').eq('user_id', candidate.user_id).maybeSingle();
+    if (paused?.paused_reason) continue;
+    const { data: claimed } = await db.rpc('claim_agent_task', { p_id: candidate.id });
+    const run = claimed?.[0]; if (!run) continue;
+    processed++;
+    try {
+      // Claims alone are safe to retry. Once provider work starts, recovery requires a review, never blind replay.
+      let threadId = task.thread_id;
+      if (!threadId) { const { data: t } = await db.from('threads').select('id').eq('user_id', run.user_id).eq('kind', 'main').maybeSingle(); threadId = t?.id ?? null; }
+      if (!threadId) throw new Error('Organization has no organizer chat');
+      const {error:phaseError}=await db.from('agent_task_runs').update({ phase: 'provider_started' }).eq('id', run.id);
+      if(phaseError) throw new Error('Could not record provider boundary');
+      if (task.job_kind === 'eventbrite_publish' || task.job_kind === 'eventbrite_reminder') {
+        const { runEventbriteDraftTask } = await import('./eventbriteDraft.server');
+        await runEventbriteDraftTask(scopedDb(db, run.user_id), run.user_id, task.run_prompt ?? '', threadId);
+      }
+      else if (task.job_kind === 'daily_report') await dailyReport(db, run.user_id, threadId, run.occurrence_key);
+      else if (task.job_kind === 'review') await reviewOrganization(db, run.user_id, threadId);
+      else if (task.job_kind === 'scout') {
+        const {runCommunityScout}=await import('@/lib/scout.server');
+        await runCommunityScout(run.user_id);
+      }
+      else if (task.job_kind === 'launch_step' && task.step_key) {
+        const { runPlanStep } = await import('./eventPlan.server');
+        const outcome = await runPlanStep(scopedDb(db, run.user_id), run.user_id, task, threadId);
+        const { error: e0 } = await db.rpc('finish_agent_task', { p_run: run.id, p_next: 'infinity' });
+        if (e0) throw new Error('Work completed but progress could not be saved');
+        // On hold the step stays open; the plan scan decides when it is ready again.
+        if (outcome === 'hold') await db.from('tasks').update({ done: false, done_at: null, scheduled_for: null }).eq('id', task.id).eq('user_id', run.user_id);
+        continue;
+      }
+      else if (task.job_kind === 'launch_step') {
+        const { runResumeStep } = await import('./resume.server');
+        const next = await runResumeStep(scopedDb(db, run.user_id), run.user_id, task, threadId);
+        if (next === 'pause') {
+          const { error: e1 } = await db.rpc('finish_agent_task', { p_run: run.id, p_next: 'infinity' });
+          if (e1) throw new Error('Work completed but progress could not be saved');
+          // Keep the step open; it waits for the organizer instead of nagging.
+          await db.from('tasks').update({ done: false, done_at: null, scheduled_for: null, last_error: 'Waiting on you — reply in the event chat to continue' }).eq('id', task.id).eq('user_id', run.user_id);
+          await db.from('messages').insert({ user_id: run.user_id, thread_id: threadId, role: 'assistant', content: `⏸️ I've paused **${task.title}** until you reply here. Tell me how you'd like to proceed and I'll pick it straight back up.` });
+        } else {
+          const { error: e2 } = await db.rpc('finish_agent_task', { p_run: run.id, p_next: next });
+          if (e2) throw new Error('Work completed but progress could not be saved');
+        }
+        continue;
+      }
+      else {
+        const { runOrganizer } = await import('@/lib/organizer.server');
+        await runOrganizer(scopedDb(db, run.user_id), run.user_id, { threadId, content: `Scheduled task: ${task.run_prompt ?? task.title}\nDo the organizing work now. Prepare drafts and tasks; every public action still requires explicit approval.` });
+      }
+      const next = task.job_kind === 'review' ? new Date(Date.now()+15*60000).toISOString() : task.job_kind==='scout' ? new Date(Date.now()+12*3600000).toISOString() : nextTaskOccurrence(task.scheduled_for ?? `${task.due_date ?? new Date().toISOString().slice(0,10)}T07:00:00Z`, task.repeat);
+      const { error: taskError } = await db.rpc('finish_agent_task', { p_run:run.id,p_next:next ?? 'infinity' });
+      if (taskError) throw new Error('Work completed but progress could not be saved');
+    } catch(e) {
+      await noteJobFailure(run.user_id, e);
+      await db.from('agent_task_runs').update({ status: 'needs_review', phase: 'provider_started', lease_until: null, error: 'Interrupted; verify existing results before retrying' }).eq('id', run.id);
+      await db.from('tasks').update({ last_error: 'Interrupted — review existing results before retrying', ...(task.step_key ? { step_state: 'failed', step_note: 'Interrupted — check the event chat, then reply to retry', scheduled_for: null } : {}) }).eq('id', task.id);
+    }
+  }
+  return processed;
 }
 
 async function ensureSystemTasks(db: Db, reports: boolean) {
@@ -160,9 +169,22 @@ async function recoverRuns(db: Db) {
   for(const run of stale ?? []) {
     const status=recoveryDecision(run);
     await db.from('agent_task_runs').update({ status,lease_until:null,error:status==='queued'?'Recovered before provider work':'Interrupted — inspect results before retrying' }).eq('id',run.id).eq('status','running').lt('lease_until',new Date().toISOString());
+    // An interrupted event-plan step waits for the organizer instead of sitting on "working" forever.
+    if (status !== 'queued' && run.task_id) await db.from('tasks').update({ step_state:'failed', step_note:'Interrupted — check the event chat, then reply to retry', scheduled_for:null }).eq('id',run.task_id).not('step_key','is',null).eq('done',false);
   }
   // Do not resume browser submits: remote outcome is ambiguous after a lost connection.
   const { data: browsers } = await db.from('browser_sessions').select('id').eq('status','running').eq('agent_status','driving').lt('driver_lease',new Date().toISOString()).limit(30);
   for(const browser of browsers ?? []) await db.from('browser_sessions').update({ agent_status:'needs_user',submit_approved:false,driver_lease:null,handoff_reason:'Interrupted browser action — inspect the page before continuing; no automatic replay.' }).eq('id',browser.id);
   return { ok:true,recovered:stale?.length ?? 0 };
+}
+
+/** Called from the open app for the signed-in organization: keeps its event plan and due tasks moving. */
+export async function runOwnerDueWork(userId: string) {
+  const { supabaseAdmin: db } = await import('@/integrations/supabase/client.server');
+  const { data: paused } = await db.from('autopilot_state').select('paused_reason').eq('user_id', userId).maybeSingle();
+  if (paused?.paused_reason) return { processed: 0 };
+  try { const { advanceEventPlans } = await import('./eventPlan.server'); await advanceEventPlans(db, userId); } catch (e) { console.error('Event plan scan failed', e); }
+  const { error } = await db.rpc('enqueue_due_agent_tasks');
+  if (error) throw new Error('Could not enqueue due work');
+  return { processed: await processQueuedRuns(db, 'scheduler', 1, userId) };
 }

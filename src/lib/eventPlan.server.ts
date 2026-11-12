@@ -76,8 +76,10 @@ function eventInfo(goalTitle: string, date: string | null, venue: string | null 
  * Every scheduler run: for each event, works out every step's state from the saved plan and queues
  * every step that's ready (not only the first), so independent steps run in parallel.
  */
-export async function advanceEventPlans(admin: Db) {
-  const { data: threads } = await admin.from("threads").select("id, user_id, event_date").eq("kind", "event").order("updated_at", { ascending: false }).limit(300);
+export async function advanceEventPlans(admin: Db, onlyUserId?: string) {
+  let threadQuery = admin.from("threads").select("id, user_id, event_date").eq("kind", "event");
+  if (onlyUserId) threadQuery = threadQuery.eq("user_id", onlyUserId);
+  const { data: threads } = await threadQuery.order("updated_at", { ascending: false }).limit(300);
   if (!threads?.length) return;
   const byThread = new Map(threads.map((t) => [t.id, t]));
   const { data: goals } = await admin.from("tasks").select("id, user_id, title, due_date, thread_id").eq("kind", "goal").eq("done", false).in("thread_id", threads.map((t) => t.id));

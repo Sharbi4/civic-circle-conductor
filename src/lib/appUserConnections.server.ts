@@ -24,6 +24,12 @@ export async function getConnectionForUser(userId: string, connectorId: string) 
   return data ? { key: decryptConnectionKey(data.connection_key_ciphertext), accountName: data.account_name } : null;
 }
 
+/** Replaces a generic stored label ("Gmail account") with the real address once it can be read. */
+export async function rememberAccountName(userId: string, connectorId: string, accountName: string) {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  await supabaseAdmin.from("app_user_connections").update({ account_name: accountName }).eq("user_id", userId).eq("connector_id", connectorId).neq("account_name", accountName);
+}
+
 export async function deleteConnectionForUser(userId: string, connectorId: string) {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const { error } = await supabaseAdmin.from("app_user_connections").delete().eq("user_id", userId).eq("connector_id", connectorId);
