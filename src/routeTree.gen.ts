@@ -22,6 +22,7 @@ import { Route as AuthenticatedChatIndexRouteImport } from './routes/_authentica
 import { Route as AuthenticatedChatThreadIdRouteImport } from './routes/_authenticated/chat.$threadId'
 import { Route as AuthenticatedDocumentsIdRouteImport } from './routes/_authenticated/documents.$id'
 import { Route as AuthenticatedEventsGoalIdRouteImport } from './routes/_authenticated/events.$goalId'
+import { Route as ApiPublicInngestRouteImport } from './routes/api/public/inngest'
 import { Route as ApiOauthEventbriteReturnRouteImport } from './routes/api/oauth/eventbrite/return'
 import { Route as ApiOauthGoogle_mailReturnRouteImport } from './routes/api/oauth/google_mail/return'
 import { Route as ApiOauthLinkedinReturnRouteImport } from './routes/api/oauth/linkedin/return'
@@ -103,6 +104,11 @@ const AuthenticatedEventsGoalIdRoute =
     path: '/events/$goalId',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const ApiPublicInngestRoute = ApiPublicInngestRouteImport.update({
+  id: '/api/public/inngest',
+  path: '/api/public/inngest',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiOauthEventbriteReturnRoute =
   ApiOauthEventbriteReturnRouteImport.update({
     id: '/api/oauth/eventbrite/return',
@@ -191,6 +197,7 @@ export interface FileRoutesByFullPath {
   '/chat/$threadId': typeof AuthenticatedChatThreadIdRoute
   '/documents/$id': typeof AuthenticatedDocumentsIdRoute
   '/events/$goalId': typeof AuthenticatedEventsGoalIdRoute
+  '/api/public/inngest': typeof ApiPublicInngestRoute
   '/chat/': typeof AuthenticatedChatIndexRoute
   '/api/oauth/eventbrite/return': typeof ApiOauthEventbriteReturnRoute
   '/api/oauth/google_mail/return': typeof ApiOauthGoogle_mailReturnRoute
@@ -217,6 +224,7 @@ export interface FileRoutesByTo {
   '/chat/$threadId': typeof AuthenticatedChatThreadIdRoute
   '/documents/$id': typeof AuthenticatedDocumentsIdRoute
   '/events/$goalId': typeof AuthenticatedEventsGoalIdRoute
+  '/api/public/inngest': typeof ApiPublicInngestRoute
   '/chat': typeof AuthenticatedChatIndexRoute
   '/api/oauth/eventbrite/return': typeof ApiOauthEventbriteReturnRoute
   '/api/oauth/google_mail/return': typeof ApiOauthGoogle_mailReturnRoute
@@ -246,6 +254,7 @@ export interface FileRoutesById {
   '/_authenticated/chat/$threadId': typeof AuthenticatedChatThreadIdRoute
   '/_authenticated/documents/$id': typeof AuthenticatedDocumentsIdRoute
   '/_authenticated/events/$goalId': typeof AuthenticatedEventsGoalIdRoute
+  '/api/public/inngest': typeof ApiPublicInngestRoute
   '/_authenticated/chat/': typeof AuthenticatedChatIndexRoute
   '/api/oauth/eventbrite/return': typeof ApiOauthEventbriteReturnRoute
   '/api/oauth/google_mail/return': typeof ApiOauthGoogle_mailReturnRoute
@@ -275,6 +284,7 @@ export interface FileRouteTypes {
     | '/chat/$threadId'
     | '/documents/$id'
     | '/events/$goalId'
+    | '/api/public/inngest'
     | '/chat/'
     | '/api/oauth/eventbrite/return'
     | '/api/oauth/google_mail/return'
@@ -301,6 +311,7 @@ export interface FileRouteTypes {
     | '/chat/$threadId'
     | '/documents/$id'
     | '/events/$goalId'
+    | '/api/public/inngest'
     | '/chat'
     | '/api/oauth/eventbrite/return'
     | '/api/oauth/google_mail/return'
@@ -329,6 +340,7 @@ export interface FileRouteTypes {
     | '/_authenticated/chat/$threadId'
     | '/_authenticated/documents/$id'
     | '/_authenticated/events/$goalId'
+    | '/api/public/inngest'
     | '/_authenticated/chat/'
     | '/api/oauth/eventbrite/return'
     | '/api/oauth/google_mail/return'
@@ -354,6 +366,7 @@ export interface RootRouteChildren {
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   TermsRoute: typeof TermsRoute
   PIdRoute: typeof PIdRoute
+  ApiPublicInngestRoute: typeof ApiPublicInngestRoute
   ApiOauthEventbriteReturnRoute: typeof ApiOauthEventbriteReturnRoute
   ApiOauthGoogle_mailReturnRoute: typeof ApiOauthGoogle_mailReturnRoute
   ApiOauthLinkedinReturnRoute: typeof ApiOauthLinkedinReturnRoute
@@ -461,6 +474,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/events/$goalId'
       preLoaderRoute: typeof AuthenticatedEventsGoalIdRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/api/public/inngest': {
+      id: '/api/public/inngest'
+      path: '/api/public/inngest'
+      fullPath: '/api/public/inngest'
+      preLoaderRoute: typeof ApiPublicInngestRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/api/oauth/eventbrite/return': {
       id: '/api/oauth/eventbrite/return'
@@ -593,6 +613,7 @@ const rootRouteChildren: RootRouteChildren = {
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   TermsRoute: TermsRoute,
   PIdRoute: PIdRoute,
+  ApiPublicInngestRoute: ApiPublicInngestRoute,
   ApiOauthEventbriteReturnRoute: ApiOauthEventbriteReturnRoute,
   ApiOauthGoogle_mailReturnRoute: ApiOauthGoogle_mailReturnRoute,
   ApiOauthLinkedinReturnRoute: ApiOauthLinkedinReturnRoute,

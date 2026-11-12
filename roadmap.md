@@ -22,7 +22,8 @@
 - [x] Eventbrite connector: per-org OAuth connect flow (popup → encrypted token storage → "Eventbrite Agent" side chat); Connect/Disconnect in connectors panel. Civi creates real Eventbrite events (draft) after approval; attendee management still to build
 - [x] Live browser view — Civi opens real Browserbase sessions ([[browse:]] marker), live iframe card in chat with End session; Civi drives it itself (navigate, search, fill, submit after approval) via a step loop. Browserbase connection re-keyed to the upgraded account and verified live (session opened, Eventbrite navigated and driven). Sessions created with keepAlive so the browser survives between agent steps; End uses POST REQUEST_RELEASE (verified COMPLETED)
 - [ ] Eventbrite app registration: provide Application URL + OAuth Redirect URI values for both preview and published hosts; verify first real OAuth connect with corrected credentials
-- [ ] Scheduled agent tasks (5/15/30 min)
+- [x] Scheduled agent tasks (5/15/30 min)
+- [ ] Background job service (Inngest): Civi keeps working with the app closed, only for organizations with waiting work; quiet reviews/reports skip AI. Built and tested; live once published and synced.
 - [x] Six lead actions: Plan an Event, Social Outreach, Poll Your Community, Analyze Sentiment, Email Campaign, Phone Outreach — kickoff cards in chat empty state + full workflow guidance in the system prompt (lead action → task plan → execution tools)
 - [ ] Agent task plans: visible multi-step plan per objective with statuses the organizer can watch and redirect
 - [x] Resource directory: vendors/venues/partners saved via [[resource:]] markers from chat and Community Scout; browsable in the Scout panel

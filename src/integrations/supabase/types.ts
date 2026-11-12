@@ -1341,6 +1341,7 @@ export type Database = {
         Args: { p_kind: string; p_units?: number; p_user: string }
         Returns: boolean
       }
+      settle_quiet_reviews: { Args: never; Returns: number }
     }
     Enums: {
       [_ in never]: never
