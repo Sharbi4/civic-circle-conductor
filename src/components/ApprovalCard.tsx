@@ -1,3 +1,4 @@
+import { friendlyTimes } from "@/lib/friendlyTimes";
 import { useState, type ReactNode } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -133,7 +134,7 @@ export function ApprovalCard({ approval: a, onIgnore, extra, threadTitle, thread
           </p>
         )}
         {pending && <p className="mt-0.5 line-clamp-1 text-xs font-medium text-accent">{approvalAction(a.payload, a.action_type)}</p>}
-        {a.details && <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{a.details}</p>}
+        {a.details && <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{friendlyTimes(a.details)}</p>}
         {a.approval_mode === "always" && <p className="mt-1 text-[11px] text-muted-foreground">Always approved for this action and account</p>}
         {a.run_error && <p className="mt-1 text-xs text-destructive">{a.run_error}</p>}
       </div>
