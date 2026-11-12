@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import type React from "react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { MessageCircle, Plus, Plug, LogOut, Pin, Brain, Inbox, Megaphone, CalendarCheck, CreditCard, Sparkles, Check, X, Compass, Trash2, KeyRound, Mic, FileText, ImagePlus, BarChart3, Menu, ListChecks, UserCircle, ChevronDown, Loader2, CalendarPlus, CalendarHeart, Clock } from "lucide-react";
+import { MessageCircle, Plus, Plug, LogOut, Pin, Brain, Inbox, Megaphone, CalendarCheck, CreditCard, Sparkles, Check, X, Compass, Trash2, KeyRound, Mic, FileText, ImagePlus, BarChart3, Menu, ListChecks, UserCircle, ChevronDown, Loader2, CalendarPlus, CalendarHeart, Clock, Scale } from "lucide-react";
 import { PollsPanel } from "@/components/polls/PollsPanel";
 import { TasksPanel } from "@/components/tasks/TasksPanel";
 import { AccountPanel } from "@/components/account/AccountPanel";
@@ -120,6 +120,21 @@ function ChatLayout() {
   );
 }
 
+/** Marks a chat that has action(s) waiting on your decision. */
+function DecisionBadge({ count, className = "" }: { count: number; className?: string }) {
+  if (!count) return null;
+  return (
+    <span
+      title={`${count} decision${count === 1 ? "" : "s"} waiting on you in this chat`}
+      aria-label={`${count} decision${count === 1 ? "" : "s"} waiting in this chat`}
+      className={`inline-flex shrink-0 items-center gap-1 rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-semibold text-primary-foreground ${className}`}
+    >
+      <Scale className="h-3 w-3" />
+      {count > 1 ? <span>{count}</span> : null}
+    </span>
+  );
+}
+
 function Sidebar({ orgName, mobileOpen, onClose }: { orgName: string; mobileOpen: boolean; onClose: () => void }) {
   const threads = useThreads();
   const qc = useQueryClient();
@@ -134,6 +149,14 @@ function Sidebar({ orgName, mobileOpen, onClose }: { orgName: string; mobileOpen
     ...threads.data.filter((t) => isChatUnread(t.latest_assistant_at, t.last_read_at)).map((t) => `chat:${t.id}:${t.latest_assistant_at}`),
   ] : undefined;
   const main = threads.data?.find((t) => t.kind === "main");
+  // How many decisions are waiting inside each chat (unthreaded ones live in the main chat).
+  const pendingHere = new Map<string, number>();
+  for (const a of approvals.data ?? []) {
+    if (a.status !== "pending") continue;
+    const key = a.thread_id ?? main?.id;
+    if (!key) continue;
+    pendingHere.set(key, (pendingHere.get(key) ?? 0) + 1);
+  }
   const side = threads.data?.filter((t) => t.kind !== "main" && t.kind !== "event") ?? [];
   const events = threads.data?.filter((t) => t.kind === "event") ?? [];
   const eventCovers = useQuery({
@@ -270,7 +293,7 @@ function Sidebar({ orgName, mobileOpen, onClose }: { orgName: string; mobileOpen
                 params={{ threadId: main.id }}
                 className={`block rounded-2xl px-3 py-2.5 font-medium ${params.threadId === main.id ? "bg-sidebar-accent" : "hover:bg-sidebar-accent"}`}
               >
-                Main chat {params.threadId !== main.id && isChatUnread(main.latest_assistant_at, main.last_read_at) && <span aria-label="Unread messages" className="ml-2 inline-block h-2 w-2 rounded-full bg-primary" />}
+                Main chat <DecisionBadge count={pendingHere.get(main.id) ?? 0} className="ml-2" />{params.threadId !== main.id && isChatUnread(main.latest_assistant_at, main.last_read_at) && <span aria-label="Unread messages" className="ml-2 inline-block h-2 w-2 rounded-full bg-primary" />}
               </Link>
             )}
             <button onClick={newEvent} className="mt-3 flex w-full items-center gap-2 rounded-2xl bg-primary px-3 py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90">
@@ -290,6 +313,7 @@ function Sidebar({ orgName, mobileOpen, onClose }: { orgName: string; mobileOpen
                           <span className="block truncate">{t.title}</span>
                           <span className="block text-xs text-muted-foreground">{t.event_date ? new Date(t.event_date + "T12:00:00").toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) : "Date TBD"}</span>
                         </span>
+                        <DecisionBadge count={pendingHere.get(t.id) ?? 0} />
                         {params.threadId !== t.id && isChatUnread(t.latest_assistant_at, t.last_read_at) && <span aria-label="Unread messages" className="h-2 w-2 shrink-0 rounded-full bg-primary" />}
                       </Link>
                       <button title="Delete event chat" aria-label="Delete event chat" onClick={() => deleteChat(t.id, t.title)} className="mr-2 rounded-full p-1.5 opacity-60 hover:bg-background/60 group-hover:opacity-100"><Trash2 className="h-3.5 w-3.5" /></button>
@@ -309,6 +333,7 @@ function Sidebar({ orgName, mobileOpen, onClose }: { orgName: string; mobileOpen
                     {t.pinned && <Pin className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />}
                     {t.kind === "scheduled" && <Clock className="h-3.5 w-3.5 shrink-0 text-primary" aria-label="Scheduled task" />}
                     <span className="truncate">{t.title}</span>
+                    <DecisionBadge count={pendingHere.get(t.id) ?? 0} />
                     {params.threadId !== t.id && isChatUnread(t.latest_assistant_at, t.last_read_at) && <span aria-label="Unread messages" className="h-2 w-2 shrink-0 rounded-full bg-primary" />}
                   </Link>
                   <div className="flex shrink-0 gap-0.5 pr-2 opacity-60 transition-opacity group-hover:opacity-100">
