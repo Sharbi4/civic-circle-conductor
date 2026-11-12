@@ -286,7 +286,9 @@ export async function executeLinkedinApproval(supabase: SupabaseClient<Database>
           }),
         });
     if (!res.ok) await fail(res, "publish the post");
-    const postId = res.headers.get("x-restli-id") ?? "";
+    // The post's id comes back in a header (Posts API) or the body (UGC API); keep it so the post gets a View link.
+    let postId = res.headers.get("x-restli-id") ?? res.headers.get("x-linkedin-id") ?? "";
+    if (!postId) { try { const b = (await res.json()) as { id?: unknown }; if (typeof b.id === "string") postId = b.id; } catch { /* empty body */ } }
     await say(`✅ Posted to LinkedIn${imageUrn ? " with photo" : ""}${asPage ? " from your company page" : ""}${postId ? ` — [view it](https://www.linkedin.com/feed/update/${postId})` : ""}.\n\n> ${p.text.slice(0, 280).replace(/\n/g, "\n> ")}`);
     return { threadId, ok: true, url: postId ? `https://www.linkedin.com/feed/update/${postId}` : undefined };
 }

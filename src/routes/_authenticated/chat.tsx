@@ -306,7 +306,7 @@ function Sidebar({ orgName, mobileOpen, onClose }: { orgName: string; mobileOpen
           <LinkedInAvatar />
         </Button>
         <div className="flex-1" />
-        <button aria-label="Sign out" onClick={() => supabase.auth.signOut()} className="flex h-11 w-11 items-center justify-center rounded-2xl text-muted-foreground hover:bg-secondary">
+        <button aria-label="Sign out" onClick={() => supabase.auth.signOut({ scope: "local" })} className="flex h-11 w-11 items-center justify-center rounded-2xl text-muted-foreground hover:bg-secondary">
           <LogOut className="h-5 w-5" />
         </button>
       </nav>

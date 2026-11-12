@@ -93,9 +93,10 @@
 - [x] Skipped steps show "Skipped — draft ready" in What Civi has done; View links for X and LinkedIn posts
 
 ## Test round 3 (Elle, Nov 12)
-- [ ] Stop sign-outs mid-session (shared demo account: signing out anywhere ended every device's session)
-- [ ] Browser research keeps per-page notes (name, URL, prices/minimums, capacity, contact); summary uses them, price range per vendor
-- [ ] After a conflict (e.g. venue closed on event day), lead with alternatives: venue open that day or nearby date/time
-- [ ] Save venue phone/email to event Contacts; save every vendor asked for
-- [ ] LinkedIn post View link; investigate failed "Reminder" Gmail draft on the demo meetup
-- [ ] Demo account: keep today's town hall as second demo event, delete yesterday's
+- [x] Stop sign-outs mid-session (shared demo account: signing out anywhere ended every device's session)
+- [x] Browser research keeps per-page notes (name, URL, prices/minimums, capacity, contact); summary uses them, price range per vendor
+- [x] After a conflict (e.g. venue closed on event day), lead with alternatives: venue open that day or nearby date/time
+- [x] Save venue phone/email to event Contacts; save every vendor asked for
+- [x] Failed "Reminder" Gmail draft (expired Gmail access, from a test) cleared; future LinkedIn posts keep their link
+- [ ] View link for the earlier demo LinkedIn post — needs the post's web address (LinkedIn doesn't let the app look it up)
+- [x] Demo account: keep today's town hall as second demo event, delete yesterday's

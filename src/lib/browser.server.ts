@@ -3,8 +3,10 @@ import { VENDOR_SCOUT_BROWSER } from "@/lib/eventPlaybook";
 import { browserNeedsProgressReport, searchFallbackUrl, isFacebookSecurityCheck, repeatedStep } from "./browserProgress.shared";
 import { goalSummaryRules, progressInstructions, fallbackSummary } from "./researchGoal.shared";
 import { isDocumentUrl } from "./documentRead.shared";
-import { parseEventPageMarkers, stripEventPageMarkers, type PagePerson } from "./eventPage.shared";
-import { needsCallFollowUp, CALL_FOLLOW_UP_NOTE } from "./callFollowUp.shared";
+import { parseEventPageMarkers, stripEventPageMarkers, venueAsContact, type PagePerson } from "./eventPage.shared";
+import { needsCallFollowUp, CALL_FOLLOW_UP_NOTE, hasEventConflict, CONFLICT_FIRST_NOTE } from "./callFollowUp.shared";
+import { researchKind } from "./researchGoal.shared";
+import { pageFactLines, pageNote } from "./pageNotes.shared";
 import { isLinkedInBrowserTask, isLinkedInUrl, LINKEDIN_API_ONLY } from "./linkedinRouting.shared";
 const GATEWAY = "https://connector-gateway.lovable.dev/udc_browserbase";
 
@@ -179,6 +181,7 @@ export async function runAgentStep(supabase: any, userId: string, sessionRowId: 
     const progressReport = browserNeedsProgressReport(steps);
     if (progressReport) await finishApproval('needs_review', 'Research checkpoint reached; completion is not confirmed.');
 
+    let pageNoteText: string | null = null;
     try {
       const result = await withPage(row.connect_url, async (page) => {
         let state = await snapshot(page);
@@ -209,6 +212,9 @@ export async function runAgentStep(supabase: any, userId: string, sessionRowId: 
             if (doc) state = { ...state, text: `${doc.kind} contents: ${doc.text.slice(0, 12000)}` };
           }
         }
+        // Facts lines come from the whole page; the model sees them, and they become this page's note.
+        const facts = pageFactLines(state.fullText ?? "");
+        const modelState = { ...state, fullText: undefined, ...(facts.length ? { facts } : {}) };
         try {
           const host = new URL(state.url).hostname.replace(/^www\./, "");
           await supabase.from("browser_sessions").update({ site: host, signed_in: !state.hasPassword && !/login|checkpoint|two_step/.test(state.url) }).eq("id", row.id);
@@ -229,6 +235,7 @@ export async function runAgentStep(supabase: any, userId: string, sessionRowId: 
             "Reply with ONLY one JSON object. Allowed actions:",
             '{"action":"navigate","url":"https://..."} | {"action":"click","index":N} | {"action":"type","index":N,"text":"..."} | {"action":"select","index":N,"value":"..."} | {"action":"press_enter","index":N} | {"action":"scroll"} | {"action":"login","username_index":N,"password_index":N} | {"action":"submit","index":N} | {"action":"handoff","reason":"what the organizer needs to do"} | {"action":"request_approval","title":"...","details":"..."} | {"action":"done","summary":"markdown summary of what you found/did, with links"}',
             "Add a short \"reason\" field to every action. Use element indexes from the page state only.",
+            "PAGE NOTES: when the current page is relevant to the goal (a vendor, venue or business page), also add a \"page_notes\" field to your action: the business name, then exactly what this page shows for prices, packages, minimums, per-person rates, capacity, hours, phone, email and address (use the page's text and its 'facts' list). Steps starting 'Notes from' are your notes from pages you already left — they are your memory; use them in your summary, and use the URL in each note as that vendor's link (never a search-results link).",
             row.submit_approved
               ? "The organizer has APPROVED submitting. You may use submit on the final send/book/pay button."
               : "Never click a button that sends a message, posts, joins a group, books, registers, purchases or pays. When a form is filled and ready, use request_approval describing exactly what will be sent and to whom. Use plain click only for navigation, search and opening pages.",
@@ -249,12 +256,12 @@ export async function runAgentStep(supabase: any, userId: string, sessionRowId: 
             "ACT HUMAN-LIKE: browse the way a real person would. Scroll through pages instead of jumping straight to buttons, open and read posts before commenting or inviting, vary your path (search, scroll, open a profile, come back), and take it one considered action at a time — never fire off a rapid sequence of posts, joins or invites. In groups, read the rules and recent posts first so every interaction fits the conversation.",
             "DOCUMENTS: when a step note says you read a PDF or Word document, use its facts (capacity, fees, deposit, hours and closed days, rules, deadlines, contacts) in your work and summary, and call out every conflict with the event plainly (e.g. 'The venue is closed on Wednesdays — your event is Wednesday, Dec 9'). Never claim a document said something it didn't.",
             goalSummaryRules(goal),
-            ...(ev ? [`EVENT PAGE: this browser is working on the event "${ev.title}". At the end of your done summary add one marker per real record you found, so it is saved to the event page: [[event_vendor: {"name":"...","type":"...","url":"https://...","price_range":"as listed","phone":"...","email":"...","status":"suggested"}]] for each vendor, [[event_contact: {"name":"...","role":"...","phone":"...","email":"..."}]] for each named contact person, and [[event_venue: {"name":"...","address":"...","terms":"capacity, fees, deposit, hours, rules"}]] for a venue that fits. Real details you saw only; leave out unknown fields.`] : []),
+            ...(ev ? [`EVENT PAGE: this browser is working on the event "${ev.title}". At the end of your done summary add one marker per real record you found, so it is saved to the event page: [[event_vendor: {"name":"...","type":"...","url":"https://...","price_range":"as listed","phone":"...","email":"...","status":"suggested"}]] for each vendor, [[event_contact: {"name":"...","role":"...","phone":"...","email":"..."}]] for each named contact person, and [[event_venue: {"name":"...","address":"...","phone":"booking phone","email":"booking email","terms":"capacity, fees, deposit, hours, rules"}]] for a venue that fits. Add an event_vendor marker for EVERY vendor in your summary, with its price_range (as listed, or your rough estimate marked 'est.'). Real details you saw only; leave out unknown fields.`] : []),
             ...(progressReport ? [progressInstructions(goal)] : []),
           ].join("\n"),
           input: [{
             role: "user" as const,
-            content: `Goal: ${goal}\n\n${ev ? `Event: ${JSON.stringify(ev)}\n\n` : ""}Saved logins available for: ${savedSites}\n\nEarlier in this same browser (already done — don't redo, build on it):\n${earlier.map((s) => `- ${s.note}`).join("\n") || "(nothing yet)"}\n\nSteps so far on this goal:\n${current.map((s, i) => `${i + 1}. ${s.note}`).join("\n") || "(none)"}\n\nCurrent page state:\n${JSON.stringify(state)}${extra}`,
+            content: `Goal: ${goal}\n\n${ev ? `Event: ${JSON.stringify(ev)}\n\n` : ""}Saved logins available for: ${savedSites}\n\nEarlier in this same browser (already done — don't redo, build on it):\n${earlier.map((s) => `- ${s.note}`).join("\n") || "(nothing yet)"}\n\nSteps so far on this goal:\n${current.map((s, i) => `${i + 1}. ${s.note}`).join("\n") || "(none)"}\n\nCurrent page state:\n${JSON.stringify(modelState)}${extra}`,
           }],
         });
         const readAction = (r: Awaited<ReturnType<typeof ask>>) => {
@@ -265,10 +272,11 @@ export async function runAgentStep(supabase: any, userId: string, sessionRowId: 
         let action = readAction(await ask());
         const repeat = action && !progressReport ? repeatedStep(action as { action: string; url?: string; text?: string }, current.map((s) => s.note)) : null;
         if (repeat) action = readAction(await ask(`\n\nYou just proposed ${repeat} — that was already done on this goal. Pick a different action: open the most relevant result, form or PDF you already found, or finish with done.`)) ?? action;
+        pageNoteText = pageNote(state, (action as { page_notes?: unknown } | null)?.page_notes, facts, current.map((s) => String(s.note ?? "")));
         if (action?.action === "navigate") { const alt = searchFallbackUrl(action.url); if (alt) action = { ...action, url: alt }; }
         if (action?.action === "navigate" && isLinkedInUrl(action.url)) return { action: { action: "done", summary: LINKEDIN_API_ONLY } as AgentAction, note: "LinkedIn browser disabled" };
         if (progressReport && action?.action !== "done") action = readAction(await ask("\n\nYour browsing allowance is used up. Reply now with a done action that answers the goal from the steps and pages above.")) ?? action;
-        if (progressReport && action?.action !== "done") return { action: { action: "done", summary: fallbackSummary(goal, current.map((s) => String(s.note ?? ""))) } as AgentAction, note: "Research checkpoint" };
+        if (progressReport && action?.action !== "done") return { action: { action: "done", summary: fallbackSummary(goal, [...current.map((s) => String(s.note ?? "")), ...(pageNoteText ? [pageNoteText] : [])]) } as AgentAction, note: "Research checkpoint" };
         if (!action) return { action: null, note: "" };
         if (action.action === "submit" && !row.submit_approved) {
           return { action: { action: "request_approval", title: "Submit form", details: action.reason ?? goal } satisfies AgentAction as AgentAction, note: "" };
@@ -297,12 +305,14 @@ export async function runAgentStep(supabase: any, userId: string, sessionRowId: 
         return { action, note: shown };
       });
 
+      // Remember what this page showed before moving on, so later summaries still have it.
+      if (pageNoteText) steps.push({ action: "page", note: pageNoteText });
       const a = result.action;
       const docRead = "docNote" in result && result.docNote ? result as { docNote: string; conflicts: string[]; docUrl: string } : null;
       if (docRead?.conflicts.length) {
         let name = "this document";
         try { name = decodeURIComponent(new URL(docRead.docUrl).pathname.split("/").pop() || name); } catch { /* keep default */ }
-        await post(`⚠️ **Heads-up from [${name}](${docRead.docUrl})**\n\n${docRead.conflicts.map((c) => `- ${c}`).join("\n")}\n\nI'll keep this in mind for the plan.`);
+        await post(`⚠️ **Heads-up from [${name}](${docRead.docUrl})**\n\n${docRead.conflicts.map((c) => `- ${c}`).join("\n")}\n\nI'll plan around this — a venue that's open then, or a nearby date or time that works here.`);
       }
       if (!a && docRead) {
         await save({}, { action: "read", note: docRead.docNote });
@@ -347,6 +357,11 @@ export async function runAgentStep(supabase: any, userId: string, sessionRowId: 
         {
           // Research results for an event land on its event page too.
           const marks = parseEventPageMarkers(summary);
+          // Venue research that names a booking phone or email: keep it in Contacts even if the marker left it out.
+          if (marks.venue && !marks.venue.phone && !marks.venue.email && researchKind(goal) === "venue") {
+            const vc = venueAsContact({ ...marks.venue, terms: summary });
+            if (vc && !marks.contacts.some((c) => c.name.toLowerCase() === vc.name.toLowerCase())) marks.contacts.push(vc);
+          }
           const extra: PagePerson[] = vendors.filter((v) => v?.name && v.type !== "venue").slice(0, 10).map((v) => ({ name: v.name.slice(0, 120), role: v.details?.split("·")[0]?.trim().slice(0, 80) || undefined, url: v.url?.startsWith("https://") ? v.url : undefined, status: "suggested" }));
           marks.vendors = [...marks.vendors, ...extra.filter((x) => !marks.vendors.some((m) => m.name.toLowerCase() === x.name.toLowerCase()))].map((x) => Object.fromEntries(Object.entries(x).filter(([, v]) => v !== undefined)) as PagePerson);
           if (!goal.startsWith("NOTIFICATION CHECK")) {
@@ -388,7 +403,9 @@ export async function runAgentStep(supabase: any, userId: string, sessionRowId: 
             await runOrganizer(supabase, userId, {
               hidden: true,
               threadId: row.thread_id,
-              content: `[Research finished — continue automatically] Goal: ${goal}\n\nFindings:\n${cleanSummary.replace(/\[\[choices:[\s\S]*?\]\]/g, "").trim()}\n\nOnline booking details were not confirmed. Apply your phone-fallback rule now: summarize what was verified, and if the findings include the venue's official booking phone number from a cited source, propose the one-time approved availability call with the venue_call marker so it appears in Approvals. If no verified number was found, state exactly what is still missing. ${CALL_FOLLOW_UP_NOTE}`,
+              content: hasEventConflict(cleanSummary)
+                ? `[Research finished — continue automatically] Goal: ${goal}\n\nFindings:\n${cleanSummary.replace(/\[\[choices:[\s\S]*?\]\]/g, "").trim()}\n\n${CONFLICT_FIRST_NOTE}`
+                : `[Research finished — continue automatically] Goal: ${goal}\n\nFindings:\n${cleanSummary.replace(/\[\[choices:[\s\S]*?\]\]/g, "").trim()}\n\nOnline booking details were not confirmed. Apply your phone-fallback rule now: summarize what was verified, and if the findings include the venue's official booking phone number from a cited source, propose the one-time approved availability call with the venue_call marker so it appears in Approvals. If no verified number was found, state exactly what is still missing. ${CALL_FOLLOW_UP_NOTE}`,
             });
           } catch (e) { console.error("Call follow-up failed", e); }
         }

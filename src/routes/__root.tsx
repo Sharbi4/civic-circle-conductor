@@ -136,9 +136,16 @@ function RootComponent() {
   const router = useRouter();
 
   useEffect(() => {
-    const { data } = supabase.auth.onAuthStateChange((event) => {
+    // The auth library re-announces SIGNED_IN every time the tab regains focus; only a real change of
+    // account should re-check sign-in and refetch, or every tab switch risks a spurious trip to /auth.
+    let currentUser: string | null | undefined;
+    const { data } = supabase.auth.onAuthStateChange((event, session) => {
+      const uid = session?.user.id ?? null;
+      const same = uid === currentUser;
+      currentUser = uid;
       if (event === "SIGNED_OUT") resetLetterheadReminders(window.sessionStorage);
       if (event !== "SIGNED_IN" && event !== "SIGNED_OUT" && event !== "USER_UPDATED") return;
+      if (event === "SIGNED_IN" && same) return;
       router.invalidate();
       if (event !== "SIGNED_OUT") queryClient.invalidateQueries();
     });

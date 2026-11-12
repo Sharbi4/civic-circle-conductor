@@ -8,6 +8,8 @@ export type PageState = {
   elements: { i: number; tag: string; type?: string; label: string }[];
   hasPassword?: boolean;
   contentType?: string;
+  /** Whole page text with line breaks, for page notes only; never sent to the model. */
+  fullText?: string;
 };
 
 export type AgentAction =
@@ -36,7 +38,7 @@ const SNAPSHOT = `(() => {
     out.push({ i, tag: el.tagName.toLowerCase(), type: el.getAttribute('type') || undefined, label: String(lbl).replace(/\\s+/g,' ').trim().slice(0, 90) });
     if (++i >= 70) break;
   }
-  return { url: location.href, title: document.title, text: (document.body ? document.body.innerText : '').replace(/\\s+/g,' ').slice(0, 2000), elements: out, hasPassword: !!document.querySelector('input[type=password]'), contentType: document.contentType || '' };
+  return { url: location.href, title: document.title, text: (document.body ? document.body.innerText : '').replace(/\\s+/g,' ').slice(0, 3000), fullText: (document.body ? document.body.innerText : '').slice(0, 30000), elements: out, hasPassword: !!document.querySelector('input[type=password]'), contentType: document.contentType || '' };
 })()`;
 
 const el = (i: number) => `document.querySelector('[data-civi-idx="${Number(i)}"]')`;

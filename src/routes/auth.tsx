@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { ArrowRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -24,6 +24,13 @@ function AuthPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
+
+  // Still signed in (e.g. a brief network hiccup sent you here): go straight back to Civi.
+  useEffect(() => {
+    let live = true;
+    supabase.auth.getSession().then(({ data }) => { if (live && data.session) navigate({ to: "/chat", replace: true }); });
+    return () => { live = false; };
+  }, [navigate]);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();

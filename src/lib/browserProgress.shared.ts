@@ -2,7 +2,8 @@ export const BROWSER_STEP_LIMIT = 25;
 export function browserNeedsProgressReport(steps: Array<{ action: string }>): boolean {
   let start = 0;
   steps.forEach((step, index) => { if (step.action === "task") start = index + 1; });
-  return steps.length - start >= BROWSER_STEP_LIMIT;
+  // Page notes and document reads are memory, not browsing steps.
+  return steps.slice(start).filter((st) => st.action !== "page" && st.action !== "read").length >= BROWSER_STEP_LIMIT;
 }
 export const BROWSER_PROGRESS_INSTRUCTIONS = [
   "RESEARCH CHECKPOINT: Your browsing allowance is used up. Return ONLY a done action (no navigation, no takeover request). Write it as a decisive event planner, not a research log.",
