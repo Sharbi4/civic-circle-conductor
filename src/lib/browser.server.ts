@@ -7,6 +7,7 @@ import { parseEventPageMarkers, stripEventPageMarkers, venueAsContact, type Page
 import { needsCallFollowUp, CALL_FOLLOW_UP_NOTE, hasEventConflict, CONFLICT_FIRST_NOTE } from "./callFollowUp.shared";
 import { researchKind } from "./researchGoal.shared";
 import { pageFactLines, pageNote } from "./pageNotes.shared";
+import { browserLivenessFrom, type BrowserLiveness } from "./browserLiveness.shared";
 import { isLinkedInBrowserTask, isLinkedInUrl, LINKEDIN_API_ONLY } from "./linkedinRouting.shared";
 const GATEWAY = "https://connector-gateway.lovable.dev/udc_browserbase";
 
@@ -35,6 +36,27 @@ export async function bbRequest(
     throw new Error(`Browser service error [${res.status}]`);
   }
   return res.json();
+}
+
+/** Asks Browserbase whether a session is still open. Network or gateway trouble is "unknown", never "closed". */
+export async function providerSessionLiveness(sessionId: string, lovableKey: string, connKey: string): Promise<BrowserLiveness> {
+  let res: Response;
+  try {
+    res = await fetch(`${GATEWAY}/v1/sessions/${encodeURIComponent(sessionId)}`, {
+      method: "GET",
+      headers: { Authorization: `Bearer ${lovableKey}`, "X-Connection-Api-Key": connKey },
+    });
+  } catch (e) {
+    console.error("Browserbase session check unreachable:", e instanceof Error ? e.message : e);
+    return browserLivenessFrom(null);
+  }
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    if (res.status !== 404) console.error(`Browserbase session check failed [${res.status}]: ${body.slice(0, 300)}`);
+    return browserLivenessFrom(res.status);
+  }
+  const json = (await res.json().catch(() => null)) as { status?: unknown } | null;
+  return browserLivenessFrom(res.status, json?.status);
 }
 
 /**

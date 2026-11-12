@@ -78,6 +78,30 @@ export const endBrowserSession = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+/** Checks with Browserbase whether this chat's browser is still open; closed sessions are marked ended. */
+export const checkBrowserSession = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({ sessionRowId: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }): Promise<{ liveness: "alive" | "closed" | "unknown" }> => {
+    const { supabase } = context;
+    const { data: row, error } = await supabase
+      .from("browser_sessions").select("id, session_id, status").eq("id", data.sessionRowId).maybeSingle();
+    if (error || !row) throw new Error("Browser session not found");
+    if (row.status !== "running") return { liveness: "closed" };
+    const lovableKey = process.env["LOVABLE_API_KEY"];
+    const connKey = process.env["UDC_BROWSERBASE_API_KEY"];
+    if (!lovableKey || !connKey) return { liveness: "unknown" };
+    const { providerSessionLiveness } = await import("./browser.server");
+    const liveness = await providerSessionLiveness(row.session_id, lovableKey, connKey);
+    if (liveness === "closed") {
+      const { error: upErr } = await supabase.from("browser_sessions")
+        .update({ status: "ended", ended_at: new Date().toISOString() })
+        .eq("id", row.id).eq("status", "running");
+      if (upErr) console.error("Couldn't mark closed browser ended:", upErr.message);
+    }
+    return { liveness };
+  });
+
 /** Runs ONE step of Civi driving the browser toward the session's goal. The card calls it in a loop. */
 export const browserAgentStep = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])

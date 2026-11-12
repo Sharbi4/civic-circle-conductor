@@ -11,7 +11,8 @@ import { ArrowUp, ImagePlus, X, CalendarHeart, ExternalLink, Mail, Megaphone, Mo
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { sendOrganizerMessage } from "@/lib/organizer.functions";
-import { endBrowserSession, browserAgentStep, setBrowserDriving, startFacebookSetup } from "@/lib/browser.functions";
+import { endBrowserSession, browserAgentStep, setBrowserDriving, startFacebookSetup, checkBrowserSession } from "@/lib/browser.functions";
+import { showLiveBrowser, awaitingBrowserCheck, closedBrowserMessage } from "@/lib/browserLiveness.shared";
 import { useThreads, useOrg } from "./chat";
 import { isScoutBriefing } from "@/lib/discovery.shared";
 import { isHiddenTurn, hiddenTurnLabel } from "@/lib/chatVisibility.shared";
@@ -184,7 +185,28 @@ function BrowserCard({ sessionRowId, task }: { sessionRowId: string; task: strin
 
   // The same browser can be handed new tasks; show the one it's working on now.
   const title = taskTitle(session.data?.goal) || task;
-  const running = session.data?.status === "running" && session.data.live_url;
+  const check = useServerFn(checkBrowserSession);
+  // Browserbase can close a session on its own (time limit, lost connection); ask it every 30s and when the tab regains focus.
+  const rowRunning = session.data?.status === "running";
+  const alive = useQuery({
+    queryKey: ["browser_alive", sessionRowId],
+    queryFn: async () => {
+      const r = await check({ data: { sessionRowId } });
+      if (r.liveness === "closed") {
+        qc.invalidateQueries({ queryKey: ["browser_session", sessionRowId] });
+        qc.invalidateQueries({ queryKey: ["pinned_browser"] });
+      }
+      return r.liveness;
+    },
+    enabled: rowRunning,
+    refetchInterval: (q) => (q.state.data === "closed" ? false : 30_000),
+    refetchOnWindowFocus: "always",
+    retry: false,
+  });
+  // A failed check call counts as "unknown": never end or hide a session just because we couldn't ask.
+  const liveness = alive.isError ? "unknown" : alive.data;
+  const running = showLiveBrowser(session.data, liveness);
+  const checking = awaitingBrowserCheck(session.data, liveness);
   const agent = session.data?.agent_status ?? "idle";
   const [showSteps, setShowSteps] = useState(false);
   const [frameH, setFrameH] = useState(380);
@@ -367,11 +389,24 @@ function BrowserCard({ sessionRowId, task }: { sessionRowId: string; task: strin
               <span className="shrink-0 text-[10px] uppercase tracking-wide">View all</span>
             </button>
           )}
+        </>
+      ) : checking ? (
+        <div className="flex items-center gap-2 border-t px-4 py-4 text-sm text-muted-foreground">
+          <Loader2 className="h-4 w-4 animate-spin" /> Connecting to the live browser…
+        </div>
+      ) : session.data ? (
+        <div className="space-y-3 border-t px-4 py-4">
+          <p className="text-sm text-muted-foreground">{closedBrowserMessage(session.data.agent_status)}</p>
+          {steps.length > 0 && (
+            <Button size="sm" variant="outline" onClick={() => setShowSteps(true)}>See what Civi did</Button>
+          )}
+        </div>
+      ) : null}
           {showSteps && (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/40 p-4 backdrop-blur-sm" onClick={() => setShowSteps(false)}>
               <div className="relative max-h-[80vh] w-full max-w-lg overflow-hidden rounded-2xl border bg-card/85 shadow-soft backdrop-blur-md" onClick={(e) => e.stopPropagation()}>
                 <div className="flex items-center justify-between border-b px-4 py-3">
-                  <p className="text-sm font-semibold">What Civi is doing</p>
+                  <p className="text-sm font-semibold">{running ? "What Civi is doing" : "What Civi did"}</p>
                   <button onClick={() => setShowSteps(false)} aria-label="Close" className="rounded-full p-1 hover:bg-secondary"><X className="h-4 w-4" /></button>
                 </div>
                 <ol className="max-h-[65vh] space-y-1.5 overflow-y-auto px-4 py-3 text-xs text-muted-foreground">
@@ -382,10 +417,6 @@ function BrowserCard({ sessionRowId, task }: { sessionRowId: string; task: strin
               </div>
             </div>
           )}
-        </>
-      ) : (
-        <p className="border-t px-4 py-3 text-sm text-muted-foreground">This browser session has ended.</p>
-      )}
       <Dialog open={!!showFbSetup} onOpenChange={(o) => { if (!o) setFbDismissed(true); }}>
         <DialogContent>
           <DialogHeader>
