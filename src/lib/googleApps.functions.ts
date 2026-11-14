@@ -35,6 +35,10 @@ export const startGoogleAppConnect = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) => z.object({ connectorId: appId, origin: z.string().optional() }).parse(d))
   .handler(async ({ data, context }) => {
+    const { googleConnectAllowed, GOOGLE_CONNECT_LOCKED_MESSAGE } = await import("@/lib/googleAccess.shared");
+    const email = typeof context.claims?.email === "string" ? context.claims.email : null;
+    if (!googleConnectAllowed(email, process.env["GOOGLE_PREVIEW_EMAILS"], process.env["GOOGLE_OAUTH_VERIFIED"]))
+      throw new Error(GOOGLE_CONNECT_LOCKED_MESSAGE);
     const cfg = GOOGLE_APPS[data.connectorId];
     const clientKey = process.env[cfg.env];
     if (!clientKey) throw new Error("This Google app isn't set up yet.");
@@ -65,6 +69,15 @@ export const completeGoogleAppConnect = createServerFn({ method: "POST" })
     const accountName = acct.name ?? "Google account";
     await saveConnectionKeyForUser(context.userId, connectorId, connectionAPIKey, accountName);
     return { accountName };
+  });
+
+/** Whether this user may connect Gmail, Calendar or Drive yet (Google verification gate). */
+export const getGoogleConnectAccess = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { googleConnectAllowed } = await import("@/lib/googleAccess.shared");
+    const email = typeof context.claims?.email === "string" ? context.claims.email : null;
+    return { allowed: googleConnectAllowed(email, process.env["GOOGLE_PREVIEW_EMAILS"], process.env["GOOGLE_OAUTH_VERIFIED"]) };
   });
 
 export const getGoogleAppStatus = createServerFn({ method: "GET" })

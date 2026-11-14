@@ -4,12 +4,11 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 const GATEWAY = "https://connector-gateway.lovable.dev";
+// Least privilege for Google verification: gmail.modify alone covers reading, drafting, sending and
+// labeling/archiving. Never add gmail.readonly/send/compose alongside it, or full mail access.
 export const GMAIL_SCOPES = [
   "https://www.googleapis.com/auth/userinfo.email",
   "https://www.googleapis.com/auth/userinfo.profile",
-  "https://www.googleapis.com/auth/gmail.readonly",
-  "https://www.googleapis.com/auth/gmail.send",
-  "https://www.googleapis.com/auth/gmail.compose",
   "https://www.googleapis.com/auth/gmail.modify",
 ];
 
@@ -17,6 +16,10 @@ export const startGmailConnect = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: { origin?: string } | undefined) => z.object({ origin: z.string().optional() }).parse(d ?? {}))
   .handler(async ({ data, context }) => {
+    const { googleConnectAllowed, GOOGLE_CONNECT_LOCKED_MESSAGE } = await import("@/lib/googleAccess.shared");
+    const email = typeof context.claims?.email === "string" ? context.claims.email : null;
+    if (!googleConnectAllowed(email, process.env["GOOGLE_PREVIEW_EMAILS"], process.env["GOOGLE_OAUTH_VERIFIED"]))
+      throw new Error(GOOGLE_CONNECT_LOCKED_MESSAGE);
     const clientKey = process.env["GOOGLE_MAIL_APP_USER_CONNECTOR_CLIENT_API_KEY"];
     if (!clientKey) throw new Error("Gmail isn't set up yet.");
     const request = getRequest();

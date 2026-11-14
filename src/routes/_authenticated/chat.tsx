@@ -41,7 +41,7 @@ import { runOnboardingResearch, scanOrgProfile } from "@/lib/research.functions"
 import { transcribeSpeech } from "@/lib/voice.functions";
 import { writeAgentWelcome } from "@/lib/suggestions.functions";
 import { startXConnect, completeXConnect, getXStatus, disconnectX, runXApproval, X_WELCOME } from "@/lib/x.functions";
-import { startGoogleAppConnect, completeGoogleAppConnect, getGoogleAppStatus, disconnectGoogleApp } from "@/lib/googleApps.functions";
+import { startGoogleAppConnect, completeGoogleAppConnect, getGoogleAppStatus, disconnectGoogleApp, getGoogleConnectAccess } from "@/lib/googleApps.functions";
 import { startGmailConnect, completeGmailConnect, getGmailStatus, disconnectGmail } from "@/lib/gmail.functions";
 import { runFacebookApproval, startBrowserSession } from "@/lib/browser.functions";
 import { SiFacebook, SiNextdoor, SiX } from "react-icons/si";
@@ -865,11 +865,21 @@ function XConnectorRow() {
   );
 }
 
+/** Google verification gate: until approval, only test accounts see Connect for Gmail, Calendar and Drive. */
+function useGoogleConnectAccess() {
+  return useQuery({ queryKey: ["google-connect-access"], queryFn: () => getGoogleConnectAccess(), staleTime: 600_000 });
+}
+
+function GoogleComingSoon() {
+  return <span title="Google connections are opening soon" className="rounded-full bg-secondary px-2 py-0.5 text-xs text-muted-foreground">Coming soon</span>;
+}
+
 function GmailConnectorRow() {
   const qc = useQueryClient();
   const navigate = useNavigate();
   const [busy, setBusy] = useState(false);
   const status = useQuery({ queryKey: ["gmail-status"], queryFn: () => getGmailStatus(), staleTime: 300_000 });
+  const access = useGoogleConnectAccess();
 
   function waitForOAuth(popup: Window) {
     return new Promise<string>((resolve, reject) => {
@@ -947,10 +957,12 @@ function GmailConnectorRow() {
     <div className="rounded-2xl px-3 py-2.5 hover:bg-sidebar-accent">
       <div className="flex items-center justify-between">
         <span>Gmail</span>
-        {status.isLoading ? (
+        {status.isLoading || access.isLoading ? (
           <span className="rounded-full bg-secondary px-2 py-0.5 text-xs text-muted-foreground">…</span>
         ) : connected ? (
           <span className="badge-premium rounded-full px-2.5 py-0.5 text-xs font-semibold">Connected</span>
+        ) : !access.data?.allowed ? (
+          <GoogleComingSoon />
         ) : (
           <Button size="sm" variant="outline" disabled={busy} onClick={connect} className="h-7 rounded-full px-3 text-xs">
             {busy ? "Connecting…" : "Connect"}
@@ -974,6 +986,7 @@ function GoogleAppConnectorRow({ connectorId, name }: { connectorId: "google_cal
   const [busy, setBusy] = useState(false);
   const key = ["google-app-status", connectorId];
   const status = useQuery({ queryKey: key, queryFn: () => getGoogleAppStatus({ data: { connectorId } }), staleTime: 300_000 });
+  const access = useGoogleConnectAccess();
 
   function waitForOAuth(popup: Window) {
     return new Promise<string | null>((resolve, reject) => {
@@ -1037,17 +1050,19 @@ function GoogleAppConnectorRow({ connectorId, name }: { connectorId: "google_cal
     <div className="rounded-2xl px-3 py-2.5 hover:bg-sidebar-accent">
       <div className="flex items-center justify-between">
         <span>{name}</span>
-        {status.isLoading ? (
+        {status.isLoading || access.isLoading ? (
           <span className="rounded-full bg-secondary px-2 py-0.5 text-xs text-muted-foreground">…</span>
         ) : connected ? (
           <span className="badge-premium rounded-full px-2.5 py-0.5 text-xs font-semibold">Connected</span>
+        ) : !access.data?.allowed ? (
+          <GoogleComingSoon />
         ) : (
           <Button size="sm" variant="outline" disabled={busy} onClick={connect} className="h-7 rounded-full px-3 text-xs">
             {busy ? "Connecting…" : status.data?.reconnectRequired ? "Reconnect" : "Connect"}
           </Button>
         )}
       </div>
-      {status.data?.reconnectRequired && <p className="mt-1 text-xs text-muted-foreground">Your {name} access needs to be renewed.</p>}
+      {status.data?.reconnectRequired && access.data?.allowed && <p className="mt-1 text-xs text-muted-foreground">Your {name} access needs to be renewed.</p>}
       {connected && (
         <div className="mt-1.5 flex items-center justify-between text-xs text-muted-foreground">
           <span className="truncate">{status.data?.accountName}</span>

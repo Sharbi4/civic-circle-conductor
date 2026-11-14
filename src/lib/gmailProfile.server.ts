@@ -6,7 +6,7 @@ export async function readGmailProfile(connectionAPIKey: string, request: Profil
     connectionAPIKey,
     connectorId: 'google_mail',
     path: '/gmail/v1/users/me/profile',
-    requiredScopes: ['https://www.googleapis.com/auth/gmail.readonly'],
+    requiredScopes: ['https://www.googleapis.com/auth/gmail.modify'],
   });
   if (!response.ok) {
     console.warn('Gmail profile unavailable', response.status);

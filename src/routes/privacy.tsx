@@ -61,7 +61,7 @@ const COLLECTED = [
   },
   {
     title: "Connected platform accounts",
-    body: "For each platform you connect (Eventbrite, LinkedIn, X, Nextdoor), the account name and an encrypted access token that lets Civi act on your behalf.",
+    body: "For each platform you connect (Eventbrite, LinkedIn, X, Nextdoor, Gmail, Google Calendar, Google Drive), the account name and an encrypted access token that lets Civi act on your behalf. Google data is covered in detail in section 5.",
   },
   {
     title: "Saved logins for the live browser",
@@ -84,7 +84,7 @@ const COLLECTED = [
 const SHARED_WITH = [
   {
     name: "AI model providers",
-    body: "Generate Civi's replies, plans and event images. Your organization's context is sent so the output fits your mission.",
+    body: "Generate Civi's replies, plans and event images. Your organization's context is sent so the output fits your mission. They process it only to run Civi Meet for you, and Google user data sent to them is not used to train their models.",
   },
   {
     name: "Browserbase",
@@ -101,6 +101,10 @@ const SHARED_WITH = [
   {
     name: "The platforms you connect",
     body: "Eventbrite, LinkedIn, X, Nextdoor and Facebook receive what is needed to publish or act there, under your account and only after your approval.",
+  },
+  {
+    name: "Lovable (our app platform and connector gateway)",
+    body: "Hosts the app, routes requests to AI models, and securely stores the access tokens for the Google, X and other accounts you connect, so Civi can act only where you've allowed it.",
   },
   {
     name: "Our hosting and database provider",
@@ -126,7 +130,7 @@ function PrivacyPage() {
       </header>
 
       <main className="relative mx-auto w-full max-w-3xl px-6 pb-32 md:px-0">
-        <p className="text-sm text-muted-foreground">Effective November 10, 2026</p>
+        <p className="text-sm text-muted-foreground">Effective November 14, 2026</p>
         <h1 className="mt-3 font-display text-5xl font-semibold tracking-tight md:text-6xl">Privacy Policy</h1>
         <p className="mt-6 text-lg text-muted-foreground">
           Civi Meet is an AI organizer for nonprofits, campaigns and community groups. This policy explains what we
@@ -217,8 +221,105 @@ function PrivacyPage() {
           </div>
         </section>
 
+        <section id="google-user-data" className="mt-16 scroll-mt-8">
+          <h2 className="font-display text-2xl font-semibold">5. Google user data</h2>
+          <div className="mt-4 space-y-4 text-muted-foreground">
+            <p>
+              If you connect Gmail, Google Calendar or Google Drive, Civi Meet accesses only what the features you use
+              need, and only after you grant access on Google's consent screen.
+            </p>
+            <div>
+              <h3 className="font-semibold text-foreground">What we access</h3>
+              <ul className="mt-2 list-disc space-y-1.5 pl-5">
+                <li>
+                  <span className="font-medium text-foreground">Gmail</span> (<code>gmail.modify</code>): when you ask
+                  Civi about your email, it reads the sender, subject, date and a short preview of recent messages so it
+                  can summarize them and draft replies. It saves drafts, sends emails you approve, and labels, marks read
+                  or archives messages when you ask. Civi never permanently deletes email.
+                </li>
+                <li>
+                  <span className="font-medium text-foreground">Google Calendar</span> (<code>calendar.events</code>):
+                  reads your upcoming events to avoid conflicts, and creates, updates or cancels events you approve.
+                </li>
+                <li>
+                  <span className="font-medium text-foreground">Google Drive</span> (<code>drive.file</code>): creates
+                  and edits only the documents Civi makes for you or files you choose to use with Civi Meet. We cannot
+                  see the rest of your Drive.
+                </li>
+                <li>Your Google account email address and name, to show which account is connected.</li>
+              </ul>
+            </div>
+            <div>
+              <h3 className="font-semibold text-foreground">How we use it</h3>
+              <p className="mt-2">
+                Google user data is used only to provide and improve the features you see in Civi Meet. It is never used
+                for advertising, never sold, never used for credit or lending decisions, and never used to build
+                products or shared knowledge for other organizations. People at Civi Meet do not read it, except with
+                your permission, for security or legal reasons, or when it is needed to operate the service.
+              </p>
+            </div>
+            <div>
+              <h3 className="font-semibold text-foreground">Who it is shared with</h3>
+              <p className="mt-2">
+                To do the work you ask for, the relevant parts are sent to the AI model providers that write Civi's
+                replies, through our app platform, and our connector gateway stores your Google access token securely.
+                These providers process it only to run Civi Meet for you. We do not transfer Google user data to anyone
+                else, except when required by law or with your explicit consent.
+              </p>
+            </div>
+            <div>
+              <h3 className="font-semibold text-foreground">AI and model training</h3>
+              <p className="mt-2">
+                We do not use Google user data, raw or aggregated, to develop, improve or train AI or machine-learning
+                models beyond your own organization's personalized experience, and we do not transfer it to third-party
+                AI services that use it to train their models.
+              </p>
+            </div>
+            <div>
+              <h3 className="font-semibold text-foreground">How it is protected</h3>
+              <p className="mt-2">
+                Data is encrypted in transit and at rest. Access tokens are stored encrypted, and each organization's
+                records can be seen only by its own members. Sends, calendar changes and document edits wait for your
+                approval.
+              </p>
+            </div>
+            <div>
+              <h3 className="font-semibold text-foreground">Retention and deletion</h3>
+              <p className="mt-2">
+                Civi reads Gmail, Calendar and Drive content live when a task needs it and does not keep separate
+                copies. What appears in your chats, such as Civi's summaries and drafts, stays until you delete it.
+                Disconnecting a Google service in Connectors revokes our access and deletes the stored token
+                immediately. Deleting your organization removes your chats, memories and connection records (see{" "}
+                <a href="/data-deletion" className="text-primary underline">data deletion</a>). You can also
+                remove access at any time at{" "}
+                <a href="https://myaccount.google.com/permissions" className="text-primary underline" target="_blank" rel="noreferrer">
+                  myaccount.google.com/permissions
+                </a>
+                .
+              </p>
+            </div>
+            <div className="rounded-2xl border bg-secondary/40 p-4">
+              <h3 className="font-semibold text-foreground">Limited Use</h3>
+              <p className="mt-2">
+                Civi Meet's use and transfer to any other app of information received from Google APIs will adhere to
+                the{" "}
+                <a
+                  href="https://developers.google.com/terms/api-services-user-data-policy"
+                  className="text-primary underline"
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Google API Services User Data Policy
+                </a>
+                , including the Limited Use requirements. The use of raw or derived user data received from Workspace
+                APIs will adhere to the Google User Data Policy, including the Limited Use requirements.
+              </p>
+            </div>
+          </div>
+        </section>
+
         <section className="mt-16">
-          <h2 className="font-display text-2xl font-semibold">5. Approvals and your control</h2>
+          <h2 className="font-display text-2xl font-semibold">6. Approvals and your control</h2>
           <p className="mt-4 text-muted-foreground">
             Posting, joining groups, creating or publishing events, bookings, negotiations and payments are prepared by
             Civi and held until you approve them. You choose how much Civi starts on its own, and you can take over the
@@ -227,7 +328,7 @@ function PrivacyPage() {
         </section>
 
         <section className="mt-16">
-          <h2 className="font-display text-2xl font-semibold">6. How long we keep it</h2>
+          <h2 className="font-display text-2xl font-semibold">7. How long we keep it</h2>
           <p className="mt-4 text-muted-foreground">
             We keep your organization's data while your account is active. Ask us to delete your organization and we
             remove your chats, documents, memories, saved logins, connected accounts and browser records, unless we are
@@ -236,7 +337,7 @@ function PrivacyPage() {
         </section>
 
         <section className="mt-16">
-          <h2 className="font-display text-2xl font-semibold">7. Security</h2>
+          <h2 className="font-display text-2xl font-semibold">8. Security</h2>
           <p className="mt-4 text-muted-foreground">
             Data is transferred over encrypted connections and stored in a database with access restricted to what
             operating the service requires. Each organization's records are limited to its own members. No system is
@@ -245,7 +346,7 @@ function PrivacyPage() {
         </section>
 
         <section className="mt-16">
-          <h2 className="font-display text-2xl font-semibold">8. Children and unrelated visitors</h2>
+          <h2 className="font-display text-2xl font-semibold">9. Children and unrelated visitors</h2>
           <p className="mt-4 text-muted-foreground">
             Civi Meet is for adults running organizations. We do not knowingly collect information from children. When
             Civi reads public community pages, it is there to find groups, vendors and venues, not to build profiles of
@@ -254,7 +355,7 @@ function PrivacyPage() {
         </section>
 
         <section className="mt-16">
-          <h2 className="font-display text-2xl font-semibold">9. Changes to this policy</h2>
+          <h2 className="font-display text-2xl font-semibold">10. Changes to this policy</h2>
           <p className="mt-4 text-muted-foreground">
             If we change this policy we will update the date at the top of this page and, for material changes, tell
             you in the app.
@@ -262,7 +363,7 @@ function PrivacyPage() {
         </section>
 
         <section className="mt-16">
-          <h2 className="font-display text-2xl font-semibold">10. Contact</h2>
+          <h2 className="font-display text-2xl font-semibold">11. Contact</h2>
           <p className="mt-4 text-muted-foreground">
             To ask about your data, request a copy, or ask us to delete it, use the request form on our homepage or
             reply to any message from us. Tell us which organization you belong to and what you would like done.
