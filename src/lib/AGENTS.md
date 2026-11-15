@@ -22,3 +22,6 @@
 
 # Writing style
 - Every model call adds the shared punctuation rule via withNoDashes and every model text output passes noLongDashes; chat, document, step and approval displays also run noLongDashes so older saved text matches. Internal note formats that code parses (page notes, document "Read" notes) keep their separators.
+
+# Google verification
+- Approved Gmail sends to more than three recipients may only reach the organization's poll sign-ups, saved event contacts/staff/vendors or its own address (checkRecipients, enforced at execution); why: Google prohibits cold or bulk email and the scope review checks for it.

@@ -114,3 +114,11 @@
 - [x] Rewording table: approvals, browser header/handoff, calls, sign-in popups
 - [x] Step times use the organization's time zone, not fixed Arizona time
 - [x] Investigate why browser sessions close mid-task (background timer cut off after ~5s; idle browsers hit the 1-hour limit)
+
+## Google OAuth verification
+- [x] Gmail asks only for gmail.modify; Calendar calendar.events; Drive drive.file
+- [x] Google connect buttons limited to test accounts until approval
+- [x] Privacy policy Google user data section + Limited Use statement
+- [x] Group emails only to sign-ups and saved contacts (no cold email)
+- [ ] Reviewer login account (waiting on Elle: which email to use)
+- [ ] Trim Cloud Console scopes, unlisted video, CASA assessment, AI training confirmation (Elle, outside the app)

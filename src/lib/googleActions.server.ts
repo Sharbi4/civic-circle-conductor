@@ -59,6 +59,28 @@ export const calendarSchema = z.object({ kind: z.enum(["calendar_create", "calen
 export const gmailModifySchema = z.object({ kind: z.literal("gmail_modify"), message_ids: z.array(z.string().min(1).max(100)).min(1).max(50), archive: z.boolean().nullish(), mark_read: z.boolean().nullish(), add_labels: z.array(z.string().min(1).max(100)).max(10).nullish(), remove_labels: z.array(z.string().min(1).max(100)).max(10).nullish() });
 export const driveDocSchema = z.object({ kind: z.literal("drive_doc"), file_id: z.string().max(200).nullish(), title: z.string().min(1).max(200), content: z.string().min(1).max(100000) });
 
+/** Group sends may only reach sign-ups and existing contacts (Google's no-cold-email rule). */
+async function assertAllowedRecipients(db: Db, userId: string, p: z.infer<typeof gmailSendSchema>) {
+  const { parseRecipients, emailsIn, checkRecipients, recipientRefusal, DIRECT_EMAIL_MAX } = await import("./emailRecipients.shared");
+  const recipients = parseRecipients(p.to, p.cc, p.bcc);
+  if (recipients.length <= DIRECT_EMAIL_MAX) return;
+  const [{ data: org }, { data: profiles }, { data: polls }] = await Promise.all([
+    db.from("organizations").select("contact_email").eq("user_id", userId).maybeSingle(),
+    db.from("event_profiles").select("contacts, staff, vendors").eq("user_id", userId),
+    db.from("polls").select("id").eq("user_id", userId),
+  ]);
+  const known = new Set<string>(emailsIn(profiles ?? []));
+  const pollIds = (polls ?? []).map((x) => x.id);
+  if (pollIds.length) {
+    // Poll responses are written by the public form and read only through the server.
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: answers } = await supabaseAdmin.from("poll_responses").select("answers").in("poll_id", pollIds).limit(5000);
+    for (const e of emailsIn((answers ?? []).map((a) => a.answers))) known.add(e);
+  }
+  const check = checkRecipients(recipients, known, org?.contact_email);
+  if (!check.ok) throw new Error(recipientRefusal(check));
+}
+
 export async function executeGoogleApproval(db: Db, userId: string, approvalId: string) {
   const { data: ap } = await db.from("approvals").select("status, payload, thread_id").eq("id", approvalId).maybeSingle();
   if (!ap || ap.status !== "approved") throw new Error("This action isn't approved.");
@@ -95,6 +117,7 @@ export async function executeGoogleApproval(db: Db, userId: string, approvalId: 
       if (mid) refs = `In-Reply-To: ${mid}\r\nReferences: ${mid}\r\n`;
     }
     const raw = b64(`To: ${clean(p.to)}\r\n${p.cc ? `Cc: ${clean(p.cc)}\r\n` : ""}${p.bcc ? `Bcc: ${clean(p.bcc)}\r\n` : ""}Subject: ${hdr(clean(p.subject))}\r\n${refs}MIME-Version: 1.0\r\nContent-Type: text/plain; charset="UTF-8"\r\n\r\n${p.body}`).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+    if (kind === "gmail_send") await assertAllowedRecipients(db, userId, p);
     if (kind === "gmail_draft") {
       await call(userId, "google_mail", "/gmail/v1/users/me/drafts", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message: threadId ? { raw, threadId } : { raw } }) });
       await say(`✅ Saved a draft to **${clean(p.to)}**, “${clean(p.subject)}” in your Gmail Drafts.`);
