@@ -2,7 +2,7 @@ import { noLongDashes, withNoDashes } from "./punctuation.shared";
 import { stripChoices } from "./choices.shared";
 import type { AgentAction } from "@/lib/browserAgent.server";
 import { VENDOR_SCOUT_BROWSER } from "@/lib/eventPlaybook";
-import { browserNeedsProgressReport, searchFallbackUrl, isFacebookSecurityCheck, repeatedStep } from "./browserProgress.shared";
+import { browserNeedsProgressReport, searchFallbackUrl, isFacebookSecurityCheck, repeatedStep, isSignInHandoff, isApprovedBrowserGoal, lastHandoffReason, sameHandoff } from "./browserProgress.shared";
 import { goalSummaryRules, progressInstructions, fallbackSummary } from "./researchGoal.shared";
 import { isDocumentUrl } from "./documentRead.shared";
 import { parseEventPageMarkers, stripEventPageMarkers, venueAsContact, type PagePerson } from "./eventPage.shared";
@@ -286,7 +286,8 @@ export async function runAgentStep(supabase: any, userId: string, sessionRowId: 
               ? "The organizer has APPROVED submitting. You may use submit on the final send/book/pay button."
               : "Never click a button that sends a message, posts, joins a group, books, registers, purchases or pays. When a form is filled and ready, use request_approval describing exactly what will be sent and to whom. Use plain click only for navigation, search and opening pages.",
             "If the page shows a sign-in form and the site is in the organizer's saved logins, use login with the username/email field index and the password field index (use the same index for both if only one field shows). You never see the password; the system fills it in. After login, click the sign-in button with click.",
-            "Use handoff (NOT done) whenever only the organizer can continue: a login with no saved credentials, a verification/2FA code, a CAPTCHA, or a personal choice. Say exactly what they need to do. They'll hand control back and you'll continue the same goal.",
+            "Use handoff (NOT done) only when the organizer must act and the goal can't be finished otherwise: a verification/2FA code, a CAPTCHA, a personal choice, or a sign-in with no saved login when the goal is an APPROVED action that has to be completed on that site. Say exactly what they need to do. They'll hand control back and you'll continue the same goal.",
+            "While researching (finding venues, vendors, prices, availability or forms), a sign-in or account wall is never a reason to hand off: finish with done, report what you verified with URLs and exact facts, and say plainly that booking on that site needs the organization's own account, with the next step (an approved email or phone inquiry, or signing in later).",
             "When your goal involved finding Facebook groups or reviewing a Facebook Page, end your done summary with these lines (exact format, real links you visited only): [[fb_groups: [{\"name\":\"...\",\"url\":\"https://www.facebook.com/groups/...\"}]]] and, if you found the organization's Page, [[fb_page: {\"url\":\"https://www.facebook.com/...\",\"post_text\":\"a warm, short Page update sharing what the org is refreshing/working on (no checklist jargon), ready to post\"}]].",
             "Write each step's reason as a short plain action in past tense, like \"Joined Tucson Activists\", \"Read the South Tucson group rules\", \"Searched groups for voter registration\" (no element numbers or URLs).",
             VENDOR_SCOUT_BROWSER,
@@ -324,6 +325,27 @@ export async function runAgentStep(supabase: any, userId: string, sessionRowId: 
         if (progressReport && action?.action !== "done") action = readAction(await ask("\n\nYour browsing allowance is used up. Reply now with a done action that answers the goal from the steps and pages above.")) ?? action;
         if (progressReport && action?.action !== "done") return { action: { action: "done", summary: fallbackSummary(goal, [...current.map((s) => String(s.note ?? "")), ...(pageNoteText ? [pageNoteText] : [])]) } as AgentAction, note: "Research checkpoint" };
         if (!action) return { action: null, note: "" };
+        // Never trap the organizer at a wall: research doesn't hand off for a sign-in it doesn't need, and a handoff
+        // the organizer just handed back is never asked for again. Wrap up with what was found instead.
+        if (action.action === "handoff") {
+          const reason = String(action.reason ?? "");
+          let host = "";
+          try { host = new URL(state.url).hostname.replace(/^www\./, ""); } catch { /* about:blank etc. */ }
+          const hasSaved = !!host && (saved ?? []).some((c: { domain: string }) => { const d = c.domain.replace(/^www\./, ""); return host === d || host.endsWith(`.${d}`); });
+          const previous = lastHandoffReason(current.map((s) => String(s.note ?? "")));
+          const researchWall = !isApprovedBrowserGoal(goal, !!row.submit_approved) && !hasSaved && isSignInHandoff(reason, !!state.hasPassword);
+          const repeated = previous !== null && sameHandoff(previous, reason);
+          if (researchWall || repeated) {
+            const site = host || "this site";
+            const why = repeated
+              ? `The organizer already handed control back, but the page still needs: ${reason}. Do not ask again.`
+              : `This page needs the organization's own sign-in (${reason}) and you are only researching, so do not hand off.`;
+            const wrapped = readAction(await ask(`\n\n${why} Reply now with a done action: what you verified (with URLs and exact facts), that finishing on ${site} needs the organization's own account, and the concrete next step (an approved email or phone inquiry, or signing in later).`));
+            action = wrapped?.action === "done"
+              ? wrapped
+              : ({ action: "done", summary: `${fallbackSummary(goal, [...current.map((s) => String(s.note ?? "")), ...(pageNoteText ? [pageNoteText] : [])])}\n\nTo go further on ${site}, the organization needs to sign in with its own account.` } as AgentAction);
+          }
+        }
         if (action.action === "submit" && !row.submit_approved) {
           return { action: { action: "request_approval", title: "Submit form", details: action.reason ?? goal } satisfies AgentAction as AgentAction, note: "" };
         }

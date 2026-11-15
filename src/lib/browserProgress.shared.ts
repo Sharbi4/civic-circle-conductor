@@ -54,3 +54,31 @@ export function repeatedStep(action: { action: string; url?: string; text?: stri
 export function plainChoice(label: string): string {
   return label.replace(/\*\*|__|`/g, "").replace(/^\*(.+)\*$/, "$1").trim();
 }
+
+/**
+ * A handoff that only asks the organizer to sign in (a site account, library card, barcode), as opposed to
+ * things only a person can ever do (CAPTCHA, verification code, payment details) or a personal choice.
+ */
+export function isSignInHandoff(reason: string, pageHasPassword = false): boolean {
+  if (/captcha|robot|verif(y|ication) code|2fa|two.?(factor|step)|one.?time|security check|confirm (that )?it'?s you|card number|cvv|payment|bank/i.test(reason)) return false;
+  return pageHasPassword || /\b(log ?in|logged in|sign ?in|signed in|account|password|barcode|library card|credentials)\b/i.test(reason);
+}
+
+/** Whether the browser's goal is an organizer-approved action that has to be completed on the site (vs research). */
+export function isApprovedBrowserGoal(goal: string, submitApproved: boolean): boolean {
+  return submitApproved || /\bAPPROVED by the organizer\b/.test(goal);
+}
+
+/** The reason of the handoff the organizer most recently handed back on this goal, if the last browsing step was one. */
+export function lastHandoffReason(notes: string[]): string | null {
+  const last = notes.filter((n) => !/^(Notes from|Read )/.test(n)).slice(-1)[0] ?? "";
+  const m = last.match(/^Your turn:\s*(.+)$/s);
+  return m ? m[1]!.trim() : null;
+}
+
+/** Two handoffs ask for the same thing (both sign-ins, or the same wording): asking again would trap the organizer in a loop. */
+export function sameHandoff(previous: string, next: string): boolean {
+  if (isSignInHandoff(previous) && isSignInHandoff(next)) return true;
+  const n = (s: string) => s.toLowerCase().replace(/[^a-z0-9 ]+/g, " ").replace(/\s+/g, " ").trim().slice(0, 48);
+  return n(previous) === n(next);
+}

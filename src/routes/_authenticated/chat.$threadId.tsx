@@ -332,6 +332,11 @@ function BrowserCard({ sessionRowId, task }: { sessionRowId: string; task: strin
             <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent" />
             Live
           </span>
+        ) : session.isLoading || !session.data || checking ? (
+          // A new card's row or first provider check is still loading: never flash "Ended" before it goes live.
+          <span className="ml-auto shrink-0 rounded-full bg-secondary px-2 py-0.5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+            Connecting
+          </span>
         ) : (
           <span className="ml-auto shrink-0 rounded-full bg-secondary px-2 py-0.5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
             Ended

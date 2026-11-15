@@ -19,6 +19,7 @@
 - An executed approval's public link is written onto the event step it belongs to: the step the approval carried, otherwise that chat's step for the same channel (stepKeyForAction); a step that already finished only gets the link it was missing and no second chat line; why: the event page's View button must open the real post, listing or form.
 - An approved go-ahead with nothing runnable is left out of the event page activity list (isDeadApproval); why: it can never finish and must not read as "In progress".
 - New chats reuse a browser only after reusableBrowser confirms the provider still has it open; closed ones are marked ended so tasks open a fresh browser.
+- Research never hands off for a sign-in wall without a saved login, and a handoff the organizer just handed back is never asked again (isSignInHandoff/sameHandoff); both wrap up with a done summary instead; why: a login only the organization has (e.g. a library card) otherwise traps the organizer in a Done/continue loop.
 
 # Writing style
 - Every model call adds the shared punctuation rule via withNoDashes and every model text output passes noLongDashes; chat, document, step and approval displays also run noLongDashes so older saved text matches. Internal note formats that code parses (page notes, document "Read" notes) keep their separators.
