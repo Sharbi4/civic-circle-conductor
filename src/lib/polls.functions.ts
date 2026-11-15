@@ -13,7 +13,8 @@ export const getPublicPoll = createServerFn({ method: "GET" })
     if (!p) return null;
     const { data: org } = await supabaseAdmin.from("organizations").select("name, logo_url").eq("user_id", p.user_id).maybeSingle();
     return {
-      id: p.id, title: p.title, kind: p.kind, description: p.description, status: p.status,
+      // Older saved text may hold long dashes; the public form shows it with commas like the rest of the app.
+      id: p.id, title: noLongDashes(p.title), kind: p.kind, description: p.description ? noLongDashes(p.description) : p.description, status: p.status,
       questions: z.array(questionSchema).catch([]).parse(p.questions),
       event: eventLinkSchema.nullable().catch(null).parse(p.event ?? null),
       orgName: org?.name ?? null, logoUrl: org?.logo_url ?? null,
