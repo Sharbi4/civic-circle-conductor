@@ -127,3 +127,26 @@ export function savedToPageLine(parts: { venue?: string | undefined; vendors: nu
   const bits = [parts.venue ? `venue (${parts.venue})` : "", parts.vendors ? `${parts.vendors} vendor${parts.vendors === 1 ? "" : "s"}` : "", parts.contacts ? `${parts.contacts} contact${parts.contacts === 1 ? "" : "s"}` : ""].filter(Boolean);
   return bits.length ? `📋 Saved to the event page: ${bits.join(", ")}.` : null;
 }
+
+/**
+ * Venue research whose summary forgot its [[event_venue]] marker: accept a model's extraction of the
+ * venue from that summary, keeping only details that literally appear in the summary (never invented).
+ */
+export function venueFromSummaryExtraction(raw: unknown, summary: string): PageVenue | null {
+  if (!raw || typeof raw !== "object") return null;
+  const o = raw as Record<string, unknown>;
+  const name = str(o["name"], 160);
+  const digits = (s: string) => s.replace(/\D/g, "");
+  const inText = (s: string | undefined) => !!s && summary.toLowerCase().includes(s.toLowerCase());
+  if (!name || !inText(name)) return null;
+  const ph = phone(o["phone"]);
+  const em = email(o["email"]);
+  const address = str(o["address"], 200);
+  return clean({
+    name,
+    address: address && inText(address) ? address : undefined,
+    phone: ph && digits(summary).includes(digits(ph)) ? ph : undefined,
+    email: em && inText(em) ? em : undefined,
+    terms: str(o["terms"], 600),
+  });
+}

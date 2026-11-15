@@ -10,7 +10,10 @@ const VENUE_WORDS = /\b(venues?|rooms?|halls?|pavilions?|spaces?|community cent(
 const BOOK_VENUE = /\b(book|reserve|rent|hold)\s+(?:the|a|our)\s+(?:venue|room|hall|pavilion|space)\b/;
 
 export function researchKind(goal: string): ResearchKind {
-  const g = goal.toLowerCase();
+  // "food rules", "catering policy", "drinks allowed" describe a venue's rules, not a vendor search.
+  const g = goal
+    .toLowerCase()
+    .replace(/\b(food|catering|caterers?|drinks?|beverages?|alcohol|coffee|snacks?)\s+(?:(?:is|are)\s+)?(rules?|polic(?:y|ies)|allowed|permitted|restrictions?|requirements?)\b/g, " ");
   if (/facebook groups?|\bjoin\b.*\bgroups?\b|local groups?/.test(g) && !VENDOR_WORDS.test(g) && !VENUE_WORDS.test(g)) return "groups";
   if (VENDOR_WORDS.test(g) && !BOOK_VENUE.test(g)) return "vendor";
   if (VENUE_WORDS.test(g) || BOOK_VENUE.test(g)) return "venue";
