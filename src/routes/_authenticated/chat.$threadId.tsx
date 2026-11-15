@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { choicesIn, stripChoices } from "@/lib/choices.shared";
 import { noLongDashes } from "@/lib/punctuation.shared";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -28,7 +29,6 @@ import { EventbriteDraftControls } from '@/components/EventbriteDraftControls';
 import { AgentPreparing } from '@/components/AgentPreparing';
 import { PendingApprovalsBar } from '@/components/PendingApprovalsBar';
 import { refreshVenueCalls } from '@/lib/calling.functions';
-import { plainChoice } from '@/lib/browserProgress.shared';
 
 export const Route = createFileRoute("/_authenticated/chat/$threadId")({
   head: () => ({ meta: [
@@ -79,7 +79,6 @@ function AttachedImage({ path, role }: { path: string; role: string }) {
   );
 }
 
-const CHOICES_MARKER = /\[\[choices:\s*([^\]]+)\]\]/;
 
 function flattenText(node: React.ReactNode): string {
   if (node == null || typeof node === "boolean") return "";
@@ -752,7 +751,7 @@ function ChatWindow({ threadId }: { threadId: string }) {
               ) : (
                 <div key={m.id} id={`msg-${m.id}`} className="rounded-3xl">
                   <div className="max-w-[92%] rounded-3xl bg-bubble px-6 py-4">
-                    <MessageBody content={tidyStepHeading(m.content).replace(CHOICES_MARKER, "").replace(/\[\[(form_library|letterhead_check)\]\]/g, "").trim()}
+                    <MessageBody content={stripChoices(tidyStepHeading(m.content)).replace(/\[\[(form_library|letterhead_check)\]\]/g, "").trim()}
                       onAction={m.content.includes("What would you like me to do") ? (t) => submit(`${t}, yes, do the one you just suggested.`) : undefined} />
                     {m.content.includes("[[letterhead_check]]") && m.id === all[all.length - 1]?.id && <LetterheadPrompt onDone={() => submit("Letterhead details are saved, go ahead and create the document.")} onSkipped={() => submit("Skip the missing letterhead details for now and create the document using only the details already provided. Do not ask for letterhead details again this session.")} />}
                     {m.content.includes("[[form_library]]") && m.id === all[all.length - 1]?.id && <FormLibrary logo={orgQ.data?.logo_url} orgName={orgQ.data?.name} onDone={(t) => submit(t)} />}
@@ -764,11 +763,11 @@ function ChatWindow({ threadId }: { threadId: string }) {
                     </button>
                   )}
                   {m.id === all[all.length - 1]?.id && !busy && (() => {
-                    const c = m.content.match(CHOICES_MARKER);
+                    const c = choicesIn(m.content);
                     if (!c) return null;
                     return (
                       <div className="mt-3 flex flex-wrap gap-2">
-                        {(c[1] ?? "").split("|").map((o) => plainChoice(o)).filter(Boolean).map((o) => (
+                        {c.map((o) => (
                           <button key={o} onClick={() => submit(o)}
                             className="badge-premium rounded-full px-4 py-2 text-sm font-medium transition-colors hover:bg-secondary">
                             {o}
@@ -815,7 +814,7 @@ function ChatWindow({ threadId }: { threadId: string }) {
             </button>
           </div>
         )}
-        <NextSteps threadId={threadId} msgCount={msgs.data?.length ?? 0} busy={busy} hasChoices={(() => { const l = all[all.length - 1]; return !!l && l.role !== "user" && CHOICES_MARKER.test(l.content); })()} onPick={(p) => submit(p)} />
+        <NextSteps threadId={threadId} msgCount={msgs.data?.length ?? 0} busy={busy} hasChoices={(() => { const l = all[all.length - 1]; return !!l && l.role !== "user" && !!choicesIn(l.content); })()} onPick={(p) => submit(p)} />
         <div className="mx-auto flex max-w-3xl items-end gap-2 rounded-full border bg-card py-2 pl-2 pr-2 shadow-soft">
           <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={(e) => pickFile(e.target.files?.[0])} />
           <button

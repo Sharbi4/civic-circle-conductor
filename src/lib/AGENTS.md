@@ -28,3 +28,4 @@
 
 # Organization area
 - Searches and ready-to-paste drafts take the city from the organization's or event's own address (orgArea.shared), never a fixed city; why: organizations outside Tucson must not get Tucson vendors or #Tucson tags.
+- Quick-reply markers are read and stripped only through choices.shared (pipe form and JSON-list form); why: models sometimes emit a JSON list and a hand-rolled regex leaves raw brackets in the chat.

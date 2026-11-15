@@ -127,3 +127,5 @@
 - [x] New login investor-demo@civimeet.app with a new organization (Valley Harvest Collective, Phoenix), two events, sign-ups, documents and Discovery
 - [x] Drafts and venue searches use the organization's own city, not always Tucson
 - [x] Send Elle a short summary of what Civi Meet is and does (including outbound calls)
+- [x] Quick-reply buttons written as a list (["A", "B"]) show as buttons, never raw text or a stray ]
+- Note: don't publish from Lovable before the investor demo (Elle)

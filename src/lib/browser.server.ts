@@ -1,4 +1,5 @@
 import { noLongDashes, withNoDashes } from "./punctuation.shared";
+import { stripChoices } from "./choices.shared";
 import type { AgentAction } from "@/lib/browserAgent.server";
 import { VENDOR_SCOUT_BROWSER } from "@/lib/eventPlaybook";
 import { browserNeedsProgressReport, searchFallbackUrl, isFacebookSecurityCheck, repeatedStep } from "./browserProgress.shared";
@@ -449,8 +450,8 @@ export async function runAgentStep(supabase: any, userId: string, sessionRowId: 
               hidden: true,
               threadId: row.thread_id,
               content: hasEventConflict(cleanSummary)
-                ? `[Research finished, continue automatically] Goal: ${goal}\n\nFindings:\n${cleanSummary.replace(/\[\[choices:[\s\S]*?\]\]/g, "").trim()}\n\n${CONFLICT_FIRST_NOTE}`
-                : `[Research finished, continue automatically] Goal: ${goal}\n\nFindings:\n${cleanSummary.replace(/\[\[choices:[\s\S]*?\]\]/g, "").trim()}\n\nOnline booking details were not confirmed. Apply your phone-fallback rule now: summarize what was verified, and if the findings include the venue's official booking phone number from a cited source, propose the one-time approved availability call with the venue_call marker so it appears in Approvals. If no verified number was found, state exactly what is still missing. ${CALL_FOLLOW_UP_NOTE}`,
+                ? `[Research finished, continue automatically] Goal: ${goal}\n\nFindings:\n${stripChoices(cleanSummary).trim()}\n\n${CONFLICT_FIRST_NOTE}`
+                : `[Research finished, continue automatically] Goal: ${goal}\n\nFindings:\n${stripChoices(cleanSummary).trim()}\n\nOnline booking details were not confirmed. Apply your phone-fallback rule now: summarize what was verified, and if the findings include the venue's official booking phone number from a cited source, propose the one-time approved availability call with the venue_call marker so it appears in Approvals. If no verified number was found, state exactly what is still missing. ${CALL_FOLLOW_UP_NOTE}`,
             });
           } catch (e) { console.error("Call follow-up failed", e); }
         }
