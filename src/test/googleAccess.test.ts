@@ -12,6 +12,10 @@ describe("Google verification gate", () => {
     expect(googleConnectAllowed("  Demo@CiviMeet.app ")).toBe(true);
   });
 
+  it("lets Google's reviewer account connect", () => {
+    expect(googleConnectAllowed("google-reviewer@civimeet.app")).toBe(true);
+  });
+
   it("keeps everyone else out while verification is pending", () => {
     expect(googleConnectAllowed("someone@nonprofit.org")).toBe(false);
     expect(googleConnectAllowed(null)).toBe(false);

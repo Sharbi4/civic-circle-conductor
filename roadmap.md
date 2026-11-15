@@ -120,5 +120,5 @@
 - [x] Google connect buttons limited to test accounts until approval
 - [x] Privacy policy Google user data section + Limited Use statement
 - [x] Group emails only to sign-ups and saved contacts (no cold email)
-- [ ] Reviewer login account (waiting on Elle: which email to use)
+- [x] Reviewer login account google-reviewer@civimeet.app, onboarded, on the Google test list
 - [ ] Trim Cloud Console scopes, unlisted video, CASA assessment, AI training confirmation (Elle, outside the app)
