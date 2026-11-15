@@ -129,3 +129,5 @@
 - [x] Send Elle a short summary of what Civi Meet is and does (including outbound calls)
 - [x] Quick-reply buttons written as a list (["A", "B"]) show as buttons, never raw text or a stray ]
 - Note: don't publish from Lovable before the investor demo (Elle)
+- [ ] Before the demo: Elle adds Dean's Google account as a test user in Google Cloud Console (investor-demo login keeps Gmail, Calendar and Drive Connect). Blocked on Elle.
+- Decided: "Full view" keeps opening the browser provider's page for now (Elle)
