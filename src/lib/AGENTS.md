@@ -25,3 +25,6 @@
 
 # Google verification
 - Approved Gmail sends to more than three recipients may only reach the organization's poll sign-ups, saved event contacts/staff/vendors or its own address (checkRecipients, enforced at execution); why: Google prohibits cold or bulk email and the scope review checks for it.
+
+# Organization area
+- Searches and ready-to-paste drafts take the city from the organization's or event's own address (orgArea.shared), never a fixed city; why: organizations outside Tucson must not get Tucson vendors or #Tucson tags.

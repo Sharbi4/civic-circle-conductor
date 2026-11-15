@@ -122,3 +122,8 @@
 - [x] Group emails only to sign-ups and saved contacts (no cold email)
 - [x] Reviewer login account google-reviewer@civimeet.app, onboarded, on the Google test list
 - [ ] Trim Cloud Console scopes, unlisted video, CASA assessment, AI training confirmation (Elle, outside the app)
+
+## Second investor demo account (Elle, Nov 15)
+- [x] New login investor-demo@civimeet.app with a new organization (Valley Harvest Collective, Phoenix), two events, sign-ups, documents and Discovery
+- [x] Drafts and venue searches use the organization's own city, not always Tucson
+- [x] Send Elle a short summary of what Civi Meet is and does (including outbound calls)

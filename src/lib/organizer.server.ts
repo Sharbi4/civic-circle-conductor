@@ -61,9 +61,14 @@ export async function runOrganizer(supabase: SupabaseClient<Database>, userId: s
     const { data: liEvents } = await supabase.from("linkedin_events").select("event_id, name, starts_at, status").order("created_at", { ascending: false }).limit(15);
     const { data: savedResources } = await supabase.from("resources").select("type, name, details, source").in("type", ["vendor", "venue", "professional", "nonprofit"]).order("created_at", { ascending: false }).limit(40);
     const wantsEvent = /\b(event|meetup|rally|fundraiser|gathering|festival|town hall|cookout|food truck|venue|vendor)s?\b/i.test(data.content);
-    const liveResearch = wantsEvent
-      ? formatHits(await perplexitySearch([`${data.content.slice(0, 150)} Tucson Arizona`, "food trucks caterers for community events Tucson", "community event venues Tucson Arizona"], 4).catch(() => []), 10)
-      : "";
+    let liveResearch = "";
+    if (wantsEvent) {
+      const { researchArea } = await import("@/lib/orgArea.shared");
+      const { data: areaOrg } = await supabase.from("organizations").select("address, facebook_setup_location").eq("user_id", userId).maybeSingle();
+      const area = researchArea(areaOrg?.address, areaOrg?.facebook_setup_location);
+      const near = area ? ` ${area}` : "";
+      liveResearch = formatHits(await perplexitySearch([`${data.content.slice(0, 150)}${near}`, `food trucks caterers for community events${near}`, `community event venues${near}`], 4).catch(() => []), 10);
+    }
     let eventProfileLine = "";
     {
       const { data: eg } = await supabase.from("tasks").select("id").eq("thread_id", data.threadId).eq("kind", "goal").order("created_at").limit(1).maybeSingle();

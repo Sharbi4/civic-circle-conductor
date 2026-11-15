@@ -7,9 +7,10 @@ export const runOnboardingResearch = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const { supabase, userId } = context;
-    const { data: org } = await supabase.from("organizations").select("name, mission, facebook_setup_location").eq("user_id", userId).maybeSingle();
+    const { data: org } = await supabase.from("organizations").select("name, mission, address, facebook_setup_location").eq("user_id", userId).maybeSingle();
     if (!org?.name) return { memories: 0, resources: 0 };
-    const r = await researchOrganization(org.name, org.mission ?? "", org.facebook_setup_location ?? undefined);
+    const { researchArea } = await import("@/lib/orgArea.shared");
+    const r = await researchOrganization(org.name, org.mission ?? "", researchArea(org.address, org.facebook_setup_location) || undefined);
     if (r.memories.length) await supabase.from("memories").insert(r.memories.map((content) => ({ user_id: userId, content: `🔎 ${content}` })));
     if (r.resources.length) {
       const allowed = new Set(["vendor", "venue", "nonprofit", "group", "event", "professional", "other"]);

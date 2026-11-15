@@ -3,7 +3,7 @@
 // (Google's "Live Apps" rule). After approval, set GOOGLE_OAUTH_VERIFIED=true to open it to everyone.
 
 /** Accounts that may connect Google while verification is pending. Add the Google reviewer's test login here. */
-export const GOOGLE_PREVIEW_EMAILS: readonly string[] = ["demo@civimeet.app", "google-reviewer@civimeet.app"];
+export const GOOGLE_PREVIEW_EMAILS: readonly string[] = ["demo@civimeet.app", "google-reviewer@civimeet.app", "investor-demo@civimeet.app"];
 
 function parseList(raw: string | null | undefined): string[] {
   return (raw ?? "")

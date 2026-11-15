@@ -244,6 +244,8 @@
 .prose-chat strong { font-weight: 700; }
 .prose-chat a { text-decoration: underline; color: var(--color-primary); }
 .prose-chat code { background: var(--color-muted); padding: 0 0.3rem; border-radius: 0.3rem; }
+.prose-chat pre { margin: 0.5rem 0; max-width: 100%; white-space: pre-wrap; overflow-wrap: anywhere; background: var(--color-muted); padding: 0.6rem 0.8rem; border-radius: 0.7rem; font-size: 0.85rem; }
+.prose-chat pre code { white-space: pre-wrap; overflow-wrap: anywhere; padding: 0; background: transparent; }
 .prose-chat .chat-table { margin: 0.6rem 0; max-width: 100%; overflow-x: auto; border: 1px solid var(--color-border); border-radius: 0.9rem; background: var(--color-card); }
 .prose-chat .chat-table table { width: 100%; border-collapse: collapse; font-size: 0.875rem; line-height: 1.4; }
 .prose-chat .chat-table th { text-align: left; font-weight: 600; background: var(--color-secondary); white-space: nowrap; }

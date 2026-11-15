@@ -1,6 +1,7 @@
 // The event plan Civi runs. Pure logic only: the scheduler, approvals and UI share these rules.
 import { zonedInstant, safeTimeZone, DEFAULT_TIME_ZONE } from "./zonedTime.shared";
 import { DECLINED, NEEDS_ATTENTION } from "./stepStatus.shared";
+import { cityHashtag } from "./orgArea.shared";
 
 export type StepKey =
   | "essentials" | "venue" | "rsvp" | "eventbrite" | "linkedin_event" | "x_post" | "linkedin_post"
@@ -172,8 +173,10 @@ export function skipDraft(def: StepDef, ev: { title: string; date: string | null
   const when = ev.date ? new Date(`${ev.date}T12:00:00Z`).toLocaleDateString("en-US", { timeZone: "UTC", weekday: "long", month: "long", day: "numeric" }) : "soon";
   const where = ev.location ? ` at ${ev.location}` : "";
   const link = ev.link ? `\nRSVP: ${ev.link}` : "";
-  if (def.key === "tiktok") return `Caption: Come hang out with us! ${ev.title}, ${when}${where}. Free, friendly, and all are welcome 💙${link} #community #Tucson`;
-  if (def.key === "instagram") return `📅 ${ev.title}\n${when}${where}\n\nBring a friend, everyone's welcome.${link ? `\nLink in bio · ${ev.link}` : ""}\n#community #Tucson #getinvolved`;
+  const tag = cityHashtag(ev.location);
+  const tags = (...t: string[]) => t.filter(Boolean).join(" ");
+  if (def.key === "tiktok") return `Caption: Come hang out with us! ${ev.title}, ${when}${where}. Free, friendly, and all are welcome 💙${link} ${tags("#community", tag)}`;
+  if (def.key === "instagram") return `📅 ${ev.title}\n${when}${where}\n\nBring a friend, everyone's welcome.${link ? `\nLink in bio · ${ev.link}` : ""}\n${tags("#community", tag, "#getinvolved")}`;
   if (def.channel === "gmail") return `Subject: ${def.key === "thank_you" ? `Thank you for coming to ${ev.title}` : def.key.startsWith("reminder") ? `Reminder: ${ev.title} is ${def.key === "reminder_day" ? "tomorrow" : "next week"}` : `You're invited: ${ev.title}`}\n\nHi there,\n\n${def.key === "thank_you" ? `Thank you for being part of ${ev.title}. We'd love to hear how it went.` : `Join us for ${ev.title} on ${when}${where}.`}${link}\n\nSee you there!`;
   return `📅 ${ev.title}, ${when}${where}.${link}`;
 }
