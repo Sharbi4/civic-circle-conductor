@@ -148,9 +148,14 @@
   100% { transform: scale(1) rotate(0); }
 }
 .civi-mark-arrive { animation: civi-mark-arrive 850ms ease-out; }
+@keyframes mobile-menu-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in oklab, var(--primary) 45%, transparent); }
+  50% { box-shadow: 0 0 0 8px color-mix(in oklab, var(--primary) 0%, transparent); }
+}
+.mobile-menu-pulse { animation: mobile-menu-pulse 1.8s ease-in-out 3; }
 .agent-preparing-mark { animation: float-y 2.4s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) {
-  .civi-mark-arrive { animation: none; }
+  .civi-mark-arrive, .mobile-menu-pulse { animation: none; }
   .agent-preparing-mark, [role="status"] .typing-dot { animation: none; }
 }
 @utility animate-phrase {

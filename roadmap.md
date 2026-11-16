@@ -131,3 +131,4 @@
 - Note: don't publish from Lovable before the investor demo (Elle)
 - [ ] Before the demo: Elle adds Dean's Google account as a test user in Google Cloud Console (investor-demo login keeps Gmail, Calendar and Drive Connect). Blocked on Elle.
 - Decided: "Full view" keeps opening the browser provider's page for now (Elle)
+- [x] Phones show a clear Menu bar (with waiting count), a one-time tip, and swipe-from-left to open the side menu (Elle)
