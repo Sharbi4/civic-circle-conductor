@@ -90,6 +90,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "theme-color", content: "#fbfaf7" },
       { name: "apple-mobile-web-app-capable", content: "yes" },
       { name: "apple-mobile-web-app-title", content: "Civi Meet" },
+      { name: "google-site-verification", content: "o3Y9CXCF5gpVVbd7p2-8iJ5nepenEQoqVYR4RQnUBpc" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
