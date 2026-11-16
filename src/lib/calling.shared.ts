@@ -31,8 +31,17 @@ export function completedCallReport(value: unknown): { state: "done" | "failed";
     return text ? [text] : [];
   }).slice(0, 12);
   const reachedVoicemail = /voicemail|answering machine|voice mail|leave a message|not available to take (your )?call/i.test(`${summary}\n${replies.join("\n")}`);
-  const durationSecs = (data["metadata"] as Record<string, unknown> | null)?.["call_duration_secs"];
+  const metadata = data["metadata"] as Record<string, unknown> | null;
+  const durationSecs = metadata?.["call_duration_secs"];
   const duration = typeof durationSecs === "number" && durationSecs > 0 ? `\nCall length: ${Math.round(durationSecs)} seconds.` : "";
+  // A transcript with only Civi's own turns means nobody answered the questions, whatever the provider summary says.
+  if (!reachedVoicemail && transcript.length > 0 && replies.length === 0) {
+    const hungUp = /remote party/i.test(String(metadata?.["termination_reason"] ?? ""));
+    const outcome = hungUp
+      ? "Outcome: someone picked up, then hung up after Civi introduced itself. Nobody answered the questions, so availability is still unconfirmed."
+      : "Outcome: the call connected, but nobody replied (it may have reached a phone menu). Availability is still unconfirmed.";
+    return { state: "done", text: `${outcome}${duration}\n\nCivi introduced itself as an AI assistant and asked if it was a good time. There was no reply, and Civi won't call again unless you ask.\n\nNext: call or email them yourself, or ask Civi to look for another venue.` };
+  }
   const outcome = reachedVoicemail
     ? "Outcome: reached voicemail, Civi left a message. Nothing is confirmed until the office calls back or replies in writing."
     : replies.length || summary

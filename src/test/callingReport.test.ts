@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 import { syncVenueCalls } from "@/lib/calling.server";
+import { completedCallReport } from "@/lib/calling.shared";
 
 const owner = "d0000000-0000-4000-8000-000000000001";
 const thread = "d0000000-0000-4000-8000-000000000002";
@@ -57,5 +58,21 @@ describe("owner-scoped completed call synchronization", () => {
     const { db, operations } = fakeDb({ duplicate: true });
     expect((await syncVenueCalls(db, owner, thread)).completed).toBe(1);
     expect(operations.find((o) => o.action === "update")?.value).toEqual(expect.objectContaining({ payload: expect.objectContaining({ call_state: "done" }) }));
+  });
+});
+describe("call report when nobody answers the questions", () => {
+  const greeting = { role: "agent", message: "Hello, I'm Civi, an AI assistant. Is now a suitable time?" };
+  it("says the venue hung up instead of claiming Civi spoke with them", () => {
+    const report = completedCallReport({ status: "done", transcript: [greeting], metadata: { call_duration_secs: 17, termination_reason: "Call ended by remote party" }, analysis: { transcript_summary: "The agent introduced itself and asked if it was a suitable time." } });
+    expect(report?.text).toContain("hung up after Civi introduced itself");
+    expect(report?.text).not.toContain("spoke with the recipient");
+  });
+  it("says nobody replied when the line stayed silent", () => {
+    const report = completedCallReport({ status: "done", transcript: [greeting], metadata: { termination_reason: "end_call tool was called" } });
+    expect(report?.text).toContain("nobody replied");
+  });
+  it("still reports a real conversation as spoken", () => {
+    const report = completedCallReport({ status: "done", transcript: [greeting, { role: "user", message: "Yes, the room is free that Saturday." }] });
+    expect(report?.text).toContain("spoke with the recipient");
   });
 });

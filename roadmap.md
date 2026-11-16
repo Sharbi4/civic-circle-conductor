@@ -129,6 +129,8 @@
 - [x] Send Elle a short summary of what Civi Meet is and does (including outbound calls)
 - [x] Quick-reply buttons written as a list (["A", "B"]) show as buttons, never raw text or a stray ]
 - Note: don't publish from Lovable before the investor demo (Elle)
+- [x] Seed swap walk-through with a real call (Nov 16): call report no longer says Civi spoke with someone when they hung up or stayed silent; tapping Call now no longer re-asks the callback number; chat reset to the room choice
+- [ ] Optional before the demo: a local Phoenix caller number instead of the toll-free 866 number, so venues are less likely to hang up. Blocked on Elle (phone number purchase).
 - [ ] Before the demo: Elle adds Dean's Google account as a test user in Google Cloud Console (investor-demo login keeps Gmail, Calendar and Drive Connect). Blocked on Elle.
 - Decided: "Full view" keeps opening the browser provider's page for now (Elle)
 - [x] Phones show a clear Menu bar (with waiting count), a one-time tip, and swipe-from-left to open the side menu (Elle)
