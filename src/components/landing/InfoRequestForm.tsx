@@ -29,7 +29,7 @@ export function InfoRequestForm() {
   );
 
   return (
-    <form onSubmit={submit} className="surface-premium mx-auto mt-10 grid w-full max-w-xl gap-3 rounded-[1.75rem] p-4 text-left sm:grid-cols-2 sm:gap-4 sm:p-6">
+    <form onSubmit={submit} className="surface-premium mx-auto mt-6 grid w-full max-w-xl gap-3 rounded-[1.75rem] p-4 text-left sm:mt-10 sm:grid-cols-2 sm:gap-4 sm:p-6">
       <input required type="email" placeholder="Email" value={f.email} onChange={set("email")} maxLength={255} className={field} />
       <input type="tel" placeholder="Phone (optional)" value={f.phone} onChange={set("phone")} maxLength={40} className={field} />
       <input required placeholder="Organization name, city & what you do" value={f.organization} onChange={set("organization")} maxLength={300} className={`${field} sm:col-span-2`} />

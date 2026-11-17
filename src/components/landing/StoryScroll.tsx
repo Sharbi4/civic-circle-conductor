@@ -77,7 +77,7 @@ export function StoryScroll() {
   }, []);
 
   return (
-    <div id="learn">
+    <div id="how">
       {STEPS.map((s, i) => {
         const on = seen[i];
         return (

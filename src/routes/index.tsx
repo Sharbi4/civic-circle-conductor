@@ -105,15 +105,33 @@ function Index() {
         </a>
 
       </main>
-      <StoryScroll />
-      <div className="snap-start flex min-h-[100svh] flex-col">
-      <section className="flex flex-1 flex-col justify-center px-6 py-20 text-center">
-        <h2 className="text-4xl font-semibold tracking-tight md:text-5xl">Contribute. Connect. Convene.</h2>
-        <p className="mx-auto mt-4 max-w-lg text-muted-foreground">Civi keeps your community engaged so people actually show up.</p>
+
+      <section id="learn" className="snap-start flex min-h-[100svh] flex-col justify-center px-5 py-8 text-center sm:px-6 sm:py-16">
+        <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl md:text-5xl">Contribute. Connect. Convene.</h2>
+        <p className="mx-auto mt-3 max-w-lg text-sm text-muted-foreground sm:mt-4 sm:text-base">Civi keeps your community engaged so people actually show up.</p>
         <InfoRequestForm />
       </section>
 
-      <footer className="flex flex-col items-center gap-4 border-t border-border/60 px-6 py-10 text-sm text-muted-foreground md:flex-row md:justify-between md:px-28">
+      <StoryScroll />
+
+      <div className="snap-start flex min-h-[100svh] flex-col justify-end">
+        <section className="flex flex-1 flex-col items-center justify-center px-6 text-center">
+          <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl md:text-5xl">Ready when you are.</h2>
+          <p className="mx-auto mt-3 max-w-lg text-sm text-muted-foreground sm:text-base">Tell Civi your mission once and it keeps your community engaged from there.</p>
+          <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+            <Link
+              to="/auth"
+              className="cta-primary inline-flex h-12 items-center gap-2 rounded-xl px-6 text-[15px] font-semibold tracking-tight transition hover:brightness-105"
+            >
+              Continue to Civi Meet <ArrowRight className="h-4 w-4" />
+            </Link>
+            <a href="#learn" className="surface-premium inline-flex h-12 items-center rounded-xl px-6 text-[15px] font-medium transition hover:shadow-glow">
+              Request more information
+            </a>
+          </div>
+        </section>
+
+        <footer className="flex flex-col items-center gap-4 border-t border-border/60 px-6 py-10 text-sm text-muted-foreground md:flex-row md:justify-between md:px-28">
         <span>© {year} Civi Meet</span>
         <div className="flex items-center gap-6">
           <Link to="/privacy" className="hover:text-foreground">
@@ -126,7 +144,7 @@ function Index() {
             Log in
           </Link>
         </div>
-      </footer>
+        </footer>
       </div>
     </div>
   );
